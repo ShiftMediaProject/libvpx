@@ -1,0 +1,230 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|Win32">
+      <Configuration>Debug</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Debug|x64">
+      <Configuration>Debug</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|Win32">
+      <Configuration>Release</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|x64">
+      <Configuration>Release</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="..\build\make\obj_int_extract.c" />
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <ProjectGuid>{E1360C65-D375-4335-8057-7ED99CC3F9B2}</ProjectGuid>
+    <RootNamespace>obj_int_extract</RootNamespace>
+    <Keyword>ManagedCProj</Keyword>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <PlatformToolset>v110</PlatformToolset>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <PlatformToolset>v110</PlatformToolset>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <PlatformToolset>v110</PlatformToolset>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <PlatformToolset>v110</PlatformToolset>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <PropertyGroup Label="UserMacros" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <OutDir>$(ProjectDir)</OutDir>
+    <IntDir>$(ProjectDir)\obj\$(Configuration)\$(Platform)\</IntDir>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <OutDir>$(ProjectDir)</OutDir>
+    <IntDir>$(ProjectDir)\obj\$(Configuration)\$(Platform)\</IntDir>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <OutDir>$(ProjectDir)</OutDir>
+    <IntDir>$(ProjectDir)\obj\$(Configuration)\$(Platform)\</IntDir>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <OutDir>$(ProjectDir)</OutDir>
+    <IntDir>$(ProjectDir)\obj\$(Configuration)\$(Platform)\</IntDir>
+  </PropertyGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <ClCompile>
+      <Optimization>Disabled</Optimization>
+      <AdditionalIncludeDirectories>.\;..\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>WIN32;DEBUG;_CRT_SECURE_NO_WARNINGS;_CRT_SECURE_NO_DEPRECATE;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
+      <WarningLevel>Level3</WarningLevel>
+    </ClCompile>
+    <Link>
+      <OutputFile>obj_int_extract.exe</OutputFile>
+      <SubSystem>Console</SubSystem>
+    </Link>
+    <PostBuildEvent>
+      <Command>call ..\build\x86-msvs\obj_int_extract.bat  "$(ProjectDir).."</Command>
+    </PostBuildEvent>
+    <PreBuildEvent>
+      <Command>if exist ..\vpx_config.h (
+del ..\vpx_config.h 
+)
+if exist ..\vpx_config.c (
+del ..\vpx_config.c 
+)
+if exist ..\vpx_config.asm (
+del ..\vpx_config.asm 
+)
+if exist ..\vpx_version.h (
+del ..\vpx_version.h
+)
+if exist ..\vpx_scale_rtcd.h (
+del ..\vpx_scale_rtcd.h
+)
+if exist ..\vp8_rtcd.h (
+del ..\vp8_rtcd.h
+)
+if exist ..\vp9_rtcd.h (
+del ..\vp9_rtcd.h
+)</Command>
+    </PreBuildEvent>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <ClCompile>
+      <Optimization>Disabled</Optimization>
+      <AdditionalIncludeDirectories>.\;..\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>WIN32;DEBUG;_CRT_SECURE_NO_WARNINGS;_CRT_SECURE_NO_DEPRECATE;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
+      <WarningLevel>Level3</WarningLevel>
+    </ClCompile>
+    <Link>
+      <OutputFile>obj_int_extract.exe</OutputFile>
+      <SubSystem>Console</SubSystem>
+    </Link>
+    <PostBuildEvent>
+      <Command>call ..\build\x86-msvs\obj_int_extract.bat  "$(ProjectDir).."</Command>
+    </PostBuildEvent>
+    <PreBuildEvent>
+      <Command>if exist ..\vpx_config.h (
+del ..\vpx_config.h 
+)
+if exist ..\vpx_config.c (
+del ..\vpx_config.c 
+)
+if exist ..\vpx_config.asm (
+del ..\vpx_config.asm 
+)
+if exist ..\vpx_version.h (
+del ..\vpx_version.h
+)
+if exist ..\vpx_scale_rtcd.h (
+del ..\vpx_scale_rtcd.h
+)
+if exist ..\vp8_rtcd.h (
+del ..\vp8_rtcd.h
+)
+if exist ..\vp9_rtcd.h (
+del ..\vp9_rtcd.h
+)</Command>
+    </PreBuildEvent>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <ClCompile>
+      <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
+      <Optimization>MaxSpeed</Optimization>
+      <AdditionalIncludeDirectories>.\;..\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>WIN32;NDEBUG;_CRT_SECURE_NO_WARNINGS;_CRT_SECURE_NO_DEPRECATE;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
+      <WarningLevel>Level3</WarningLevel>
+    </ClCompile>
+    <Link>
+      <OutputFile>obj_int_extract.exe</OutputFile>
+      <SubSystem>Console</SubSystem>
+    </Link>
+    <PostBuildEvent>
+      <Command>call ..\build\x86-msvs\obj_int_extract.bat  "$(ProjectDir).."</Command>
+    </PostBuildEvent>
+    <PreBuildEvent>
+      <Command>if exist ..\vpx_config.h (
+del ..\vpx_config.h 
+)
+if exist ..\vpx_config.c (
+del ..\vpx_config.c 
+)
+if exist ..\vpx_config.asm (
+del ..\vpx_config.asm 
+)
+if exist ..\vpx_version.h (
+del ..\vpx_version.h
+)
+if exist ..\vpx_scale_rtcd.h (
+del ..\vpx_scale_rtcd.h
+)
+if exist ..\vp8_rtcd.h (
+del ..\vp8_rtcd.h
+)
+if exist ..\vp9_rtcd.h (
+del ..\vp9_rtcd.h
+)</Command>
+    </PreBuildEvent>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <ClCompile>
+      <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
+      <Optimization>MaxSpeed</Optimization>
+      <AdditionalIncludeDirectories>.\;..\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>WIN32;NDEBUG;_CRT_SECURE_NO_WARNINGS;_CRT_SECURE_NO_DEPRECATE;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
+      <WarningLevel>Level3</WarningLevel>
+    </ClCompile>
+    <Link>
+      <OutputFile>obj_int_extract.exe</OutputFile>
+      <SubSystem>Console</SubSystem>
+    </Link>
+    <PostBuildEvent>
+      <Command>call ..\build\x86-msvs\obj_int_extract.bat  "$(ProjectDir).."</Command>
+    </PostBuildEvent>
+    <PreBuildEvent>
+      <Command>if exist ..\vpx_config.h (
+del ..\vpx_config.h 
+)
+if exist ..\vpx_config.c (
+del ..\vpx_config.c 
+)
+if exist ..\vpx_config.asm (
+del ..\vpx_config.asm 
+)
+if exist ..\vpx_version.h (
+del ..\vpx_version.h
+)
+if exist ..\vpx_scale_rtcd.h (
+del ..\vpx_scale_rtcd.h
+)
+if exist ..\vp8_rtcd.h (
+del ..\vp8_rtcd.h
+)
+if exist ..\vp9_rtcd.h (
+del ..\vp9_rtcd.h
+)</Command>
+    </PreBuildEvent>
+  </ItemDefinitionGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <ImportGroup Label="ExtensionTargets">
+  </ImportGroup>
+</Project>
