@@ -545,12 +545,13 @@
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
       <SDLCheck>false</SDLCheck>
-      <PreprocessorDefinitions>WIN32;_WINDOWS;_LIB;_DEBUG;_CRT_SECURE_NO_WARNINGS;_CRT_SECURE_NO_DEPRECATE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>WIN32;_WINDOWS;_LIB;_DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <AdditionalIncludeDirectories>.\;..\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <EnableEnhancedInstructionSet>StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
       <ExceptionHandling>false</ExceptionHandling>
+      <DisableSpecificWarnings>4996;4244;4018</DisableSpecificWarnings>
     </ClCompile>
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
@@ -588,6 +589,11 @@ del ..\vp8_rtcd.h
 )
 if exist ..\vp9_rtcd.h (
 del ..\vp9_rtcd.h
+)
+if exist $(OutDir)\include\vpx (
+rd /s /q $(OutDir)\include\vpx
+cd ../
+cd $(ProjectDir)
 )</Command>
     </PreBuildEvent>
     <YASM>
@@ -605,6 +611,7 @@ del ..\vp9_rtcd.h
       <AdditionalIncludeDirectories>.\;..\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <EnableEnhancedInstructionSet>StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
       <ExceptionHandling>false</ExceptionHandling>
+      <DisableSpecificWarnings>4996;4244;4018</DisableSpecificWarnings>
     </ClCompile>
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
@@ -642,6 +649,11 @@ del ..\vp8_rtcd.h
 )
 if exist ..\vp9_rtcd.h (
 del ..\vp9_rtcd.h
+)
+if exist $(OutDir)\include\vpx (
+rd /s /q $(OutDir)\include\vpx
+cd ../
+cd $(ProjectDir)
 )</Command>
     </PreBuildEvent>
     <YASM>
@@ -653,12 +665,13 @@ del ..\vp9_rtcd.h
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
       <SDLCheck>false</SDLCheck>
-      <PreprocessorDefinitions>WIN32;_WINDOWS;_USRDLL;_DEBUG;_CRT_SECURE_NO_WARNINGS;_CRT_SECURE_NO_DEPRECATE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>WIN32;_WINDOWS;_USRDLL;_DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <AdditionalIncludeDirectories>.\;..\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <EnableEnhancedInstructionSet>StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
       <ExceptionHandling>false</ExceptionHandling>
+      <DisableSpecificWarnings>4996;4244;4018</DisableSpecificWarnings>
     </ClCompile>
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
@@ -697,6 +710,11 @@ del ..\vp8_rtcd.h
 )
 if exist ..\vp9_rtcd.h (
 del ..\vp9_rtcd.h
+)
+if exist $(OutDir)\include\vpx (
+rd /s /q $(OutDir)\include\vpx
+cd ../
+cd $(ProjectDir)
 )</Command>
     </PreBuildEvent>
     <YASM>
@@ -714,6 +732,7 @@ del ..\vp9_rtcd.h
       <AdditionalIncludeDirectories>.\;..\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <EnableEnhancedInstructionSet>StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
       <ExceptionHandling>false</ExceptionHandling>
+      <DisableSpecificWarnings>4996;4244;4018</DisableSpecificWarnings>
     </ClCompile>
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
@@ -752,6 +771,11 @@ del ..\vp8_rtcd.h
 )
 if exist ..\vp9_rtcd.h (
 del ..\vp9_rtcd.h
+)
+if exist $(OutDir)\include\vpx (
+rd /s /q $(OutDir)\include\vpx
+cd ../
+cd $(ProjectDir)
 )</Command>
     </PreBuildEvent>
     <YASM>
@@ -765,7 +789,7 @@ del ..\vp9_rtcd.h
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>false</SDLCheck>
-      <PreprocessorDefinitions>WIN32;_WINDOWS;_LIB;NDEBUG;_CRT_SECURE_NO_WARNINGS;_CRT_SECURE_NO_DEPRECATE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>WIN32;_WINDOWS;_LIB;NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <StringPooling>true</StringPooling>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <BufferSecurityCheck>false</BufferSecurityCheck>
@@ -779,6 +803,7 @@ del ..\vp9_rtcd.h
       <EnableFiberSafeOptimizations>true</EnableFiberSafeOptimizations>
       <AdditionalIncludeDirectories>.\;..\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <ExceptionHandling>false</ExceptionHandling>
+      <DisableSpecificWarnings>4996;4244;4018</DisableSpecificWarnings>
     </ClCompile>
     <Link>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
@@ -819,6 +844,11 @@ del ..\vp8_rtcd.h
 )
 if exist ..\vp9_rtcd.h (
 del ..\vp9_rtcd.h
+)
+if exist $(OutDir)\include\vpx (
+rd /s /q $(OutDir)\include\vpx
+cd ../
+cd $(ProjectDir)
 )</Command>
     </PreBuildEvent>
     <YASM>
@@ -846,6 +876,7 @@ del ..\vp9_rtcd.h
       <EnableFiberSafeOptimizations>true</EnableFiberSafeOptimizations>
       <AdditionalIncludeDirectories>.\;..\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <ExceptionHandling>false</ExceptionHandling>
+      <DisableSpecificWarnings>4996;4244;4018</DisableSpecificWarnings>
     </ClCompile>
     <Link>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
@@ -886,6 +917,11 @@ del ..\vp8_rtcd.h
 )
 if exist ..\vp9_rtcd.h (
 del ..\vp9_rtcd.h
+)
+if exist $(OutDir)\include\vpx (
+rd /s /q $(OutDir)\include\vpx
+cd ../
+cd $(ProjectDir)
 )</Command>
     </PreBuildEvent>
     <YASM>
@@ -899,7 +935,7 @@ del ..\vp9_rtcd.h
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>false</SDLCheck>
-      <PreprocessorDefinitions>WIN32;_WINDOWS;_USRDLL;NDEBUG;_CRT_SECURE_NO_WARNINGS;_CRT_SECURE_NO_DEPRECATE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>WIN32;_WINDOWS;_USRDLL;NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <StringPooling>true</StringPooling>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <BufferSecurityCheck>false</BufferSecurityCheck>
@@ -913,6 +949,7 @@ del ..\vp9_rtcd.h
       <EnableFiberSafeOptimizations>true</EnableFiberSafeOptimizations>
       <AdditionalIncludeDirectories>.\;..\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <ExceptionHandling>false</ExceptionHandling>
+      <DisableSpecificWarnings>4996;4244;4018</DisableSpecificWarnings>
     </ClCompile>
     <Link>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
@@ -952,6 +989,11 @@ del ..\vp8_rtcd.h
 )
 if exist ..\vp9_rtcd.h (
 del ..\vp9_rtcd.h
+)
+if exist $(OutDir)\include\vpx (
+rd /s /q $(OutDir)\include\vpx
+cd ../
+cd $(ProjectDir)
 )</Command>
     </PreBuildEvent>
     <YASM>
@@ -979,6 +1021,7 @@ del ..\vp9_rtcd.h
       <EnableFiberSafeOptimizations>true</EnableFiberSafeOptimizations>
       <AdditionalIncludeDirectories>.\;..\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <ExceptionHandling>false</ExceptionHandling>
+      <DisableSpecificWarnings>4996;4244;4018</DisableSpecificWarnings>
     </ClCompile>
     <Link>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
@@ -1018,6 +1061,11 @@ del ..\vp8_rtcd.h
 )
 if exist ..\vp9_rtcd.h (
 del ..\vp9_rtcd.h
+)
+if exist $(OutDir)\include\vpx (
+rd /s /q $(OutDir)\include\vpx
+cd ../
+cd $(ProjectDir)
 )</Command>
     </PreBuildEvent>
     <YASM>
