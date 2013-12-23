@@ -502,43 +502,43 @@
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='DebugDLL|Win32'">
     <TargetName>libvpxd</TargetName>
-    <IntDir>$(ProjectDir)\obj\$(Configuration)\$(Platform)\</IntDir>
+    <IntDir>$(SolutionDir)\obj\$(Configuration)\$(Platform)\$(ProjectName)\</IntDir>
     <OutDir>..\..\..\msvc32\</OutDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='DebugDLL|x64'">
     <TargetName>libvpxd</TargetName>
     <OutDir>..\..\..\msvc64\</OutDir>
-    <IntDir>$(ProjectDir)\obj\$(Configuration)\$(Platform)\</IntDir>
+    <IntDir>$(SolutionDir)\obj\$(Configuration)\$(Platform)\$(ProjectName)\</IntDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseDLL|Win32'">
     <TargetName>libvpx</TargetName>
-    <IntDir>$(ProjectDir)\obj\$(Configuration)\$(Platform)\</IntDir>
+    <IntDir>$(SolutionDir)\obj\$(Configuration)\$(Platform)\$(ProjectName)\</IntDir>
     <OutDir>..\..\..\msvc32\</OutDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseDLL|x64'">
     <TargetName>libvpx</TargetName>
     <OutDir>..\..\..\msvc64\</OutDir>
-    <IntDir>$(ProjectDir)\obj\$(Configuration)\$(Platform)\</IntDir>
+    <IntDir>$(SolutionDir)\obj\$(Configuration)\$(Platform)\$(ProjectName)\</IntDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <TargetName>libvpxd</TargetName>
-    <IntDir>$(ProjectDir)\obj\$(Configuration)\$(Platform)\</IntDir>
+    <IntDir>$(SolutionDir)\obj\$(Configuration)\$(Platform)\$(ProjectName)\</IntDir>
     <OutDir>..\..\..\msvc32\</OutDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <TargetName>libvpxd</TargetName>
     <OutDir>..\..\..\msvc64\</OutDir>
-    <IntDir>$(ProjectDir)\obj\$(Configuration)\$(Platform)\</IntDir>
+    <IntDir>$(SolutionDir)\obj\$(Configuration)\$(Platform)\$(ProjectName)\</IntDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <TargetName>libvpx</TargetName>
-    <IntDir>$(ProjectDir)\obj\$(Configuration)\$(Platform)\</IntDir>
+    <IntDir>$(SolutionDir)\obj\$(Configuration)\$(Platform)\$(ProjectName)\</IntDir>
     <OutDir>..\..\..\msvc32\</OutDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <TargetName>libvpx</TargetName>
     <OutDir>..\..\..\msvc64\</OutDir>
-    <IntDir>$(ProjectDir)\obj\$(Configuration)\$(Platform)\</IntDir>
+    <IntDir>$(SolutionDir)\obj\$(Configuration)\$(Platform)\$(ProjectName)\</IntDir>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
