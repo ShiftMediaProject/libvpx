@@ -279,7 +279,16 @@
     <ClCompile Include="..\vp9\common\vp9_treecoder.c" />
     <ClCompile Include="..\vp9\common\x86\vp9_asm_stubs.c" />
     <ClCompile Include="..\vp9\common\x86\vp9_idct_intrin_sse2.c" />
-    <ClCompile Include="..\vp9\common\x86\vp9_loopfilter_intrin_avx2.c" />
+    <ClCompile Include="..\vp9\common\x86\vp9_loopfilter_intrin_avx2.c">
+      <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">AdvancedVectorExtensions2</EnableEnhancedInstructionSet>
+      <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='ReleaseDLL|Win32'">AdvancedVectorExtensions2</EnableEnhancedInstructionSet>
+      <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='DebugDLL|Win32'">AdvancedVectorExtensions2</EnableEnhancedInstructionSet>
+      <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">AdvancedVectorExtensions2</EnableEnhancedInstructionSet>
+      <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">AdvancedVectorExtensions2</EnableEnhancedInstructionSet>
+      <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='ReleaseDLL|x64'">AdvancedVectorExtensions2</EnableEnhancedInstructionSet>
+      <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='DebugDLL|x64'">AdvancedVectorExtensions2</EnableEnhancedInstructionSet>
+      <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='Release|x64'">AdvancedVectorExtensions2</EnableEnhancedInstructionSet>
+    </ClCompile>
     <ClCompile Include="..\vp9\common\x86\vp9_loopfilter_intrin_sse2.c" />
     <ClCompile Include="..\vp9\decoder\vp9_dboolhuff.c" />
     <ClCompile Include="..\vp9\decoder\vp9_decodemv.c" />
@@ -397,6 +406,12 @@
     <YASM Include="..\vp9\common\x86\vp9_subpixel_8t_sse2.asm" />
     <YASM Include="..\vp9\common\x86\vp9_subpixel_8t_ssse3.asm" />
     <YASM Include="..\vp9\encoder\x86\vp9_error_sse2.asm" />
+    <YASM Include="..\vp9\encoder\x86\vp9_quantize_ssse3.asm">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='ReleaseDLL|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='DebugDLL|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+    </YASM>
     <YASM Include="..\vp9\encoder\x86\vp9_sad4d_sse2.asm" />
     <YASM Include="..\vp9\encoder\x86\vp9_sad_mmx.asm" />
     <YASM Include="..\vp9\encoder\x86\vp9_sad_sse2.asm" />
@@ -557,7 +572,7 @@
       <AdditionalIncludeDirectories>.\;..\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <EnableEnhancedInstructionSet>StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
       <ExceptionHandling>false</ExceptionHandling>
-      <DisableSpecificWarnings>4996;4244;4018</DisableSpecificWarnings>
+      <DisableSpecificWarnings>4996;4244;4018;4744;4742</DisableSpecificWarnings>
     </ClCompile>
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
@@ -603,7 +618,7 @@ cd $(ProjectDir)
 )</Command>
     </PreBuildEvent>
     <YASM>
-      <IncludePaths>.\;..\;%(IncludePaths)</IncludePaths>
+      <IncludePaths>.\;..\;x86;%(IncludePaths)</IncludePaths>
     </YASM>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
@@ -615,9 +630,9 @@ cd $(ProjectDir)
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <AdditionalIncludeDirectories>.\;..\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <EnableEnhancedInstructionSet>StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
       <ExceptionHandling>false</ExceptionHandling>
-      <DisableSpecificWarnings>4996;4244;4018</DisableSpecificWarnings>
+      <DisableSpecificWarnings>4996;4244;4018;4744;4742</DisableSpecificWarnings>
+      <EnableEnhancedInstructionSet>StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
     </ClCompile>
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
@@ -663,7 +678,7 @@ cd $(ProjectDir)
 )</Command>
     </PreBuildEvent>
     <YASM>
-      <IncludePaths>.\;..\;%(IncludePaths)</IncludePaths>
+      <IncludePaths>.\;..\;x86_64\%(IncludePaths)</IncludePaths>
     </YASM>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='DebugDLL|Win32'">
@@ -677,7 +692,7 @@ cd $(ProjectDir)
       <AdditionalIncludeDirectories>.\;..\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <EnableEnhancedInstructionSet>StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
       <ExceptionHandling>false</ExceptionHandling>
-      <DisableSpecificWarnings>4996;4244;4018</DisableSpecificWarnings>
+      <DisableSpecificWarnings>4996;4244;4018;4744;4742</DisableSpecificWarnings>
     </ClCompile>
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
@@ -724,7 +739,7 @@ cd $(ProjectDir)
 )</Command>
     </PreBuildEvent>
     <YASM>
-      <IncludePaths>.\;..\;%(IncludePaths)</IncludePaths>
+      <IncludePaths>.\;..\;x86;%(IncludePaths)</IncludePaths>
     </YASM>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='DebugDLL|x64'">
@@ -736,9 +751,9 @@ cd $(ProjectDir)
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <AdditionalIncludeDirectories>.\;..\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <EnableEnhancedInstructionSet>StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
       <ExceptionHandling>false</ExceptionHandling>
-      <DisableSpecificWarnings>4996;4244;4018</DisableSpecificWarnings>
+      <DisableSpecificWarnings>4996;4244;4018;4744;4742</DisableSpecificWarnings>
+      <EnableEnhancedInstructionSet>StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
     </ClCompile>
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
@@ -785,7 +800,7 @@ cd $(ProjectDir)
 )</Command>
     </PreBuildEvent>
     <YASM>
-      <IncludePaths>.\;..\;%(IncludePaths)</IncludePaths>
+      <IncludePaths>.\;..\;x86_64\%(IncludePaths)</IncludePaths>
     </YASM>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
@@ -809,7 +824,7 @@ cd $(ProjectDir)
       <EnableFiberSafeOptimizations>true</EnableFiberSafeOptimizations>
       <AdditionalIncludeDirectories>.\;..\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <ExceptionHandling>false</ExceptionHandling>
-      <DisableSpecificWarnings>4996;4244;4018</DisableSpecificWarnings>
+      <DisableSpecificWarnings>4996;4244;4018;4744;4742</DisableSpecificWarnings>
       <InterproceduralOptimization>SingleFile</InterproceduralOptimization>
     </ClCompile>
     <Link>
@@ -859,7 +874,7 @@ cd $(ProjectDir)
 )</Command>
     </PreBuildEvent>
     <YASM>
-      <IncludePaths>.\;..\;%(IncludePaths)</IncludePaths>
+      <IncludePaths>.\;..\;x86;%(IncludePaths)</IncludePaths>
     </YASM>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -873,7 +888,6 @@ cd $(ProjectDir)
       <StringPooling>true</StringPooling>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <BufferSecurityCheck>false</BufferSecurityCheck>
-      <EnableEnhancedInstructionSet>StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
       <FloatingPointModel>Fast</FloatingPointModel>
       <FloatingPointExceptions>false</FloatingPointExceptions>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
@@ -883,8 +897,9 @@ cd $(ProjectDir)
       <EnableFiberSafeOptimizations>true</EnableFiberSafeOptimizations>
       <AdditionalIncludeDirectories>.\;..\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <ExceptionHandling>false</ExceptionHandling>
-      <DisableSpecificWarnings>4996;4244;4018</DisableSpecificWarnings>
+      <DisableSpecificWarnings>4996;4244;4018;4744;4742</DisableSpecificWarnings>
       <InterproceduralOptimization>SingleFile</InterproceduralOptimization>
+      <EnableEnhancedInstructionSet>StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
     </ClCompile>
     <Link>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
@@ -933,7 +948,7 @@ cd $(ProjectDir)
 )</Command>
     </PreBuildEvent>
     <YASM>
-      <IncludePaths>.\;..\;%(IncludePaths)</IncludePaths>
+      <IncludePaths>.\;..\;x86_64\%(IncludePaths)</IncludePaths>
     </YASM>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseDLL|Win32'">
@@ -957,7 +972,7 @@ cd $(ProjectDir)
       <EnableFiberSafeOptimizations>true</EnableFiberSafeOptimizations>
       <AdditionalIncludeDirectories>.\;..\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <ExceptionHandling>false</ExceptionHandling>
-      <DisableSpecificWarnings>4996;4244;4018</DisableSpecificWarnings>
+      <DisableSpecificWarnings>4996;4244;4018;4744;4742</DisableSpecificWarnings>
     </ClCompile>
     <Link>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
@@ -1005,7 +1020,7 @@ cd $(ProjectDir)
 )</Command>
     </PreBuildEvent>
     <YASM>
-      <IncludePaths>.\;..\;%(IncludePaths)</IncludePaths>
+      <IncludePaths>.\;..\;x86;%(IncludePaths)</IncludePaths>
     </YASM>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseDLL|x64'">
@@ -1019,7 +1034,6 @@ cd $(ProjectDir)
       <StringPooling>true</StringPooling>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <BufferSecurityCheck>false</BufferSecurityCheck>
-      <EnableEnhancedInstructionSet>StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
       <FloatingPointModel>Fast</FloatingPointModel>
       <FloatingPointExceptions>false</FloatingPointExceptions>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
@@ -1029,7 +1043,8 @@ cd $(ProjectDir)
       <EnableFiberSafeOptimizations>true</EnableFiberSafeOptimizations>
       <AdditionalIncludeDirectories>.\;..\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <ExceptionHandling>false</ExceptionHandling>
-      <DisableSpecificWarnings>4996;4244;4018</DisableSpecificWarnings>
+      <DisableSpecificWarnings>4996;4244;4018;4744;4742</DisableSpecificWarnings>
+      <EnableEnhancedInstructionSet>StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
     </ClCompile>
     <Link>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
@@ -1077,7 +1092,7 @@ cd $(ProjectDir)
 )</Command>
     </PreBuildEvent>
     <YASM>
-      <IncludePaths>.\;..\;%(IncludePaths)</IncludePaths>
+      <IncludePaths>.\;..\;x86_64\%(IncludePaths)</IncludePaths>
     </YASM>
   </ItemDefinitionGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

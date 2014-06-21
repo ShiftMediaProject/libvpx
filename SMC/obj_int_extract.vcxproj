@@ -51,19 +51,19 @@
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
-    <OutDir>$(ProjectDir)</OutDir>
+    <OutDir>$(ProjectDir)\x86</OutDir>
     <IntDir>$(ProjectDir)\obj\$(Configuration)\$(Platform)\</IntDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-    <OutDir>$(ProjectDir)</OutDir>
+    <OutDir>$(ProjectDir)\x86_64</OutDir>
     <IntDir>$(ProjectDir)\obj\$(Configuration)\$(Platform)\</IntDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
-    <OutDir>$(ProjectDir)</OutDir>
+    <OutDir>$(ProjectDir)\x86</OutDir>
     <IntDir>$(ProjectDir)\obj\$(Configuration)\$(Platform)\</IntDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
-    <OutDir>$(ProjectDir)</OutDir>
+    <OutDir>$(ProjectDir)\x86_64</OutDir>
     <IntDir>$(ProjectDir)\obj\$(Configuration)\$(Platform)\</IntDir>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
@@ -75,11 +75,11 @@
       <WarningLevel>Level3</WarningLevel>
     </ClCompile>
     <Link>
-      <OutputFile>obj_int_extract.exe</OutputFile>
       <SubSystem>Console</SubSystem>
     </Link>
     <PostBuildEvent>
-      <Command>call ..\build\x86-msvs\obj_int_extract.bat  "$(ProjectDir).."</Command>
+      <Command>call ..\build\x86-msvs\obj_int_extract.bat  "$(ProjectDir).."
+move vp8_asm_enc_offsets.asm x86\vp8_asm_enc_offsets.asm</Command>
     </PostBuildEvent>
     <PreBuildEvent>
       <Command>if exist ..\vpx_config.h (
@@ -114,11 +114,11 @@ del ..\vp9_rtcd.h
       <WarningLevel>Level3</WarningLevel>
     </ClCompile>
     <Link>
-      <OutputFile>obj_int_extract.exe</OutputFile>
       <SubSystem>Console</SubSystem>
     </Link>
     <PostBuildEvent>
-      <Command>call ..\build\x86-msvs\obj_int_extract.bat  "$(ProjectDir).."</Command>
+      <Command>call ..\build\x86-msvs\obj_int_extract.bat  "$(ProjectDir).."
+move vp8_asm_enc_offsets.asm x86_64\vp8_asm_enc_offsets.asm</Command>
     </PostBuildEvent>
     <PreBuildEvent>
       <Command>if exist ..\vpx_config.h (
@@ -154,11 +154,11 @@ del ..\vp9_rtcd.h
       <WarningLevel>Level3</WarningLevel>
     </ClCompile>
     <Link>
-      <OutputFile>obj_int_extract.exe</OutputFile>
       <SubSystem>Console</SubSystem>
     </Link>
     <PostBuildEvent>
-      <Command>call ..\build\x86-msvs\obj_int_extract.bat  "$(ProjectDir).."</Command>
+      <Command>call ..\build\x86-msvs\obj_int_extract.bat  "$(ProjectDir).."
+move vp8_asm_enc_offsets.asm x86\vp8_asm_enc_offsets.asm</Command>
     </PostBuildEvent>
     <PreBuildEvent>
       <Command>if exist ..\vpx_config.h (
@@ -194,11 +194,11 @@ del ..\vp9_rtcd.h
       <WarningLevel>Level3</WarningLevel>
     </ClCompile>
     <Link>
-      <OutputFile>obj_int_extract.exe</OutputFile>
       <SubSystem>Console</SubSystem>
     </Link>
     <PostBuildEvent>
-      <Command>call ..\build\x86-msvs\obj_int_extract.bat  "$(ProjectDir).."</Command>
+      <Command>call ..\build\x86-msvs\obj_int_extract.bat  "$(ProjectDir).."
+move vp8_asm_enc_offsets.asm x86_64\vp8_asm_enc_offsets.asm</Command>
     </PostBuildEvent>
     <PreBuildEvent>
       <Command>if exist ..\vpx_config.h (

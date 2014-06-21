@@ -1200,5 +1200,8 @@
     <YASM Include="..\vp8\common\x86\loopfilter_block_sse2.asm">
       <Filter>Source Files\libvpx\vp8\common\x86</Filter>
     </YASM>
+    <YASM Include="..\vp9\encoder\x86\vp9_quantize_ssse3.asm">
+      <Filter>Source Files\libvpx\vp9\encoder\x86</Filter>
+    </YASM>
   </ItemGroup>
 </Project>
