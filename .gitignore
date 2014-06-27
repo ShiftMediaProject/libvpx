@@ -235,4 +235,4 @@ $RECYCLE.BIN/
 
 .projects
 .nodevenv.once
-SMC/*.exe
+*.exe
