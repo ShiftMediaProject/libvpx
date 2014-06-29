@@ -25,6 +25,14 @@
       <Configuration>ReleaseDLL</Configuration>
       <Platform>x64</Platform>
     </ProjectConfiguration>
+    <ProjectConfiguration Include="ReleaseLTO|Win32">
+      <Configuration>ReleaseLTO</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="ReleaseLTO|x64">
+      <Configuration>ReleaseLTO</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
     <ProjectConfiguration Include="Release|Win32">
       <Configuration>Release</Configuration>
       <Platform>Win32</Platform>
@@ -284,10 +292,12 @@
       <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='ReleaseDLL|Win32'">AdvancedVectorExtensions2</EnableEnhancedInstructionSet>
       <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='DebugDLL|Win32'">AdvancedVectorExtensions2</EnableEnhancedInstructionSet>
       <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">AdvancedVectorExtensions2</EnableEnhancedInstructionSet>
+      <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='ReleaseLTO|Win32'">AdvancedVectorExtensions2</EnableEnhancedInstructionSet>
       <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">AdvancedVectorExtensions2</EnableEnhancedInstructionSet>
       <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='ReleaseDLL|x64'">AdvancedVectorExtensions2</EnableEnhancedInstructionSet>
       <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='DebugDLL|x64'">AdvancedVectorExtensions2</EnableEnhancedInstructionSet>
       <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='Release|x64'">AdvancedVectorExtensions2</EnableEnhancedInstructionSet>
+      <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='ReleaseLTO|x64'">AdvancedVectorExtensions2</EnableEnhancedInstructionSet>
     </ClCompile>
     <ClCompile Include="..\vp9\common\x86\vp9_loopfilter_intrin_sse2.c" />
     <ClCompile Include="..\vp9\decoder\vp9_dboolhuff.c" />
@@ -345,10 +355,12 @@
     <ClCompile Include="vpx_config.c">
       <ObjectFileName Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">$(IntDir)\vpx_config_.obj</ObjectFileName>
       <ObjectFileName Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">$(IntDir)\vpx_config_.obj</ObjectFileName>
+      <ObjectFileName Condition="'$(Configuration)|$(Platform)'=='ReleaseLTO|Win32'">$(IntDir)\vpx_config_.obj</ObjectFileName>
       <ObjectFileName Condition="'$(Configuration)|$(Platform)'=='ReleaseDLL|Win32'">$(IntDir)\vpx_config_.obj</ObjectFileName>
       <ObjectFileName Condition="'$(Configuration)|$(Platform)'=='DebugDLL|Win32'">$(IntDir)\vpx_config_.obj</ObjectFileName>
       <ObjectFileName Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(IntDir)\vpx_config_.obj</ObjectFileName>
       <ObjectFileName Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(IntDir)\vpx_config_.obj</ObjectFileName>
+      <ObjectFileName Condition="'$(Configuration)|$(Platform)'=='ReleaseLTO|x64'">$(IntDir)\vpx_config_.obj</ObjectFileName>
       <ObjectFileName Condition="'$(Configuration)|$(Platform)'=='ReleaseDLL|x64'">$(IntDir)\vpx_config_.obj</ObjectFileName>
       <ObjectFileName Condition="'$(Configuration)|$(Platform)'=='DebugDLL|x64'">$(IntDir)\vpx_config_.obj</ObjectFileName>
     </ClCompile>
@@ -368,6 +380,7 @@
     <YASM Include="..\vp8\common\x86\loopfilter_block_sse2.asm">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='ReleaseLTO|Win32'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='ReleaseDLL|Win32'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='DebugDLL|Win32'">true</ExcludedFromBuild>
     </YASM>
@@ -411,6 +424,7 @@
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='ReleaseDLL|Win32'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='DebugDLL|Win32'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='ReleaseLTO|Win32'">true</ExcludedFromBuild>
     </YASM>
     <YASM Include="..\vp9\encoder\x86\vp9_sad4d_sse2.asm" />
     <YASM Include="..\vp9\encoder\x86\vp9_sad_mmx.asm" />
@@ -429,10 +443,12 @@
     <YASM Include="vpx_config.asm">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='ReleaseLTO|Win32'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='ReleaseDLL|Win32'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='DebugDLL|Win32'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='ReleaseLTO|x64'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='ReleaseDLL|x64'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='DebugDLL|x64'">true</ExcludedFromBuild>
     </YASM>
@@ -472,11 +488,25 @@
     <PlatformToolset>v120</PlatformToolset>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseLTO|Win32'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>v120</PlatformToolset>
+    <CharacterSet>Unicode</CharacterSet>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+  </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
     <ConfigurationType>StaticLibrary</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
     <PlatformToolset>v120</PlatformToolset>
     <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseLTO|x64'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>v120</PlatformToolset>
+    <CharacterSet>Unicode</CharacterSet>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseDLL|Win32'" Label="Configuration">
     <ConfigurationType>DynamicLibrary</ConfigurationType>
@@ -511,7 +541,13 @@
   <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
   </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseLTO|Win32'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
   <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseLTO|x64'" Label="PropertySheets">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
   </ImportGroup>
   <ImportGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseDLL|Win32'" Label="PropertySheets">
@@ -556,7 +592,17 @@
     <IntDir>$(SolutionDir)\obj\$(Configuration)\$(Platform)\$(ProjectName)\</IntDir>
     <OutDir>..\..\..\msvc32\</OutDir>
   </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseLTO|Win32'">
+    <TargetName>libvpx</TargetName>
+    <IntDir>$(SolutionDir)\obj\$(Configuration)\$(Platform)\$(ProjectName)\</IntDir>
+    <OutDir>..\..\..\msvc32\</OutDir>
+  </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <TargetName>libvpx</TargetName>
+    <OutDir>..\..\..\msvc64\</OutDir>
+    <IntDir>$(SolutionDir)\obj\$(Configuration)\$(Platform)\$(ProjectName)\</IntDir>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseLTO|x64'">
     <TargetName>libvpx</TargetName>
     <OutDir>..\..\..\msvc64\</OutDir>
     <IntDir>$(SolutionDir)\obj\$(Configuration)\$(Platform)\$(ProjectName)\</IntDir>
@@ -698,8 +744,8 @@ cd $(ProjectDir)
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <SubSystem>Windows</SubSystem>
       <OutputFile>$(OutDir)\bin\$(TargetName)$(TargetExt)</OutputFile>
-      <ImportLibrary>$(OutDir)\lib\$(TargetName).dll.lib</ImportLibrary>
-      <ProgramDatabaseFile>$(OutDir)\lib\$(TargetName).pdb</ProgramDatabaseFile>
+      <ImportLibrary>$(OutDir)\bin\$(TargetName).lib</ImportLibrary>
+      <ProgramDatabaseFile>$(OutDir)\bin\$(TargetName).pdb</ProgramDatabaseFile>
       <ModuleDefinitionFile>.\vpx.def</ModuleDefinitionFile>
       <ProfileGuidedDatabase>$(OutDir)\bin\$(TargetName).pgd</ProfileGuidedDatabase>
     </Link>
@@ -759,8 +805,8 @@ cd $(ProjectDir)
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <SubSystem>Windows</SubSystem>
       <OutputFile>$(OutDir)\bin\$(TargetName)$(TargetExt)</OutputFile>
-      <ImportLibrary>$(OutDir)\lib\$(TargetName).dll.lib</ImportLibrary>
-      <ProgramDatabaseFile>$(OutDir)\lib\$(TargetName).pdb</ProgramDatabaseFile>
+      <ImportLibrary>$(OutDir)\bin\$(TargetName).lib</ImportLibrary>
+      <ProgramDatabaseFile>$(OutDir)\bin\$(TargetName).pdb</ProgramDatabaseFile>
       <ModuleDefinitionFile>.\vpx.def</ModuleDefinitionFile>
       <ProfileGuidedDatabase>$(OutDir)\bin\$(TargetName).pgd</ProfileGuidedDatabase>
     </Link>
@@ -804,6 +850,80 @@ cd $(ProjectDir)
     </YASM>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <Optimization>MaxSpeed</Optimization>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <SDLCheck>false</SDLCheck>
+      <PreprocessorDefinitions>WIN32;_WINDOWS;_LIB;NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <StringPooling>true</StringPooling>
+      <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
+      <BufferSecurityCheck>false</BufferSecurityCheck>
+      <EnableEnhancedInstructionSet>StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
+      <FloatingPointModel>Fast</FloatingPointModel>
+      <FloatingPointExceptions>false</FloatingPointExceptions>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
+      <InlineFunctionExpansion>AnySuitable</InlineFunctionExpansion>
+      <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
+      <OmitFramePointers>true</OmitFramePointers>
+      <EnableFiberSafeOptimizations>true</EnableFiberSafeOptimizations>
+      <AdditionalIncludeDirectories>.\;..\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <ExceptionHandling>false</ExceptionHandling>
+      <DisableSpecificWarnings>4996;4244;4018;4744;4742</DisableSpecificWarnings>
+      <InterproceduralOptimization>SingleFile</InterproceduralOptimization>
+    </ClCompile>
+    <Link>
+      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <OptimizeReferences>true</OptimizeReferences>
+    </Link>
+    <Lib>
+      <TargetMachine>MachineX86</TargetMachine>
+    </Lib>
+    <Lib>
+      <SubSystem>Windows</SubSystem>
+      <OutputFile>$(OutDir)\lib\$(TargetName)$(TargetExt)</OutputFile>
+    </Lib>
+    <PostBuildEvent>
+      <Command>mkdir $(OutDir)\include
+mkdir $(OutDir)\include\vpx
+copy ..\vpx\*.h $(OutDir)\include\vpx
+mkdir $(OutDir)\licenses
+copy ..\LICENSE $(OutDir)\licenses\libvpx.txt</Command>
+    </PostBuildEvent>
+    <PreBuildEvent>
+      <Command>if exist ..\vpx_config.h (
+del ..\vpx_config.h 
+)
+if exist ..\vpx_config.c (
+del ..\vpx_config.c 
+)
+if exist ..\vpx_config.asm (
+del ..\vpx_config.asm 
+)
+if exist ..\vpx_version.h (
+del ..\vpx_version.h
+)
+if exist ..\vpx_scale_rtcd.h (
+del ..\vpx_scale_rtcd.h
+)
+if exist ..\vp8_rtcd.h (
+del ..\vp8_rtcd.h
+)
+if exist ..\vp9_rtcd.h (
+del ..\vp9_rtcd.h
+)
+if exist $(OutDir)\include\vpx (
+rd /s /q $(OutDir)\include\vpx
+cd ../
+cd $(ProjectDir)
+)</Command>
+    </PreBuildEvent>
+    <YASM>
+      <IncludePaths>.\;..\;x86;%(IncludePaths)</IncludePaths>
+    </YASM>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseLTO|Win32'">
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
       <Optimization>MaxSpeed</Optimization>
@@ -951,6 +1071,80 @@ cd $(ProjectDir)
       <IncludePaths>.\;..\;x86_64\%(IncludePaths)</IncludePaths>
     </YASM>
   </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseLTO|x64'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <Optimization>MaxSpeed</Optimization>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <SDLCheck>false</SDLCheck>
+      <PreprocessorDefinitions>WIN32;_WINDOWS;_LIB;NDEBUG;_CRT_SECURE_NO_WARNINGS;_CRT_SECURE_NO_DEPRECATE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <StringPooling>true</StringPooling>
+      <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
+      <BufferSecurityCheck>false</BufferSecurityCheck>
+      <FloatingPointModel>Fast</FloatingPointModel>
+      <FloatingPointExceptions>false</FloatingPointExceptions>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
+      <InlineFunctionExpansion>AnySuitable</InlineFunctionExpansion>
+      <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
+      <OmitFramePointers>true</OmitFramePointers>
+      <EnableFiberSafeOptimizations>true</EnableFiberSafeOptimizations>
+      <AdditionalIncludeDirectories>.\;..\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <ExceptionHandling>false</ExceptionHandling>
+      <DisableSpecificWarnings>4996;4244;4018;4744;4742</DisableSpecificWarnings>
+      <InterproceduralOptimization>SingleFile</InterproceduralOptimization>
+      <EnableEnhancedInstructionSet>StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
+    </ClCompile>
+    <Link>
+      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <OptimizeReferences>true</OptimizeReferences>
+    </Link>
+    <Lib>
+      <TargetMachine>MachineX64</TargetMachine>
+    </Lib>
+    <Lib>
+      <SubSystem>Windows</SubSystem>
+      <OutputFile>$(OutDir)\lib\$(TargetName)$(TargetExt)</OutputFile>
+    </Lib>
+    <PostBuildEvent>
+      <Command>mkdir $(OutDir)\include
+mkdir $(OutDir)\include\vpx
+copy ..\vpx\*.h $(OutDir)\include\vpx
+mkdir $(OutDir)\licenses
+copy ..\LICENSE $(OutDir)\licenses\libvpx.txt</Command>
+    </PostBuildEvent>
+    <PreBuildEvent>
+      <Command>if exist ..\vpx_config.h (
+del ..\vpx_config.h 
+)
+if exist ..\vpx_config.c (
+del ..\vpx_config.c 
+)
+if exist ..\vpx_config.asm (
+del ..\vpx_config.asm 
+)
+if exist ..\vpx_version.h (
+del ..\vpx_version.h
+)
+if exist ..\vpx_scale_rtcd.h (
+del ..\vpx_scale_rtcd.h
+)
+if exist ..\vp8_rtcd.h (
+del ..\vp8_rtcd.h
+)
+if exist ..\vp9_rtcd.h (
+del ..\vp9_rtcd.h
+)
+if exist $(OutDir)\include\vpx (
+rd /s /q $(OutDir)\include\vpx
+cd ../
+cd $(ProjectDir)
+)</Command>
+    </PreBuildEvent>
+    <YASM>
+      <IncludePaths>.\;..\;x86_64\%(IncludePaths)</IncludePaths>
+    </YASM>
+  </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseDLL|Win32'">
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
@@ -979,8 +1173,8 @@ cd $(ProjectDir)
       <OptimizeReferences>true</OptimizeReferences>
       <SubSystem>Windows</SubSystem>
       <OutputFile>$(OutDir)\bin\$(TargetName)$(TargetExt)</OutputFile>
-      <ImportLibrary>$(OutDir)\lib\$(TargetName).dll.lib</ImportLibrary>
-      <ProgramDatabaseFile>$(OutDir)\lib\$(TargetName).pdb</ProgramDatabaseFile>
+      <ImportLibrary>$(OutDir)\bin\$(TargetName).lib</ImportLibrary>
+      <ProgramDatabaseFile>$(OutDir)\bin\$(TargetName).pdb</ProgramDatabaseFile>
       <ModuleDefinitionFile>.\vpx.def</ModuleDefinitionFile>
       <ProfileGuidedDatabase>$(OutDir)\bin\$(TargetName).pgd</ProfileGuidedDatabase>
     </Link>
@@ -1051,8 +1245,8 @@ cd $(ProjectDir)
       <OptimizeReferences>true</OptimizeReferences>
       <SubSystem>Windows</SubSystem>
       <OutputFile>$(OutDir)\bin\$(TargetName)$(TargetExt)</OutputFile>
-      <ImportLibrary>$(OutDir)\lib\$(TargetName).dll.lib</ImportLibrary>
-      <ProgramDatabaseFile>$(OutDir)\lib\$(TargetName).pdb</ProgramDatabaseFile>
+      <ImportLibrary>$(OutDir)\bin\$(TargetName).lib</ImportLibrary>
+      <ProgramDatabaseFile>$(OutDir)\bin\$(TargetName).pdb</ProgramDatabaseFile>
       <ModuleDefinitionFile>.\vpx.def</ModuleDefinitionFile>
       <ProfileGuidedDatabase>$(OutDir)\bin\$(TargetName).pgd</ProfileGuidedDatabase>
     </Link>
