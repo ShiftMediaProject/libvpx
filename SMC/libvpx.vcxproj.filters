@@ -121,6 +121,12 @@
     <Filter Include="Source Files\libvpx\vp9\common\generic">
       <UniqueIdentifier>{de383aa8-9ecd-4180-ad3c-ae9c10c57802}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Header Files\x86">
+      <UniqueIdentifier>{3068de29-c4c7-4b2b-81f1-756fd09afb0f}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\x86_64">
+      <UniqueIdentifier>{e40e560d-6b48-4fe0-8ef4-c95491dab576}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="vpx_config.h">
@@ -528,17 +534,26 @@
     <ClInclude Include="..\vp9\decoder\vp9_treereader.h">
       <Filter>Header Files\libvpx\vp9\decoder</Filter>
     </ClInclude>
-    <ClInclude Include="vpx_scale_rtcd.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="vpx_version.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="vp8_rtcd.h">
-      <Filter>Header Files</Filter>
+    <ClInclude Include="x86_64\vp9_rtcd.h">
+      <Filter>Header Files\x86_64</Filter>
     </ClInclude>
-    <ClInclude Include="vp9_rtcd.h">
-      <Filter>Header Files</Filter>
+    <ClInclude Include="x86_64\vpx_scale_rtcd.h">
+      <Filter>Header Files\x86_64</Filter>
+    </ClInclude>
+    <ClInclude Include="x86_64\vp8_rtcd.h">
+      <Filter>Header Files\x86_64</Filter>
+    </ClInclude>
+    <ClInclude Include="x86\vp8_rtcd.h">
+      <Filter>Header Files\x86</Filter>
+    </ClInclude>
+    <ClInclude Include="x86\vp9_rtcd.h">
+      <Filter>Header Files\x86</Filter>
+    </ClInclude>
+    <ClInclude Include="x86\vpx_scale_rtcd.h">
+      <Filter>Header Files\x86</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
