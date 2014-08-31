@@ -324,7 +324,7 @@ EOF
 #
 # Main Driver
 #
-require c
+require $(filter c $REQUIRES)
 case $arch in
   x86)
     ALL_ARCHS=$(filter mmx sse sse2 sse3 ssse3 sse4_1 avx avx2)
