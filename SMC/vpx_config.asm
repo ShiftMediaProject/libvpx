@@ -3,6 +3,9 @@ ARCH_MIPS equ 0
 %ifidn __OUTPUT_FORMAT__,win32
 ARCH_X86 equ 1
 ARCH_X86_64 equ 0
+%elifidn __OUTPUT_FORMAT__,win64
+ARCH_X86 equ 0
+ARCH_X86_64 equ 1
 %elifidn __OUTPUT_FORMAT__,x64
 ARCH_X86 equ 0
 ARCH_X86_64 equ 1
