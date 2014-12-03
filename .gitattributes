@@ -16,8 +16,3 @@
 *.pjt        -crlf
 *.vcp        -crlf
 *.inf        -crlf
-
-*.sln              text=auto
-*.vcxproj          text=auto
-*.vcxproj.filters  text=auto
-
