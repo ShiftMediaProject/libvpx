@@ -1039,7 +1039,7 @@
     <None Include="..\vpx_ports\vpx_ports.mk">
       <Filter>Header Files\libvpx\vpx_ports</Filter>
     </None>
-    <None Include="vpx.def">
+    <None Include="libvpx.def">
       <Filter>Resource Files</Filter>
     </None>
   </ItemGroup>

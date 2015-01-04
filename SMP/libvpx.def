@@ -1,14 +1,14 @@
-LIBRARY libvpx
+
 EXPORTS
-  vpx_codec_vp8_cx_algo                    ;DATA
+  vpx_codec_vp8_cx_algo                    DATA
   vpx_codec_vp8_cx
-  vpx_codec_vp8_dx_algo                    ;DATA
+  vpx_codec_vp8_dx_algo                    DATA
   vpx_codec_vp8_dx
-  vpx_codec_vp9_cx_algo                    ;DATA
+  vpx_codec_vp9_cx_algo                    DATA
   vpx_codec_vp9_cx
   
   
-  vpx_codec_vp9_dx_algo                    ;DATA
+  vpx_codec_vp9_dx_algo                    DATA
   vpx_codec_vp9_dx
   vpx_codec_build_config
   vpx_codec_control_

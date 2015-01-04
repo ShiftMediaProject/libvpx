@@ -371,7 +371,7 @@
   <ItemGroup>
     <None Include="..\vpx_ports\vpx_ports.mk" />
     <None Include="..\vpx_scale\vpx_scale_rtcd.sh" />
-    <None Include="vpx.def" />
+    <None Include="libvpx.def" />
   </ItemGroup>
   <ItemGroup>
     <YASM Include="..\third_party\x86inc\x86inc.asm" />
@@ -750,7 +750,7 @@ cd $(ProjectDir)
       <OutputFile>$(OutDir)\bin\$(TargetName)$(TargetExt)</OutputFile>
       <ImportLibrary>$(OutDir)\bin\$(TargetName).lib</ImportLibrary>
       <ProgramDatabaseFile>$(OutDir)\bin\$(TargetName).pdb</ProgramDatabaseFile>
-      <ModuleDefinitionFile>.\vpx.def</ModuleDefinitionFile>
+      <ModuleDefinitionFile>.\libvpx.def</ModuleDefinitionFile>
       <ProfileGuidedDatabase>$(OutDir)\bin\$(TargetName).pgd</ProfileGuidedDatabase>
       <LargeAddressAware>true</LargeAddressAware>
     </Link>
@@ -811,7 +811,7 @@ cd $(ProjectDir)
       <OutputFile>$(OutDir)\bin\$(TargetName)$(TargetExt)</OutputFile>
       <ImportLibrary>$(OutDir)\bin\$(TargetName).lib</ImportLibrary>
       <ProgramDatabaseFile>$(OutDir)\bin\$(TargetName).pdb</ProgramDatabaseFile>
-      <ModuleDefinitionFile>.\vpx.def</ModuleDefinitionFile>
+      <ModuleDefinitionFile>.\libvpx.def</ModuleDefinitionFile>
       <ProfileGuidedDatabase>$(OutDir)\bin\$(TargetName).pgd</ProfileGuidedDatabase>
     </Link>
     <PostBuildEvent>
@@ -1181,7 +1181,7 @@ cd $(ProjectDir)
       <OutputFile>$(OutDir)\bin\$(TargetName)$(TargetExt)</OutputFile>
       <ImportLibrary>$(OutDir)\bin\$(TargetName).lib</ImportLibrary>
       <ProgramDatabaseFile>$(OutDir)\bin\$(TargetName).pdb</ProgramDatabaseFile>
-      <ModuleDefinitionFile>.\vpx.def</ModuleDefinitionFile>
+      <ModuleDefinitionFile>.\libvpx.def</ModuleDefinitionFile>
       <ProfileGuidedDatabase>$(OutDir)\bin\$(TargetName).pgd</ProfileGuidedDatabase>
       <LargeAddressAware>true</LargeAddressAware>
     </Link>
@@ -1253,7 +1253,7 @@ cd $(ProjectDir)
       <OutputFile>$(OutDir)\bin\$(TargetName)$(TargetExt)</OutputFile>
       <ImportLibrary>$(OutDir)\bin\$(TargetName).lib</ImportLibrary>
       <ProgramDatabaseFile>$(OutDir)\bin\$(TargetName).pdb</ProgramDatabaseFile>
-      <ModuleDefinitionFile>.\vpx.def</ModuleDefinitionFile>
+      <ModuleDefinitionFile>.\libvpx.def</ModuleDefinitionFile>
       <ProfileGuidedDatabase>$(OutDir)\bin\$(TargetName).pgd</ProfileGuidedDatabase>
     </Link>
     <PostBuildEvent>
