@@ -174,14 +174,6 @@ static const int kf_gf_boost_qlimits[QINDEX_RANGE] =
     600, 600, 600, 600, 600, 600, 600, 600,
 };
 
-/* % adjustment to target kf size based on seperation from previous frame */
-static const int kf_boost_seperation_adjustment[16] =
-{
-    30,   40,   50,   55,   60,   65,   70,   75,
-    80,   85,   90,   95,  100,  100,  100,  100,
-};
-
-
 static const int gf_adjust_table[101] =
 {
     100,
@@ -716,7 +708,13 @@ static void calc_pframe_target_size(VP8_COMP *cpi)
                     Adjustment = (cpi->this_frame_target - min_frame_target);
 
                 if (cpi->frames_since_golden == (cpi->current_gf_interval >> 1))
-                    cpi->this_frame_target += ((cpi->current_gf_interval - 1) * Adjustment);
+                {
+                    Adjustment = (cpi->current_gf_interval - 1) * Adjustment;
+                    // Limit adjustment to 10% of current target.
+                    if (Adjustment > (10 * cpi->this_frame_target) / 100)
+                        Adjustment = (10 * cpi->this_frame_target) / 100;
+                    cpi->this_frame_target += Adjustment;
+                }
                 else
                     cpi->this_frame_target -= Adjustment;
             }
@@ -1238,7 +1236,6 @@ int vp8_regulate_q(VP8_COMP *cpi, int target_bits_per_frame)
         {
             Q = cpi->oxcf.gold_q;
         }
-
     }
     else
     {

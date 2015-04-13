@@ -41,6 +41,9 @@ int stats_open_file(stats_io_t *stats, const char *fpf, int pass) {
 
     stats->file = fopen(fpf, "rb");
 
+    if (stats->file == NULL)
+      fatal("First-pass stats file does not exist!");
+
     if (fseek(stats->file, 0, SEEK_END))
       fatal("First-pass stats file must be seekable!");
 
@@ -119,17 +122,4 @@ void stats_write(stats_io_t *stats, const void *pkt, size_t len) {
 
 vpx_fixed_buf_t stats_get(stats_io_t *stats) {
   return stats->buf;
-}
-
-double vp8_mse2psnr(double samples, double peak, double mse) {
-  const int kMaxPSNR = 100;
-  double psnr = kMaxPSNR;
-
-  if (mse > 0.0)
-    psnr = 10.0 * log10(peak * peak * samples / mse);
-
-  if (psnr > kMaxPSNR)
-    psnr = kMaxPSNR;
-
-  return psnr;
 }

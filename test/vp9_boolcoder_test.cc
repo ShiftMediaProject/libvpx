@@ -14,10 +14,8 @@
 
 #include "third_party/googletest/src/include/gtest/gtest.h"
 
-extern "C" {
-#include "vp9/encoder/vp9_boolhuff.h"
-#include "vp9/decoder/vp9_dboolhuff.h"
-}
+#include "vp9/decoder/vp9_reader.h"
+#include "vp9/encoder/vp9_writer.h"
 
 #include "test/acm_random.h"
 #include "vpx/vpx_integer.h"
@@ -72,7 +70,7 @@ TEST(VP9, TestBitIO) {
         GTEST_ASSERT_EQ(bw_buffer[0] & 0x80, 0);
 
         vp9_reader br;
-        vp9_reader_init(&br, bw_buffer, kBufferSize);
+        vp9_reader_init(&br, bw_buffer, kBufferSize, NULL, NULL);
         bit_rnd.Reset(random_seed);
         for (int i = 0; i < kBitsToTest; ++i) {
           if (bit_method == 2) {

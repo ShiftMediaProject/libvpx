@@ -20,10 +20,8 @@
 #include "third_party/googletest/src/include/gtest/gtest.h"
 #include "vpx/vpx_integer.h"
 
-extern "C" {
 #include "vp8/encoder/boolhuff.h"
 #include "vp8/decoder/dboolhuff.h"
-}
 
 namespace {
 const int num_tests = 10;
@@ -37,15 +35,15 @@ const uint8_t secret_key[16] = {
   0x89, 0x9a, 0xab, 0xbc, 0xcd, 0xde, 0xef, 0xf0
 };
 
-void encrypt_buffer(uint8_t *buffer, int size) {
-  for (int i = 0; i < size; ++i) {
+void encrypt_buffer(uint8_t *buffer, size_t size) {
+  for (size_t i = 0; i < size; ++i) {
     buffer[i] ^= secret_key[i & 15];
   }
 }
 
 void test_decrypt_cb(void *decrypt_state, const uint8_t *input,
-                           uint8_t *output, int count) {
-  int offset = input - reinterpret_cast<uint8_t *>(decrypt_state);
+                     uint8_t *output, int count) {
+  const size_t offset = input - reinterpret_cast<uint8_t*>(decrypt_state);
   for (int i = 0; i < count; i++) {
     output[i] = input[i] ^ secret_key[(offset + i) & 15];
   }
@@ -96,14 +94,10 @@ TEST(VP8, TestBitIO) {
         vp8_stop_encode(&bw);
 
         BOOL_DECODER br;
-#if CONFIG_DECRYPT
-        encrypt_buffer(bw_buffer, buffer_size);
-        vp8dx_start_decode(&br, bw_buffer, buffer_size,
+        encrypt_buffer(bw_buffer, kBufferSize);
+        vp8dx_start_decode(&br, bw_buffer, kBufferSize,
                            test_decrypt_cb,
                            reinterpret_cast<void *>(bw_buffer));
-#else
-        vp8dx_start_decode(&br, bw_buffer, kBufferSize, NULL, NULL);
-#endif
         bit_rnd.Reset(random_seed);
         for (int i = 0; i < kBitsToTest; ++i) {
           if (bit_method == 2) {

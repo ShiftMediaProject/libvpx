@@ -8,6 +8,8 @@
  *  be found in the AUTHORS file in the root of the source tree.
  */
 
+#include <string>
+
 #include "./vpx_config.h"
 #include "test/codec_factory.h"
 #include "test/encode_test_driver.h"
@@ -17,6 +19,40 @@
 #include "third_party/googletest/src/include/gtest/gtest.h"
 
 namespace libvpx_test {
+void Encoder::InitEncoder(VideoSource *video) {
+  vpx_codec_err_t res;
+  const vpx_image_t *img = video->img();
+
+  if (video->img() && !encoder_.priv) {
+    cfg_.g_w = img->d_w;
+    cfg_.g_h = img->d_h;
+    cfg_.g_timebase = video->timebase();
+    cfg_.rc_twopass_stats_in = stats_->buf();
+
+    // Default to 1 thread.
+    cfg_.g_threads = 1;
+    res = vpx_codec_enc_init(&encoder_, CodecInterface(), &cfg_,
+                             init_flags_);
+    ASSERT_EQ(VPX_CODEC_OK, res) << EncoderError();
+
+#if CONFIG_VP9_ENCODER
+    if (CodecInterface() == &vpx_codec_vp9_cx_algo) {
+      // Default to 1 tile column for VP9.
+      const int log2_tile_columns = 0;
+      res = vpx_codec_control_(&encoder_, VP9E_SET_TILE_COLUMNS,
+                               log2_tile_columns);
+      ASSERT_EQ(VPX_CODEC_OK, res) << EncoderError();
+    } else
+#endif
+    {
+#if CONFIG_VP8_ENCODER
+      ASSERT_EQ(&vpx_codec_vp8_cx_algo, CodecInterface())
+          << "Unknown Codec Interface";
+#endif
+    }
+  }
+}
+
 void Encoder::EncodeFrame(VideoSource *video, const unsigned long frame_flags) {
   if (video->img())
     EncodeFrameInternal(*video, frame_flags);
@@ -39,17 +75,6 @@ void Encoder::EncodeFrameInternal(const VideoSource &video,
   vpx_codec_err_t res;
   const vpx_image_t *img = video.img();
 
-  // Handle first frame initialization
-  if (!encoder_.priv) {
-    cfg_.g_w = img->d_w;
-    cfg_.g_h = img->d_h;
-    cfg_.g_timebase = video.timebase();
-    cfg_.rc_twopass_stats_in = stats_->buf();
-    res = vpx_codec_enc_init(&encoder_, CodecInterface(), &cfg_,
-                             init_flags_);
-    ASSERT_EQ(VPX_CODEC_OK, res) << EncoderError();
-  }
-
   // Handle frame resizing
   if (cfg_.g_w != img->d_w || cfg_.g_h != img->d_h) {
     cfg_.g_w = img->d_w;
@@ -59,9 +84,8 @@ void Encoder::EncodeFrameInternal(const VideoSource &video,
   }
 
   // Encode the frame
-  REGISTER_STATE_CHECK(
-      res = vpx_codec_encode(&encoder_,
-                             video.img(), video.pts(), video.duration(),
+  API_REGISTER_STATE_CHECK(
+      res = vpx_codec_encode(&encoder_, img, video.pts(), video.duration(),
                              frame_flags, deadline_));
   ASSERT_EQ(VPX_CODEC_OK, res) << EncoderError();
 }
@@ -69,11 +93,15 @@ void Encoder::EncodeFrameInternal(const VideoSource &video,
 void Encoder::Flush() {
   const vpx_codec_err_t res = vpx_codec_encode(&encoder_, NULL, 0, 0, 0,
                                                deadline_);
-  ASSERT_EQ(VPX_CODEC_OK, res) << EncoderError();
+  if (!encoder_.priv)
+    ASSERT_EQ(VPX_CODEC_ERROR, res) << EncoderError();
+  else
+    ASSERT_EQ(VPX_CODEC_OK, res) << EncoderError();
 }
 
 void EncoderTest::InitializeConfig() {
   const vpx_codec_err_t res = codec_->DefaultEncoderConfig(&cfg_, 0);
+  dec_cfg_ = vpx_codec_dec_cfg_t();
   ASSERT_EQ(VPX_CODEC_OK, res);
 }
 
@@ -107,6 +135,7 @@ void EncoderTest::SetMode(TestMode mode) {
 static bool compare_img(const vpx_image_t *img1,
                         const vpx_image_t *img2) {
   bool match = (img1->fmt == img2->fmt) &&
+               (img1->cs == img2->cs) &&
                (img1->d_w == img2->d_w) &&
                (img1->d_h == img2->d_h);
 
@@ -130,13 +159,13 @@ static bool compare_img(const vpx_image_t *img1,
   return match;
 }
 
-void EncoderTest::MismatchHook(const vpx_image_t *img1,
-                               const vpx_image_t *img2) {
+void EncoderTest::MismatchHook(const vpx_image_t* /*img1*/,
+                               const vpx_image_t* /*img2*/) {
   ASSERT_TRUE(0) << "Encode/Decode mismatch found";
 }
 
 void EncoderTest::RunLoop(VideoSource *video) {
-  vpx_codec_dec_cfg_t dec_cfg = {0};
+  vpx_codec_dec_cfg_t dec_cfg = vpx_codec_dec_cfg_t();
 
   stats_.Reset();
 
@@ -155,9 +184,18 @@ void EncoderTest::RunLoop(VideoSource *video) {
     Encoder* const encoder = codec_->CreateEncoder(cfg_, deadline_, init_flags_,
                                                    &stats_);
     ASSERT_TRUE(encoder != NULL);
-    Decoder* const decoder = codec_->CreateDecoder(dec_cfg, 0);
+
+    video->Begin();
+    encoder->InitEncoder(video);
+
+    unsigned long dec_init_flags = 0;  // NOLINT
+    // Use fragment decoder if encoder outputs partitions.
+    // NOTE: fragment decoder and partition encoder are only supported by VP8.
+    if (init_flags_ & VPX_CODEC_USE_OUTPUT_PARTITION)
+      dec_init_flags |= VPX_CODEC_USE_INPUT_FRAGMENTS;
+    Decoder* const decoder = codec_->CreateDecoder(dec_cfg, dec_init_flags, 0);
     bool again;
-    for (again = true, video->Begin(); again; video->Next()) {
+    for (again = true; again; video->Next()) {
       again = (video->img() != NULL);
 
       PreEncodeFrameHook(video);
@@ -177,7 +215,10 @@ void EncoderTest::RunLoop(VideoSource *video) {
             if (decoder && DoDecode()) {
               vpx_codec_err_t res_dec = decoder->DecodeFrame(
                   (const uint8_t*)pkt->data.frame.buf, pkt->data.frame.sz);
-              ASSERT_EQ(VPX_CODEC_OK, res_dec) << decoder->DecodeError();
+
+              if (!HandleDecodeResult(res_dec, *video, decoder))
+                break;
+
               has_dxdata = true;
             }
             ASSERT_GE(pkt->data.frame.pts, last_pts_);
@@ -192,6 +233,13 @@ void EncoderTest::RunLoop(VideoSource *video) {
           default:
             break;
         }
+      }
+
+      // Flush the decoder when there are no more fragments.
+      if ((init_flags_ & VPX_CODEC_USE_OUTPUT_PARTITION) && has_dxdata) {
+        const vpx_codec_err_t res_dec = decoder->DecodeFrame(NULL, 0);
+        if (!HandleDecodeResult(res_dec, *video, decoder))
+          break;
       }
 
       if (has_dxdata && has_cxdata) {

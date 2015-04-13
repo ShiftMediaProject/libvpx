@@ -9,14 +9,18 @@
  */
 
 
-#ifndef __INC_BLOCK_H
-#define __INC_BLOCK_H
+#ifndef VP8_ENCODER_BLOCK_H_
+#define VP8_ENCODER_BLOCK_H_
 
 #include "vp8/common/onyx.h"
 #include "vp8/common/blockd.h"
 #include "vp8/common/entropymv.h"
 #include "vp8/common/entropy.h"
 #include "vpx_ports/mem.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 #define MAX_MODES 20
 #define MAX_ERROR_BINS 1024
@@ -121,8 +125,11 @@ typedef struct macroblock
 
     int optimize;
     int q_index;
+    int is_skin;
+    int denoise_zeromv;
 
 #if CONFIG_TEMPORAL_DENOISING
+    int increase_denoising;
     MB_PREDICTION_MODE best_sse_inter_mode;
     int_mv best_sse_mv;
     MV_REFERENCE_FRAME best_reference_frame;
@@ -155,9 +162,14 @@ typedef struct macroblock
     void (*short_fdct8x4)(short *input, short *output, int pitch);
     void (*short_walsh4x4)(short *input, short *output, int pitch);
     void (*quantize_b)(BLOCK *b, BLOCKD *d);
-    void (*quantize_b_pair)(BLOCK *b1, BLOCK *b2, BLOCKD *d0, BLOCKD *d1);
 
+    unsigned int mbs_zero_last_dot_suppress;
+    int zero_last_dot_suppress;
 } MACROBLOCK;
 
 
+#ifdef __cplusplus
+}  // extern "C"
 #endif
+
+#endif  // VP8_ENCODER_BLOCK_H_

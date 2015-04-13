@@ -144,18 +144,19 @@ class ResizeTest : public ::libvpx_test::EncoderTest,
 
 TEST_P(ResizeTest, TestExternalResizeWorks) {
   ResizingVideoSource video;
+  cfg_.g_lag_in_frames = 0;
   ASSERT_NO_FATAL_FAILURE(RunLoop(&video));
 
-  for (std::vector<FrameInfo>::iterator info = frame_info_list_.begin();
+  for (std::vector<FrameInfo>::const_iterator info = frame_info_list_.begin();
        info != frame_info_list_.end(); ++info) {
-    const vpx_codec_pts_t pts = info->pts;
-    const unsigned int expected_w = ScaleForFrameNumber(pts, kInitialWidth);
-    const unsigned int expected_h = ScaleForFrameNumber(pts, kInitialHeight);
+    const unsigned int frame = static_cast<unsigned>(info->pts);
+    const unsigned int expected_w = ScaleForFrameNumber(frame, kInitialWidth);
+    const unsigned int expected_h = ScaleForFrameNumber(frame, kInitialHeight);
 
     EXPECT_EQ(expected_w, info->w)
-        << "Frame " << pts << "had unexpected width";
+        << "Frame " << frame << " had unexpected width";
     EXPECT_EQ(expected_h, info->h)
-        << "Frame " << pts << "had unexpected height";
+        << "Frame " << frame << " had unexpected height";
   }
 }
 
@@ -208,11 +209,11 @@ class ResizeInternalTest : public ResizeTest {
   virtual void PSNRPktHook(const vpx_codec_cx_pkt_t *pkt) {
     if (!frame0_psnr_)
       frame0_psnr_ = pkt->data.psnr.psnr[0];
-    EXPECT_NEAR(pkt->data.psnr.psnr[0], frame0_psnr_, 1.5);
+    EXPECT_NEAR(pkt->data.psnr.psnr[0], frame0_psnr_, 2.0);
   }
 
-  virtual void FramePktHook(const vpx_codec_cx_pkt_t *pkt) {
 #if WRITE_COMPRESSED_STREAM
+  virtual void FramePktHook(const vpx_codec_cx_pkt_t *pkt) {
     ++out_frames_;
 
     // Write initial file header if first frame.
@@ -222,8 +223,8 @@ class ResizeInternalTest : public ResizeTest {
     // Write frame header and data.
     write_ivf_frame_header(pkt, outfile_);
     (void)fwrite(pkt->data.frame.buf, 1, pkt->data.frame.sz, outfile_);
-#endif
   }
+#endif
 
   double frame0_psnr_;
 #if WRITE_COMPRESSED_STREAM
@@ -247,7 +248,7 @@ TEST_P(ResizeInternalTest, TestInternalResizeWorks) {
   cfg_.g_lag_in_frames = 0;
   ASSERT_NO_FATAL_FAILURE(RunLoop(&video));
 
-  for (std::vector<FrameInfo>::iterator info = frame_info_list_.begin();
+  for (std::vector<FrameInfo>::const_iterator info = frame_info_list_.begin();
        info != frame_info_list_.end(); ++info) {
     const vpx_codec_pts_t pts = info->pts;
     if (pts >= kStepDownFrame && pts < kStepUpFrame) {
@@ -260,7 +261,116 @@ TEST_P(ResizeInternalTest, TestInternalResizeWorks) {
   }
 }
 
+vpx_img_fmt_t CspForFrameNumber(int frame) {
+  if (frame < 10)
+    return VPX_IMG_FMT_I420;
+  if (frame < 20)
+    return VPX_IMG_FMT_I444;
+  return VPX_IMG_FMT_I420;
+}
+
+class ResizeCspTest : public ResizeTest {
+ protected:
+#if WRITE_COMPRESSED_STREAM
+  ResizeCspTest()
+      : ResizeTest(),
+        frame0_psnr_(0.0),
+        outfile_(NULL),
+        out_frames_(0) {}
+#else
+  ResizeCspTest() : ResizeTest(), frame0_psnr_(0.0) {}
+#endif
+
+  virtual ~ResizeCspTest() {}
+
+  virtual void BeginPassHook(unsigned int /*pass*/) {
+#if WRITE_COMPRESSED_STREAM
+    outfile_ = fopen("vp91-2-05-cspchape.ivf", "wb");
+#endif
+  }
+
+  virtual void EndPassHook() {
+#if WRITE_COMPRESSED_STREAM
+    if (outfile_) {
+      if (!fseek(outfile_, 0, SEEK_SET))
+        write_ivf_file_header(&cfg_, out_frames_, outfile_);
+      fclose(outfile_);
+      outfile_ = NULL;
+    }
+#endif
+  }
+
+  virtual void PreEncodeFrameHook(libvpx_test::VideoSource *video,
+                                  libvpx_test::Encoder *encoder) {
+    if (CspForFrameNumber(video->frame()) != VPX_IMG_FMT_I420 &&
+        cfg_.g_profile != 1) {
+      cfg_.g_profile = 1;
+      encoder->Config(&cfg_);
+    }
+    if (CspForFrameNumber(video->frame()) == VPX_IMG_FMT_I420 &&
+        cfg_.g_profile != 0) {
+      cfg_.g_profile = 0;
+      encoder->Config(&cfg_);
+    }
+  }
+
+  virtual void PSNRPktHook(const vpx_codec_cx_pkt_t *pkt) {
+    if (!frame0_psnr_)
+      frame0_psnr_ = pkt->data.psnr.psnr[0];
+    EXPECT_NEAR(pkt->data.psnr.psnr[0], frame0_psnr_, 2.0);
+  }
+
+#if WRITE_COMPRESSED_STREAM
+  virtual void FramePktHook(const vpx_codec_cx_pkt_t *pkt) {
+    ++out_frames_;
+
+    // Write initial file header if first frame.
+    if (pkt->data.frame.pts == 0)
+      write_ivf_file_header(&cfg_, 0, outfile_);
+
+    // Write frame header and data.
+    write_ivf_frame_header(pkt, outfile_);
+    (void)fwrite(pkt->data.frame.buf, 1, pkt->data.frame.sz, outfile_);
+  }
+#endif
+
+  double frame0_psnr_;
+#if WRITE_COMPRESSED_STREAM
+  FILE *outfile_;
+  unsigned int out_frames_;
+#endif
+};
+
+class ResizingCspVideoSource : public ::libvpx_test::DummyVideoSource {
+ public:
+  ResizingCspVideoSource() {
+    SetSize(kInitialWidth, kInitialHeight);
+    limit_ = 30;
+  }
+
+  virtual ~ResizingCspVideoSource() {}
+
+ protected:
+  virtual void Next() {
+    ++frame_;
+    SetImageFormat(CspForFrameNumber(frame_));
+    FillFrame();
+  }
+};
+
+TEST_P(ResizeCspTest, TestResizeCspWorks) {
+  ResizingCspVideoSource video;
+  init_flags_ = VPX_CODEC_USE_PSNR;
+  cfg_.rc_min_quantizer = cfg_.rc_max_quantizer = 48;
+  cfg_.g_lag_in_frames = 0;
+  ASSERT_NO_FATAL_FAILURE(RunLoop(&video));
+}
+
 VP8_INSTANTIATE_TEST_CASE(ResizeTest, ONE_PASS_TEST_MODES);
+VP9_INSTANTIATE_TEST_CASE(ResizeTest,
+                          ::testing::Values(::libvpx_test::kRealTime));
 VP9_INSTANTIATE_TEST_CASE(ResizeInternalTest,
                           ::testing::Values(::libvpx_test::kOnePassBest));
+VP9_INSTANTIATE_TEST_CASE(ResizeCspTest,
+                          ::testing::Values(::libvpx_test::kRealTime));
 }  // namespace

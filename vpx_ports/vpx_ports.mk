@@ -11,7 +11,6 @@
 
 PORTS_SRCS-yes += vpx_ports.mk
 
-PORTS_SRCS-$(BUILD_LIBVPX) += asm_offsets.h
 PORTS_SRCS-$(BUILD_LIBVPX) += mem.h
 PORTS_SRCS-$(BUILD_LIBVPX) += vpx_timer.h
 
@@ -19,7 +18,6 @@ ifeq ($(ARCH_X86)$(ARCH_X86_64),yes)
 PORTS_SRCS-$(BUILD_LIBVPX) += emms.asm
 PORTS_SRCS-$(BUILD_LIBVPX) += x86.h
 PORTS_SRCS-$(BUILD_LIBVPX) += x86_abi_support.asm
-PORTS_SRCS-$(BUILD_LIBVPX) += x86_cpuid.c
 endif
 
 PORTS_SRCS-$(ARCH_ARM) += arm_cpudetect.c

@@ -14,9 +14,7 @@
 
 #include "third_party/googletest/src/include/gtest/gtest.h"
 
-extern "C" {
 #include "./vp9_rtcd.h"
-}
 
 #include "test/acm_random.h"
 #include "vpx/vpx_integer.h"
@@ -111,7 +109,8 @@ TEST(VP9Idct8x8Test, AccuracyCheck) {
   ACMRandom rnd(ACMRandom::DeterministicSeed());
   const int count_test_block = 10000;
   for (int i = 0; i < count_test_block; ++i) {
-    int16_t input[64], coeff[64];
+    int16_t input[64];
+    tran_low_t coeff[64];
     double output_r[64];
     uint8_t dst[64], src[64];
 
