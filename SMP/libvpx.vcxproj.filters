@@ -118,14 +118,14 @@
     <Filter Include="Source Files\libvpx\vpx">
       <UniqueIdentifier>{2377a7b8-e312-4a8c-ad6d-6c89788c8d22}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Source Files\libvpx\vp9\common\generic">
-      <UniqueIdentifier>{de383aa8-9ecd-4180-ad3c-ae9c10c57802}</UniqueIdentifier>
-    </Filter>
     <Filter Include="Header Files\x86">
       <UniqueIdentifier>{3068de29-c4c7-4b2b-81f1-756fd09afb0f}</UniqueIdentifier>
     </Filter>
     <Filter Include="Header Files\x86_64">
       <UniqueIdentifier>{e40e560d-6b48-4fe0-8ef4-c95491dab576}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\libvpx\vp9\common\x86">
+      <UniqueIdentifier>{e24eb358-8c59-43fc-9ff2-15785954798c}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
@@ -288,9 +288,6 @@
     <ClInclude Include="..\vp8\encoder\pickinter.h">
       <Filter>Header Files\libvpx\vp8\encoder</Filter>
     </ClInclude>
-    <ClInclude Include="..\vp8\encoder\psnr.h">
-      <Filter>Header Files\libvpx\vp8\encoder</Filter>
-    </ClInclude>
     <ClInclude Include="..\vp8\encoder\quantize.h">
       <Filter>Header Files\libvpx\vp8\encoder</Filter>
     </ClInclude>
@@ -357,13 +354,7 @@
     <ClInclude Include="..\vp9\common\vp9_enums.h">
       <Filter>Header Files\libvpx\vp9\common</Filter>
     </ClInclude>
-    <ClInclude Include="..\vp9\common\vp9_extend.h">
-      <Filter>Header Files\libvpx\vp9\common</Filter>
-    </ClInclude>
     <ClInclude Include="..\vp9\common\vp9_filter.h">
-      <Filter>Header Files\libvpx\vp9\common</Filter>
-    </ClInclude>
-    <ClInclude Include="..\vp9\common\vp9_findnearmv.h">
       <Filter>Header Files\libvpx\vp9\common</Filter>
     </ClInclude>
     <ClInclude Include="..\vp9\common\vp9_idct.h">
@@ -414,9 +405,6 @@
     <ClInclude Include="..\vp9\common\vp9_tile_common.h">
       <Filter>Header Files\libvpx\vp9\common</Filter>
     </ClInclude>
-    <ClInclude Include="..\vp9\common\vp9_treecoder.h">
-      <Filter>Header Files\libvpx\vp9\common</Filter>
-    </ClInclude>
     <ClInclude Include="..\vp9\vp9_iface_common.h">
       <Filter>Header Files\libvpx\vp9</Filter>
     </ClInclude>
@@ -426,16 +414,10 @@
     <ClInclude Include="..\vp9\encoder\vp9_block.h">
       <Filter>Header Files\libvpx\vp9\encoder</Filter>
     </ClInclude>
-    <ClInclude Include="..\vp9\encoder\vp9_boolhuff.h">
-      <Filter>Header Files\libvpx\vp9\encoder</Filter>
-    </ClInclude>
     <ClInclude Include="..\vp9\encoder\vp9_dct.h">
       <Filter>Header Files\libvpx\vp9\encoder</Filter>
     </ClInclude>
     <ClInclude Include="..\vp9\encoder\vp9_encodeframe.h">
-      <Filter>Header Files\libvpx\vp9\encoder</Filter>
-    </ClInclude>
-    <ClInclude Include="..\vp9\encoder\vp9_encodeintra.h">
       <Filter>Header Files\libvpx\vp9\encoder</Filter>
     </ClInclude>
     <ClInclude Include="..\vp9\encoder\vp9_encodemb.h">
@@ -456,16 +438,7 @@
     <ClInclude Include="..\vp9\encoder\vp9_mcomp.h">
       <Filter>Header Files\libvpx\vp9\encoder</Filter>
     </ClInclude>
-    <ClInclude Include="..\vp9\encoder\vp9_modecosts.h">
-      <Filter>Header Files\libvpx\vp9\encoder</Filter>
-    </ClInclude>
-    <ClInclude Include="..\vp9\encoder\vp9_onyx_int.h">
-      <Filter>Header Files\libvpx\vp9\encoder</Filter>
-    </ClInclude>
     <ClInclude Include="..\vp9\encoder\vp9_picklpf.h">
-      <Filter>Header Files\libvpx\vp9\encoder</Filter>
-    </ClInclude>
-    <ClInclude Include="..\vp9\encoder\vp9_psnr.h">
       <Filter>Header Files\libvpx\vp9\encoder</Filter>
     </ClInclude>
     <ClInclude Include="..\vp9\encoder\vp9_quantize.h">
@@ -492,25 +465,13 @@
     <ClInclude Include="..\vp9\encoder\vp9_treewriter.h">
       <Filter>Header Files\libvpx\vp9\encoder</Filter>
     </ClInclude>
-    <ClInclude Include="..\vp9\encoder\vp9_vaq.h">
-      <Filter>Header Files\libvpx\vp9\encoder</Filter>
-    </ClInclude>
     <ClInclude Include="..\vp9\encoder\vp9_variance.h">
       <Filter>Header Files\libvpx\vp9\encoder</Filter>
     </ClInclude>
     <ClInclude Include="..\vp9\encoder\vp9_write_bit_buffer.h">
       <Filter>Header Files\libvpx\vp9\encoder</Filter>
     </ClInclude>
-    <ClInclude Include="..\vp9\encoder\x86\vp9_mcomp_x86.h">
-      <Filter>Header Files\libvpx\vp9\encoder\x86</Filter>
-    </ClInclude>
-    <ClInclude Include="..\vp9\decoder\vp9_dboolhuff.h">
-      <Filter>Header Files\libvpx\vp9\decoder</Filter>
-    </ClInclude>
     <ClInclude Include="..\vp9\decoder\vp9_decodemv.h">
-      <Filter>Header Files\libvpx\vp9\decoder</Filter>
-    </ClInclude>
-    <ClInclude Include="..\vp9\decoder\vp9_decodframe.h">
       <Filter>Header Files\libvpx\vp9\decoder</Filter>
     </ClInclude>
     <ClInclude Include="..\vp9\decoder\vp9_detokenize.h">
@@ -519,19 +480,7 @@
     <ClInclude Include="..\vp9\decoder\vp9_dsubexp.h">
       <Filter>Header Files\libvpx\vp9\decoder</Filter>
     </ClInclude>
-    <ClInclude Include="..\vp9\decoder\vp9_onyxd.h">
-      <Filter>Header Files\libvpx\vp9\decoder</Filter>
-    </ClInclude>
-    <ClInclude Include="..\vp9\decoder\vp9_onyxd_int.h">
-      <Filter>Header Files\libvpx\vp9\decoder</Filter>
-    </ClInclude>
     <ClInclude Include="..\vp9\decoder\vp9_read_bit_buffer.h">
-      <Filter>Header Files\libvpx\vp9\decoder</Filter>
-    </ClInclude>
-    <ClInclude Include="..\vp9\decoder\vp9_thread.h">
-      <Filter>Header Files\libvpx\vp9\decoder</Filter>
-    </ClInclude>
-    <ClInclude Include="..\vp9\decoder\vp9_treereader.h">
       <Filter>Header Files\libvpx\vp9\decoder</Filter>
     </ClInclude>
     <ClInclude Include="vpx_version.h">
@@ -555,15 +504,93 @@
     <ClInclude Include="x86\vpx_scale_rtcd.h">
       <Filter>Header Files\x86</Filter>
     </ClInclude>
+    <ClInclude Include="..\vp9\common\vp9_frame_buffers.h">
+      <Filter>Header Files\libvpx\vp9\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\vp9\common\vp9_mfqe.h">
+      <Filter>Header Files\libvpx\vp9\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\vp9\common\vp9_prob.h">
+      <Filter>Header Files\libvpx\vp9\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\vp9\common\vp9_thread_common.h">
+      <Filter>Header Files\libvpx\vp9\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\vp9\common\vp9_thread.h">
+      <Filter>Header Files\libvpx\vp9\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\vp9\common\x86\vp9_idct_intrin_sse2.h">
+      <Filter>Header Files\libvpx\vp9\common\x86</Filter>
+    </ClInclude>
+    <ClInclude Include="..\vp9\decoder\vp9_decodeframe.h">
+      <Filter>Header Files\libvpx\vp9\decoder</Filter>
+    </ClInclude>
+    <ClInclude Include="..\vp9\decoder\vp9_decoder.h">
+      <Filter>Header Files\libvpx\vp9\decoder</Filter>
+    </ClInclude>
+    <ClInclude Include="..\vp9\decoder\vp9_dthread.h">
+      <Filter>Header Files\libvpx\vp9\decoder</Filter>
+    </ClInclude>
+    <ClInclude Include="..\vp9\decoder\vp9_reader.h">
+      <Filter>Header Files\libvpx\vp9\decoder</Filter>
+    </ClInclude>
+    <ClInclude Include="..\vp9\encoder\vp9_aq_variance.h">
+      <Filter>Header Files\libvpx\vp9\encoder</Filter>
+    </ClInclude>
+    <ClInclude Include="..\vp9\encoder\vp9_aq_complexity.h">
+      <Filter>Header Files\libvpx\vp9\encoder</Filter>
+    </ClInclude>
+    <ClInclude Include="..\vp9\encoder\vp9_aq_cyclicrefresh.h">
+      <Filter>Header Files\libvpx\vp9\encoder</Filter>
+    </ClInclude>
+    <ClInclude Include="..\vp9\encoder\vp9_cost.h">
+      <Filter>Header Files\libvpx\vp9\encoder</Filter>
+    </ClInclude>
+    <ClInclude Include="..\vp9\encoder\vp9_context_tree.h">
+      <Filter>Header Files\libvpx\vp9\encoder</Filter>
+    </ClInclude>
+    <ClInclude Include="..\vp9\encoder\vp9_denoiser.h">
+      <Filter>Header Files\libvpx\vp9\encoder</Filter>
+    </ClInclude>
+    <ClInclude Include="..\vp9\encoder\vp9_extend.h">
+      <Filter>Header Files\libvpx\vp9\encoder</Filter>
+    </ClInclude>
+    <ClInclude Include="..\vp9\encoder\vp9_encoder.h">
+      <Filter>Header Files\libvpx\vp9\encoder</Filter>
+    </ClInclude>
+    <ClInclude Include="..\vp9\encoder\vp9_ethread.h">
+      <Filter>Header Files\libvpx\vp9\encoder</Filter>
+    </ClInclude>
+    <ClInclude Include="..\vp9\encoder\vp9_pickmode.h">
+      <Filter>Header Files\libvpx\vp9\encoder</Filter>
+    </ClInclude>
+    <ClInclude Include="..\vp9\encoder\vp9_rd.h">
+      <Filter>Header Files\libvpx\vp9\encoder</Filter>
+    </ClInclude>
+    <ClInclude Include="..\vp9\encoder\vp9_resize.h">
+      <Filter>Header Files\libvpx\vp9\encoder</Filter>
+    </ClInclude>
+    <ClInclude Include="..\vp9\encoder\vp9_speed_features.h">
+      <Filter>Header Files\libvpx\vp9\encoder</Filter>
+    </ClInclude>
+    <ClInclude Include="..\vp9\encoder\vp9_skin_detection.h">
+      <Filter>Header Files\libvpx\vp9\encoder</Filter>
+    </ClInclude>
+    <ClInclude Include="..\vp9\encoder\vp9_svc_layercontext.h">
+      <Filter>Header Files\libvpx\vp9\encoder</Filter>
+    </ClInclude>
+    <ClInclude Include="..\vp9\encoder\vp9_writer.h">
+      <Filter>Header Files\libvpx\vp9\encoder</Filter>
+    </ClInclude>
+    <ClInclude Include="..\vp9\encoder\x86\vp9_dct_sse2.h">
+      <Filter>Header Files\libvpx\vp9\encoder\x86</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\vpx\src\vpx_encoder.c">
       <Filter>Source Files\libvpx\vpx</Filter>
     </ClCompile>
     <ClCompile Include="..\vpx\src\vpx_image.c">
-      <Filter>Source Files\libvpx\vpx</Filter>
-    </ClCompile>
-    <ClCompile Include="..\vpx\src\svc_encodeframe.c">
       <Filter>Source Files\libvpx\vpx</Filter>
     </ClCompile>
     <ClCompile Include="..\vpx\src\vpx_codec.c">
@@ -589,12 +616,6 @@
     </ClCompile>
     <ClCompile Include="..\vpx_scale\vpx_scale_rtcd.c">
       <Filter>Source Files\libvpx\vpx_scale</Filter>
-    </ClCompile>
-    <ClCompile Include="..\vpx_scale\vpx_scale_asm_offsets.c">
-      <Filter>Source Files\libvpx\vpx_scale</Filter>
-    </ClCompile>
-    <ClCompile Include="..\vpx_ports\x86_cpuid.c">
-      <Filter>Source Files\libvpx\vpx_ports</Filter>
     </ClCompile>
     <ClCompile Include="..\vp8\common\reconintra.c">
       <Filter>Source Files\libvpx\vp8\common</Filter>
@@ -683,9 +704,6 @@
     <ClCompile Include="..\vp8\common\generic\systemdependent.c">
       <Filter>Source Files\libvpx\vp8\common\generic</Filter>
     </ClCompile>
-    <ClCompile Include="..\vp8\common\x86\postproc_x86.c">
-      <Filter>Source Files\libvpx\vp8\common\x86</Filter>
-    </ClCompile>
     <ClCompile Include="..\vp8\common\x86\recon_wrapper_sse2.c">
       <Filter>Source Files\libvpx\vp8\common\x86</Filter>
     </ClCompile>
@@ -726,9 +744,6 @@
       <Filter>Source Files\libvpx\vp8\encoder</Filter>
     </ClCompile>
     <ClCompile Include="..\vp8\encoder\treewriter.c">
-      <Filter>Source Files\libvpx\vp8\encoder</Filter>
-    </ClCompile>
-    <ClCompile Include="..\vp8\encoder\vp8_asm_enc_offsets.c">
       <Filter>Source Files\libvpx\vp8\encoder</Filter>
     </ClCompile>
     <ClCompile Include="..\vp8\encoder\bitstream.c">
@@ -779,9 +794,6 @@
     <ClCompile Include="..\vp8\encoder\picklpf.c">
       <Filter>Source Files\libvpx\vp8\encoder</Filter>
     </ClCompile>
-    <ClCompile Include="..\vp8\encoder\psnr.c">
-      <Filter>Source Files\libvpx\vp8\encoder</Filter>
-    </ClCompile>
     <ClCompile Include="..\vp8\encoder\quantize.c">
       <Filter>Source Files\libvpx\vp8\encoder</Filter>
     </ClCompile>
@@ -818,9 +830,6 @@
     <ClCompile Include="..\vp8\decoder\decodemv.c">
       <Filter>Source Files\libvpx\vp8\decoder</Filter>
     </ClCompile>
-    <ClCompile Include="..\vp8\decoder\decodframe.c">
-      <Filter>Source Files\libvpx\vp8\decoder</Filter>
-    </ClCompile>
     <ClCompile Include="..\vp8\decoder\detokenize.c">
       <Filter>Source Files\libvpx\vp8\decoder</Filter>
     </ClCompile>
@@ -845,9 +854,6 @@
     <ClCompile Include="..\vp9\common\vp9_tile_common.c">
       <Filter>Source Files\libvpx\vp9\common</Filter>
     </ClCompile>
-    <ClCompile Include="..\vp9\common\vp9_treecoder.c">
-      <Filter>Source Files\libvpx\vp9\common</Filter>
-    </ClCompile>
     <ClCompile Include="..\vp9\common\vp9_alloccommon.c">
       <Filter>Source Files\libvpx\vp9\common</Filter>
     </ClCompile>
@@ -869,13 +875,7 @@
     <ClCompile Include="..\vp9\common\vp9_entropymv.c">
       <Filter>Source Files\libvpx\vp9\common</Filter>
     </ClCompile>
-    <ClCompile Include="..\vp9\common\vp9_extend.c">
-      <Filter>Source Files\libvpx\vp9\common</Filter>
-    </ClCompile>
     <ClCompile Include="..\vp9\common\vp9_filter.c">
-      <Filter>Source Files\libvpx\vp9\common</Filter>
-    </ClCompile>
-    <ClCompile Include="..\vp9\common\vp9_findnearmv.c">
       <Filter>Source Files\libvpx\vp9\common</Filter>
     </ClCompile>
     <ClCompile Include="..\vp9\common\vp9_idct.c">
@@ -917,9 +917,6 @@
     <ClCompile Include="..\vp9\encoder\vp9_rdopt.c">
       <Filter>Source Files\libvpx\vp9\encoder</Filter>
     </ClCompile>
-    <ClCompile Include="..\vp9\encoder\vp9_sad_c.c">
-      <Filter>Source Files\libvpx\vp9\encoder</Filter>
-    </ClCompile>
     <ClCompile Include="..\vp9\encoder\vp9_segmentation.c">
       <Filter>Source Files\libvpx\vp9\encoder</Filter>
     </ClCompile>
@@ -935,25 +932,13 @@
     <ClCompile Include="..\vp9\encoder\vp9_treewriter.c">
       <Filter>Source Files\libvpx\vp9\encoder</Filter>
     </ClCompile>
-    <ClCompile Include="..\vp9\encoder\vp9_vaq.c">
-      <Filter>Source Files\libvpx\vp9\encoder</Filter>
-    </ClCompile>
-    <ClCompile Include="..\vp9\encoder\vp9_variance_c.c">
-      <Filter>Source Files\libvpx\vp9\encoder</Filter>
-    </ClCompile>
     <ClCompile Include="..\vp9\encoder\vp9_bitstream.c">
-      <Filter>Source Files\libvpx\vp9\encoder</Filter>
-    </ClCompile>
-    <ClCompile Include="..\vp9\encoder\vp9_boolhuff.c">
       <Filter>Source Files\libvpx\vp9\encoder</Filter>
     </ClCompile>
     <ClCompile Include="..\vp9\encoder\vp9_dct.c">
       <Filter>Source Files\libvpx\vp9\encoder</Filter>
     </ClCompile>
     <ClCompile Include="..\vp9\encoder\vp9_encodeframe.c">
-      <Filter>Source Files\libvpx\vp9\encoder</Filter>
-    </ClCompile>
-    <ClCompile Include="..\vp9\encoder\vp9_encodeintra.c">
       <Filter>Source Files\libvpx\vp9\encoder</Filter>
     </ClCompile>
     <ClCompile Include="..\vp9\encoder\vp9_encodemb.c">
@@ -974,16 +959,7 @@
     <ClCompile Include="..\vp9\encoder\vp9_mcomp.c">
       <Filter>Source Files\libvpx\vp9\encoder</Filter>
     </ClCompile>
-    <ClCompile Include="..\vp9\encoder\vp9_modecosts.c">
-      <Filter>Source Files\libvpx\vp9\encoder</Filter>
-    </ClCompile>
-    <ClCompile Include="..\vp9\encoder\vp9_onyx_if.c">
-      <Filter>Source Files\libvpx\vp9\encoder</Filter>
-    </ClCompile>
     <ClCompile Include="..\vp9\encoder\vp9_picklpf.c">
-      <Filter>Source Files\libvpx\vp9\encoder</Filter>
-    </ClCompile>
-    <ClCompile Include="..\vp9\encoder\vp9_psnr.c">
       <Filter>Source Files\libvpx\vp9\encoder</Filter>
     </ClCompile>
     <ClCompile Include="..\vp9\encoder\vp9_quantize.c">
@@ -998,28 +974,13 @@
     <ClCompile Include="..\vp9\encoder\x86\vp9_dct32x32_sse2.c">
       <Filter>Source Files\libvpx\vp9\encoder\x86</Filter>
     </ClCompile>
-    <ClCompile Include="..\vp9\encoder\x86\vp9_variance_mmx.c">
-      <Filter>Source Files\libvpx\vp9\encoder\x86</Filter>
-    </ClCompile>
     <ClCompile Include="..\vp9\encoder\x86\vp9_variance_sse2.c">
       <Filter>Source Files\libvpx\vp9\encoder\x86</Filter>
     </ClCompile>
     <ClCompile Include="..\vp9\decoder\vp9_dsubexp.c">
       <Filter>Source Files\libvpx\vp9\decoder</Filter>
     </ClCompile>
-    <ClCompile Include="..\vp9\decoder\vp9_onyxd_if.c">
-      <Filter>Source Files\libvpx\vp9\decoder</Filter>
-    </ClCompile>
-    <ClCompile Include="..\vp9\decoder\vp9_thread.c">
-      <Filter>Source Files\libvpx\vp9\decoder</Filter>
-    </ClCompile>
-    <ClCompile Include="..\vp9\decoder\vp9_dboolhuff.c">
-      <Filter>Source Files\libvpx\vp9\decoder</Filter>
-    </ClCompile>
     <ClCompile Include="..\vp9\decoder\vp9_decodemv.c">
-      <Filter>Source Files\libvpx\vp9\decoder</Filter>
-    </ClCompile>
-    <ClCompile Include="..\vp9\decoder\vp9_decodframe.c">
       <Filter>Source Files\libvpx\vp9\decoder</Filter>
     </ClCompile>
     <ClCompile Include="..\vp9\decoder\vp9_detokenize.c">
@@ -1028,8 +989,164 @@
     <ClCompile Include="vpx_config.c">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\vp9\common\generic\vp9_systemdependent.c">
-      <Filter>Source Files\libvpx\vp9\common\generic</Filter>
+    <ClCompile Include="..\vp8\decoder\decodeframe.c">
+      <Filter>Source Files\libvpx\vp8\decoder</Filter>
+    </ClCompile>
+    <ClCompile Include="..\vp8\encoder\x86\quantize_ssse3.c">
+      <Filter>Source Files\libvpx\vp8\encoder\x86</Filter>
+    </ClCompile>
+    <ClCompile Include="..\vp8\encoder\x86\quantize_sse4.c">
+      <Filter>Source Files\libvpx\vp8\encoder\x86</Filter>
+    </ClCompile>
+    <ClCompile Include="..\vp9\common\vp9_blockd.c">
+      <Filter>Source Files\libvpx\vp9\common</Filter>
+    </ClCompile>
+    <ClCompile Include="..\vp9\common\vp9_frame_buffers.c">
+      <Filter>Source Files\libvpx\vp9\common</Filter>
+    </ClCompile>
+    <ClCompile Include="..\vp9\common\vp9_prob.c">
+      <Filter>Source Files\libvpx\vp9\common</Filter>
+    </ClCompile>
+    <ClCompile Include="..\vp9\common\vp9_thread.c">
+      <Filter>Source Files\libvpx\vp9\common</Filter>
+    </ClCompile>
+    <ClCompile Include="..\vp9\common\vp9_thread_common.c">
+      <Filter>Source Files\libvpx\vp9\common</Filter>
+    </ClCompile>
+    <ClCompile Include="..\vp9\common\x86\vp9_high_loopfilter_intrin_sse2.c">
+      <Filter>Source Files\libvpx\vp9\common\x86</Filter>
+    </ClCompile>
+    <ClCompile Include="..\vp9\common\x86\vp9_idct_intrin_ssse3.c">
+      <Filter>Source Files\libvpx\vp9\common\x86</Filter>
+    </ClCompile>
+    <ClCompile Include="..\vp9\common\x86\vp9_subpixel_8t_intrin_ssse3.c">
+      <Filter>Source Files\libvpx\vp9\common\x86</Filter>
+    </ClCompile>
+    <ClCompile Include="..\vp9\common\x86\vp9_subpixel_8t_intrin_avx2.c">
+      <Filter>Source Files\libvpx\vp9\common\x86</Filter>
+    </ClCompile>
+    <ClCompile Include="..\vp9\decoder\vp9_decodeframe.c">
+      <Filter>Source Files\libvpx\vp9\decoder</Filter>
+    </ClCompile>
+    <ClCompile Include="..\vp9\decoder\vp9_decoder.c">
+      <Filter>Source Files\libvpx\vp9\decoder</Filter>
+    </ClCompile>
+    <ClCompile Include="..\vp9\decoder\vp9_dthread.c">
+      <Filter>Source Files\libvpx\vp9\decoder</Filter>
+    </ClCompile>
+    <ClCompile Include="..\vp9\decoder\vp9_reader.c">
+      <Filter>Source Files\libvpx\vp9\decoder</Filter>
+    </ClCompile>
+    <ClCompile Include="..\vp9\encoder\vp9_aq_complexity.c">
+      <Filter>Source Files\libvpx\vp9\encoder</Filter>
+    </ClCompile>
+    <ClCompile Include="..\vp9\encoder\vp9_aq_cyclicrefresh.c">
+      <Filter>Source Files\libvpx\vp9\encoder</Filter>
+    </ClCompile>
+    <ClCompile Include="..\vp9\encoder\vp9_aq_variance.c">
+      <Filter>Source Files\libvpx\vp9\encoder</Filter>
+    </ClCompile>
+    <ClCompile Include="..\vp9\encoder\vp9_avg.c">
+      <Filter>Source Files\libvpx\vp9\encoder</Filter>
+    </ClCompile>
+    <ClCompile Include="..\vp9\encoder\vp9_cost.c">
+      <Filter>Source Files\libvpx\vp9\encoder</Filter>
+    </ClCompile>
+    <ClCompile Include="..\vp9\encoder\vp9_context_tree.c">
+      <Filter>Source Files\libvpx\vp9\encoder</Filter>
+    </ClCompile>
+    <ClCompile Include="..\vp9\encoder\vp9_extend.c">
+      <Filter>Source Files\libvpx\vp9\encoder</Filter>
+    </ClCompile>
+    <ClCompile Include="..\vp9\encoder\vp9_encoder.c">
+      <Filter>Source Files\libvpx\vp9\encoder</Filter>
+    </ClCompile>
+    <ClCompile Include="..\vp9\encoder\vp9_ethread.c">
+      <Filter>Source Files\libvpx\vp9\encoder</Filter>
+    </ClCompile>
+    <ClCompile Include="..\vp9\encoder\vp9_pickmode.c">
+      <Filter>Source Files\libvpx\vp9\encoder</Filter>
+    </ClCompile>
+    <ClCompile Include="..\vp9\encoder\vp9_rd.c">
+      <Filter>Source Files\libvpx\vp9\encoder</Filter>
+    </ClCompile>
+    <ClCompile Include="..\vp9\encoder\vp9_resize.c">
+      <Filter>Source Files\libvpx\vp9\encoder</Filter>
+    </ClCompile>
+    <ClCompile Include="..\vp9\encoder\vp9_sad.c">
+      <Filter>Source Files\libvpx\vp9\encoder</Filter>
+    </ClCompile>
+    <ClCompile Include="..\vp9\encoder\vp9_speed_features.c">
+      <Filter>Source Files\libvpx\vp9\encoder</Filter>
+    </ClCompile>
+    <ClCompile Include="..\vp9\encoder\vp9_skin_detection.c">
+      <Filter>Source Files\libvpx\vp9\encoder</Filter>
+    </ClCompile>
+    <ClCompile Include="..\vp9\encoder\vp9_svc_layercontext.c">
+      <Filter>Source Files\libvpx\vp9\encoder</Filter>
+    </ClCompile>
+    <ClCompile Include="..\vp9\encoder\vp9_variance.c">
+      <Filter>Source Files\libvpx\vp9\encoder</Filter>
+    </ClCompile>
+    <ClCompile Include="..\vp9\encoder\vp9_write_bit_buffer.c">
+      <Filter>Source Files\libvpx\vp9\encoder</Filter>
+    </ClCompile>
+    <ClCompile Include="..\vp9\encoder\vp9_writer.c">
+      <Filter>Source Files\libvpx\vp9\encoder</Filter>
+    </ClCompile>
+    <ClCompile Include="..\vp9\encoder\x86\vp9_avg_intrin_sse2.c">
+      <Filter>Source Files\libvpx\vp9\encoder\x86</Filter>
+    </ClCompile>
+    <ClCompile Include="..\vp9\encoder\x86\vp9_dct32x32_avx2.c">
+      <Filter>Source Files\libvpx\vp9\encoder\x86</Filter>
+    </ClCompile>
+    <ClCompile Include="..\vp9\encoder\x86\vp9_dct_avx2.c">
+      <Filter>Source Files\libvpx\vp9\encoder\x86</Filter>
+    </ClCompile>
+    <ClCompile Include="..\vp9\encoder\x86\vp9_dct_impl_sse2.c">
+      <Filter>Source Files\libvpx\vp9\encoder\x86</Filter>
+    </ClCompile>
+    <ClCompile Include="..\vp9\encoder\x86\vp9_highbd_variance_sse2.c">
+      <Filter>Source Files\libvpx\vp9\encoder\x86</Filter>
+    </ClCompile>
+    <ClCompile Include="..\vp9\encoder\x86\vp9_quantize_sse2.c">
+      <Filter>Source Files\libvpx\vp9\encoder\x86</Filter>
+    </ClCompile>
+    <ClCompile Include="..\vp9\encoder\x86\vp9_sad_intrin_avx2.c">
+      <Filter>Source Files\libvpx\vp9\encoder\x86</Filter>
+    </ClCompile>
+    <ClCompile Include="..\vp9\encoder\x86\vp9_sad4d_intrin_avx2.c">
+      <Filter>Source Files\libvpx\vp9\encoder\x86</Filter>
+    </ClCompile>
+    <ClCompile Include="..\vp9\encoder\x86\vp9_subpel_variance_impl_intrin_avx2.c">
+      <Filter>Source Files\libvpx\vp9\encoder\x86</Filter>
+    </ClCompile>
+    <ClCompile Include="..\vp9\encoder\x86\vp9_variance_avx2.c">
+      <Filter>Source Files\libvpx\vp9\encoder\x86</Filter>
+    </ClCompile>
+    <ClCompile Include="..\vp9\encoder\x86\vp9_variance_impl_intrin_avx2.c">
+      <Filter>Source Files\libvpx\vp9\encoder\x86</Filter>
+    </ClCompile>
+    <ClCompile Include="..\vp9\encoder\x86\vp9_dct_ssse3.c">
+      <Filter>Source Files\libvpx\vp9\encoder\x86</Filter>
+    </ClCompile>
+    <ClCompile Include="..\vp9\encoder\x86\vp9_error_intrin_avx2.c">
+      <Filter>Source Files\libvpx\vp9\encoder\x86</Filter>
+    </ClCompile>
+    <ClCompile Include="..\vp9\encoder\x86\vp9_highbd_block_error_intrin_sse2.c">
+      <Filter>Source Files\libvpx\vp9\encoder\x86</Filter>
+    </ClCompile>
+    <ClCompile Include="..\vp9\encoder\x86\vp9_highbd_quantize_intrin_sse2.c">
+      <Filter>Source Files\libvpx\vp9\encoder\x86</Filter>
+    </ClCompile>
+    <ClCompile Include="..\vpx\src\vpx_psnr.c">
+      <Filter>Source Files\libvpx\vpx</Filter>
+    </ClCompile>
+    <ClCompile Include="..\vpx\src\svc_encodeframe.c">
+      <Filter>Source Files\libvpx\vpx</Filter>
+    </ClCompile>
+    <ClCompile Include="..\vp9\decoder\vp9_read_bit_buffer.c">
+      <Filter>Source Files\libvpx\vp9\decoder</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -1125,12 +1242,6 @@
     <YASM Include="..\vp8\encoder\x86\quantize_mmx.asm">
       <Filter>Source Files\libvpx\vp8\encoder\x86</Filter>
     </YASM>
-    <YASM Include="..\vp8\encoder\x86\quantize_sse4.asm">
-      <Filter>Source Files\libvpx\vp8\encoder\x86</Filter>
-    </YASM>
-    <YASM Include="..\vp8\encoder\x86\quantize_ssse3.asm">
-      <Filter>Source Files\libvpx\vp8\encoder\x86</Filter>
-    </YASM>
     <YASM Include="..\vp8\encoder\x86\subtract_mmx.asm">
       <Filter>Source Files\libvpx\vp8\encoder\x86</Filter>
     </YASM>
@@ -1170,9 +1281,6 @@
     <YASM Include="..\vp9\encoder\x86\vp9_error_sse2.asm">
       <Filter>Source Files\libvpx\vp9\encoder\x86</Filter>
     </YASM>
-    <YASM Include="..\vp9\encoder\x86\vp9_sad_mmx.asm">
-      <Filter>Source Files\libvpx\vp9\encoder\x86</Filter>
-    </YASM>
     <YASM Include="..\vp9\encoder\x86\vp9_sad_sse2.asm">
       <Filter>Source Files\libvpx\vp9\encoder\x86</Filter>
     </YASM>
@@ -1191,31 +1299,61 @@
     <YASM Include="..\vp9\encoder\x86\vp9_subpel_variance.asm">
       <Filter>Source Files\libvpx\vp9\encoder\x86</Filter>
     </YASM>
-    <YASM Include="..\vp9\encoder\x86\vp9_subpel_variance_impl_sse2.asm">
-      <Filter>Source Files\libvpx\vp9\encoder\x86</Filter>
-    </YASM>
     <YASM Include="..\vp9\encoder\x86\vp9_subtract_sse2.asm">
       <Filter>Source Files\libvpx\vp9\encoder\x86</Filter>
     </YASM>
     <YASM Include="..\vp9\encoder\x86\vp9_temporal_filter_apply_sse2.asm">
       <Filter>Source Files\libvpx\vp9\encoder\x86</Filter>
     </YASM>
-    <YASM Include="..\vp9\encoder\x86\vp9_variance_impl_mmx.asm">
-      <Filter>Source Files\libvpx\vp9\encoder\x86</Filter>
-    </YASM>
-    <YASM Include="..\vp9\encoder\x86\vp9_variance_impl_sse2.asm">
-      <Filter>Source Files\libvpx\vp9\encoder\x86</Filter>
-    </YASM>
     <YASM Include="..\third_party\x86inc\x86inc.asm">
       <Filter>Source Files\libvpx\third_party\x86inc</Filter>
     </YASM>
-    <YASM Include="vpx_config.asm">
-      <Filter>Header Files</Filter>
-    </YASM>
-    <YASM Include="..\vp8\common\x86\loopfilter_block_sse2.asm">
+    <YASM Include="..\vp8\common\x86\loopfilter_block_sse2_x86_64.asm">
       <Filter>Source Files\libvpx\vp8\common\x86</Filter>
     </YASM>
-    <YASM Include="..\vp9\encoder\x86\vp9_quantize_ssse3.asm">
+    <YASM Include="..\vp9\common\x86\vp9_high_subpixel_bilinear_sse2.asm">
+      <Filter>Source Files\libvpx\vp9\common\x86</Filter>
+    </YASM>
+    <YASM Include="..\vp9\common\x86\vp9_high_intrapred_sse2.asm">
+      <Filter>Source Files\libvpx\vp9\common\x86</Filter>
+    </YASM>
+    <YASM Include="..\vp9\common\x86\vp9_high_subpixel_8t_sse2.asm">
+      <Filter>Source Files\libvpx\vp9\common\x86</Filter>
+    </YASM>
+    <YASM Include="..\vp9\common\x86\vp9_idct_ssse3_x86_64.asm">
+      <Filter>Source Files\libvpx\vp9\common\x86</Filter>
+    </YASM>
+    <YASM Include="..\vp9\common\x86\vp9_mfqe_sse2.asm">
+      <Filter>Source Files\libvpx\vp9\common\x86</Filter>
+    </YASM>
+    <YASM Include="..\vp9\common\x86\vp9_subpixel_bilinear_sse2.asm">
+      <Filter>Source Files\libvpx\vp9\common\x86</Filter>
+    </YASM>
+    <YASM Include="..\vp9\common\x86\vp9_subpixel_bilinear_ssse3.asm">
+      <Filter>Source Files\libvpx\vp9\common\x86</Filter>
+    </YASM>
+    <YASM Include="..\vp9\encoder\x86\vp9_dct_mmx.asm">
+      <Filter>Source Files\libvpx\vp9\encoder\x86</Filter>
+    </YASM>
+    <YASM Include="..\vp9\encoder\x86\vp9_highbd_sad_sse2.asm">
+      <Filter>Source Files\libvpx\vp9\encoder\x86</Filter>
+    </YASM>
+    <YASM Include="..\vp9\encoder\x86\vp9_highbd_sad4d_sse2.asm">
+      <Filter>Source Files\libvpx\vp9\encoder\x86</Filter>
+    </YASM>
+    <YASM Include="..\vp9\encoder\x86\vp9_highbd_subpel_variance.asm">
+      <Filter>Source Files\libvpx\vp9\encoder\x86</Filter>
+    </YASM>
+    <YASM Include="..\vp9\encoder\x86\vp9_highbd_variance_impl_sse2.asm">
+      <Filter>Source Files\libvpx\vp9\encoder\x86</Filter>
+    </YASM>
+    <YASM Include="..\vp9\encoder\x86\vp9_quantize_ssse3_x86_64.asm">
+      <Filter>Source Files\libvpx\vp9\encoder\x86</Filter>
+    </YASM>
+    <YASM Include="..\vp9\encoder\x86\vp9_ssim_opt_x86_64.asm">
+      <Filter>Source Files\libvpx\vp9\encoder\x86</Filter>
+    </YASM>
+    <YASM Include="..\vp9\encoder\x86\vp9_dct_ssse3_x86_64.asm">
       <Filter>Source Files\libvpx\vp9\encoder\x86</Filter>
     </YASM>
   </ItemGroup>

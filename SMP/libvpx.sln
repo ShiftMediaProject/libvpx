@@ -1,13 +1,9 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 2013
-VisualStudioVersion = 12.0.30501.0
+VisualStudioVersion = 12.0.31101.0
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "libvpx", "libvpx.vcxproj", "{8293418A-603A-4119-B7B4-1E6204606BA9}"
-EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "pre-build", "pre-build", "{43328279-A095-4995-B334-AC6D1CF15432}"
-EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "obj_int_extract", "obj_int_extract.vcxproj", "{E1360C65-D375-4335-8057-7ED99CC3F9B2}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -43,31 +39,8 @@ Global
 		{8293418A-603A-4119-B7B4-1E6204606BA9}.ReleaseLTO|Win32.Build.0 = ReleaseLTO|Win32
 		{8293418A-603A-4119-B7B4-1E6204606BA9}.ReleaseLTO|x64.ActiveCfg = ReleaseLTO|x64
 		{8293418A-603A-4119-B7B4-1E6204606BA9}.ReleaseLTO|x64.Build.0 = ReleaseLTO|x64
-		{E1360C65-D375-4335-8057-7ED99CC3F9B2}.Debug|Win32.ActiveCfg = Debug|Win32
-		{E1360C65-D375-4335-8057-7ED99CC3F9B2}.Debug|Win32.Build.0 = Debug|Win32
-		{E1360C65-D375-4335-8057-7ED99CC3F9B2}.Debug|x64.ActiveCfg = Debug|x64
-		{E1360C65-D375-4335-8057-7ED99CC3F9B2}.Debug|x64.Build.0 = Debug|x64
-		{E1360C65-D375-4335-8057-7ED99CC3F9B2}.DebugDLL|Win32.ActiveCfg = Debug|Win32
-		{E1360C65-D375-4335-8057-7ED99CC3F9B2}.DebugDLL|Win32.Build.0 = Debug|Win32
-		{E1360C65-D375-4335-8057-7ED99CC3F9B2}.DebugDLL|x64.ActiveCfg = Debug|x64
-		{E1360C65-D375-4335-8057-7ED99CC3F9B2}.DebugDLL|x64.Build.0 = Debug|x64
-		{E1360C65-D375-4335-8057-7ED99CC3F9B2}.Release|Win32.ActiveCfg = Release|Win32
-		{E1360C65-D375-4335-8057-7ED99CC3F9B2}.Release|Win32.Build.0 = Release|Win32
-		{E1360C65-D375-4335-8057-7ED99CC3F9B2}.Release|x64.ActiveCfg = Release|x64
-		{E1360C65-D375-4335-8057-7ED99CC3F9B2}.Release|x64.Build.0 = Release|x64
-		{E1360C65-D375-4335-8057-7ED99CC3F9B2}.ReleaseDLL|Win32.ActiveCfg = Release|Win32
-		{E1360C65-D375-4335-8057-7ED99CC3F9B2}.ReleaseDLL|Win32.Build.0 = Release|Win32
-		{E1360C65-D375-4335-8057-7ED99CC3F9B2}.ReleaseDLL|x64.ActiveCfg = Release|x64
-		{E1360C65-D375-4335-8057-7ED99CC3F9B2}.ReleaseDLL|x64.Build.0 = Release|x64
-		{E1360C65-D375-4335-8057-7ED99CC3F9B2}.ReleaseLTO|Win32.ActiveCfg = Release|Win32
-		{E1360C65-D375-4335-8057-7ED99CC3F9B2}.ReleaseLTO|Win32.Build.0 = Release|Win32
-		{E1360C65-D375-4335-8057-7ED99CC3F9B2}.ReleaseLTO|x64.ActiveCfg = Release|x64
-		{E1360C65-D375-4335-8057-7ED99CC3F9B2}.ReleaseLTO|x64.Build.0 = Release|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
-	EndGlobalSection
-	GlobalSection(NestedProjects) = preSolution
-		{E1360C65-D375-4335-8057-7ED99CC3F9B2} = {43328279-A095-4995-B334-AC6D1CF15432}
 	EndGlobalSection
 EndGlobal
