@@ -302,18 +302,7 @@
     <ClCompile Include="..\vp9\common\x86\vp9_high_loopfilter_intrin_sse2.c" />
     <ClCompile Include="..\vp9\common\x86\vp9_idct_intrin_sse2.c" />
     <ClCompile Include="..\vp9\common\x86\vp9_idct_intrin_ssse3.c" />
-    <ClCompile Include="..\vp9\common\x86\vp9_loopfilter_intrin_avx2.c">
-      <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">AdvancedVectorExtensions2</EnableEnhancedInstructionSet>
-      <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='ReleaseDLL|Win32'">AdvancedVectorExtensions2</EnableEnhancedInstructionSet>
-      <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='DebugDLL|Win32'">AdvancedVectorExtensions2</EnableEnhancedInstructionSet>
-      <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">AdvancedVectorExtensions2</EnableEnhancedInstructionSet>
-      <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='ReleaseLTO|Win32'">AdvancedVectorExtensions2</EnableEnhancedInstructionSet>
-      <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">AdvancedVectorExtensions2</EnableEnhancedInstructionSet>
-      <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='ReleaseDLL|x64'">AdvancedVectorExtensions2</EnableEnhancedInstructionSet>
-      <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='DebugDLL|x64'">AdvancedVectorExtensions2</EnableEnhancedInstructionSet>
-      <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='Release|x64'">AdvancedVectorExtensions2</EnableEnhancedInstructionSet>
-      <EnableEnhancedInstructionSet Condition="'$(Configuration)|$(Platform)'=='ReleaseLTO|x64'">AdvancedVectorExtensions2</EnableEnhancedInstructionSet>
-    </ClCompile>
+    <ClCompile Include="..\vp9\common\x86\vp9_loopfilter_intrin_avx2.c" />
     <ClCompile Include="..\vp9\common\x86\vp9_loopfilter_intrin_sse2.c" />
     <ClCompile Include="..\vp9\common\x86\vp9_subpixel_8t_intrin_avx2.c" />
     <ClCompile Include="..\vp9\common\x86\vp9_subpixel_8t_intrin_ssse3.c" />
@@ -395,16 +384,7 @@
     <ClCompile Include="..\vpx_scale\generic\yv12extend.c" />
     <ClCompile Include="..\vpx_scale\vpx_scale_rtcd.c" />
     <ClCompile Include="vpx_config.c">
-      <ObjectFileName Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">$(IntDir)\vpx_config_.obj</ObjectFileName>
-      <ObjectFileName Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">$(IntDir)\vpx_config_.obj</ObjectFileName>
-      <ObjectFileName Condition="'$(Configuration)|$(Platform)'=='ReleaseLTO|Win32'">$(IntDir)\vpx_config_.obj</ObjectFileName>
-      <ObjectFileName Condition="'$(Configuration)|$(Platform)'=='ReleaseDLL|Win32'">$(IntDir)\vpx_config_.obj</ObjectFileName>
-      <ObjectFileName Condition="'$(Configuration)|$(Platform)'=='DebugDLL|Win32'">$(IntDir)\vpx_config_.obj</ObjectFileName>
-      <ObjectFileName Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(IntDir)\vpx_config_.obj</ObjectFileName>
-      <ObjectFileName Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(IntDir)\vpx_config_.obj</ObjectFileName>
-      <ObjectFileName Condition="'$(Configuration)|$(Platform)'=='ReleaseLTO|x64'">$(IntDir)\vpx_config_.obj</ObjectFileName>
-      <ObjectFileName Condition="'$(Configuration)|$(Platform)'=='ReleaseDLL|x64'">$(IntDir)\vpx_config_.obj</ObjectFileName>
-      <ObjectFileName Condition="'$(Configuration)|$(Platform)'=='DebugDLL|x64'">$(IntDir)\vpx_config_.obj</ObjectFileName>
+      <ObjectFileName>$(IntDir)\vpx_config_.obj</ObjectFileName>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -420,11 +400,7 @@
     <YASM Include="..\vp8\common\x86\iwalsh_mmx.asm" />
     <YASM Include="..\vp8\common\x86\iwalsh_sse2.asm" />
     <YASM Include="..\vp8\common\x86\loopfilter_block_sse2_x86_64.asm">
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='ReleaseDLL|Win32'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='DebugDLL|Win32'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='ReleaseLTO|Win32'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Platform)'=='Win32'">true</ExcludedFromBuild>
     </YASM>
     <YASM Include="..\vp8\common\x86\loopfilter_mmx.asm" />
     <YASM Include="..\vp8\common\x86\loopfilter_sse2.asm" />
@@ -457,11 +433,7 @@
     <YASM Include="..\vp9\common\x86\vp9_high_subpixel_8t_sse2.asm" />
     <YASM Include="..\vp9\common\x86\vp9_high_subpixel_bilinear_sse2.asm" />
     <YASM Include="..\vp9\common\x86\vp9_idct_ssse3_x86_64.asm">
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='ReleaseDLL|Win32'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='DebugDLL|Win32'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='ReleaseLTO|Win32'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Platform)'=='Win32'">true</ExcludedFromBuild>
     </YASM>
     <YASM Include="..\vp9\common\x86\vp9_intrapred_sse2.asm" />
     <YASM Include="..\vp9\common\x86\vp9_intrapred_ssse3.asm" />
@@ -473,11 +445,7 @@
     <YASM Include="..\vp9\common\x86\vp9_subpixel_bilinear_ssse3.asm" />
     <YASM Include="..\vp9\encoder\x86\vp9_dct_mmx.asm" />
     <YASM Include="..\vp9\encoder\x86\vp9_dct_ssse3_x86_64.asm">
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='ReleaseDLL|Win32'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='DebugDLL|Win32'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='ReleaseLTO|Win32'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Platform)'=='Win32'">true</ExcludedFromBuild>
     </YASM>
     <YASM Include="..\vp9\encoder\x86\vp9_error_sse2.asm" />
     <YASM Include="..\vp9\encoder\x86\vp9_highbd_sad4d_sse2.asm" />
@@ -485,11 +453,7 @@
     <YASM Include="..\vp9\encoder\x86\vp9_highbd_subpel_variance.asm" />
     <YASM Include="..\vp9\encoder\x86\vp9_highbd_variance_impl_sse2.asm" />
     <YASM Include="..\vp9\encoder\x86\vp9_quantize_ssse3_x86_64.asm">
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='ReleaseDLL|Win32'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='DebugDLL|Win32'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='ReleaseLTO|Win32'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Platform)'=='Win32'">true</ExcludedFromBuild>
     </YASM>
     <YASM Include="..\vp9\encoder\x86\vp9_sad4d_sse2.asm" />
     <YASM Include="..\vp9\encoder\x86\vp9_sad_sse2.asm" />
@@ -497,11 +461,7 @@
     <YASM Include="..\vp9\encoder\x86\vp9_sad_sse4.asm" />
     <YASM Include="..\vp9\encoder\x86\vp9_sad_ssse3.asm" />
     <YASM Include="..\vp9\encoder\x86\vp9_ssim_opt_x86_64.asm">
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='ReleaseDLL|Win32'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='DebugDLL|Win32'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='ReleaseLTO|Win32'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Platform)'=='Win32'">true</ExcludedFromBuild>
     </YASM>
     <YASM Include="..\vp9\encoder\x86\vp9_subpel_variance.asm" />
     <YASM Include="..\vp9\encoder\x86\vp9_subtract_sse2.asm" />
