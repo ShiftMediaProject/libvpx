@@ -97,7 +97,6 @@
     <ClInclude Include="..\vp9\common\vp9_common.h" />
     <ClInclude Include="..\vp9\common\vp9_common_data.h" />
     <ClInclude Include="..\vp9\common\vp9_convolve.h" />
-    <ClInclude Include="..\vp9\common\vp9_default_coef_probs.h" />
     <ClInclude Include="..\vp9\common\vp9_entropy.h" />
     <ClInclude Include="..\vp9\common\vp9_entropymode.h" />
     <ClInclude Include="..\vp9\common\vp9_entropymv.h" />
@@ -110,13 +109,11 @@
     <ClInclude Include="..\vp9\common\vp9_mv.h" />
     <ClInclude Include="..\vp9\common\vp9_mvref_common.h" />
     <ClInclude Include="..\vp9\common\vp9_ppflags.h" />
-    <ClInclude Include="..\vp9\common\vp9_pragmas.h" />
     <ClInclude Include="..\vp9\common\vp9_pred_common.h" />
     <ClInclude Include="..\vp9\common\vp9_prob.h" />
     <ClInclude Include="..\vp9\common\vp9_quant_common.h" />
     <ClInclude Include="..\vp9\common\vp9_reconinter.h" />
     <ClInclude Include="..\vp9\common\vp9_reconintra.h" />
-    <ClInclude Include="..\vp9\common\vp9_sadmxn.h" />
     <ClInclude Include="..\vp9\common\vp9_scale.h" />
     <ClInclude Include="..\vp9\common\vp9_scan.h" />
     <ClInclude Include="..\vp9\common\vp9_seg_common.h" />
@@ -176,7 +173,6 @@
     <ClInclude Include="..\vpx_mem\include\vpx_mem_intrnl.h" />
     <ClInclude Include="..\vpx_mem\include\vpx_mem_tracker.h" />
     <ClInclude Include="..\vpx_mem\vpx_mem.h" />
-    <ClInclude Include="..\vpx_ports\asm_offsets.h" />
     <ClInclude Include="..\vpx_ports\config.h" />
     <ClInclude Include="..\vpx_ports\emmintrin_compat.h" />
     <ClInclude Include="..\vpx_ports\mem.h" />
@@ -388,8 +384,6 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <None Include="..\vpx_ports\vpx_ports.mk" />
-    <None Include="..\vpx_scale\vpx_scale_rtcd.sh" />
     <None Include="libvpx.def" />
   </ItemGroup>
   <ItemGroup>

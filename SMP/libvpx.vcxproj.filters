@@ -150,9 +150,6 @@
     <ClInclude Include="..\vpx_scale\yv12config.h">
       <Filter>Header Files\libvpx\vpx_scale</Filter>
     </ClInclude>
-    <ClInclude Include="..\vpx_ports\asm_offsets.h">
-      <Filter>Header Files\libvpx\vpx_ports</Filter>
-    </ClInclude>
     <ClInclude Include="..\vpx_ports\config.h">
       <Filter>Header Files\libvpx\vpx_ports</Filter>
     </ClInclude>
@@ -339,9 +336,6 @@
     <ClInclude Include="..\vp9\common\vp9_convolve.h">
       <Filter>Header Files\libvpx\vp9\common</Filter>
     </ClInclude>
-    <ClInclude Include="..\vp9\common\vp9_default_coef_probs.h">
-      <Filter>Header Files\libvpx\vp9\common</Filter>
-    </ClInclude>
     <ClInclude Include="..\vp9\common\vp9_entropy.h">
       <Filter>Header Files\libvpx\vp9\common</Filter>
     </ClInclude>
@@ -372,9 +366,6 @@
     <ClInclude Include="..\vp9\common\vp9_ppflags.h">
       <Filter>Header Files\libvpx\vp9\common</Filter>
     </ClInclude>
-    <ClInclude Include="..\vp9\common\vp9_pragmas.h">
-      <Filter>Header Files\libvpx\vp9\common</Filter>
-    </ClInclude>
     <ClInclude Include="..\vp9\common\vp9_pred_common.h">
       <Filter>Header Files\libvpx\vp9\common</Filter>
     </ClInclude>
@@ -385,9 +376,6 @@
       <Filter>Header Files\libvpx\vp9\common</Filter>
     </ClInclude>
     <ClInclude Include="..\vp9\common\vp9_reconintra.h">
-      <Filter>Header Files\libvpx\vp9\common</Filter>
-    </ClInclude>
-    <ClInclude Include="..\vp9\common\vp9_sadmxn.h">
       <Filter>Header Files\libvpx\vp9\common</Filter>
     </ClInclude>
     <ClInclude Include="..\vp9\common\vp9_scale.h">
@@ -1150,12 +1138,6 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <None Include="..\vpx_scale\vpx_scale_rtcd.sh">
-      <Filter>Header Files\libvpx\vpx_scale</Filter>
-    </None>
-    <None Include="..\vpx_ports\vpx_ports.mk">
-      <Filter>Header Files\libvpx\vpx_ports</Filter>
-    </None>
     <None Include="libvpx.def">
       <Filter>Resource Files</Filter>
     </None>
