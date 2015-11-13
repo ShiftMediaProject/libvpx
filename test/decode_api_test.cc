@@ -7,10 +7,11 @@
  *  in the file PATENTS.  All contributing project authors may
  *  be found in the AUTHORS file in the root of the source tree.
  */
+
 #include "third_party/googletest/src/include/gtest/gtest.h"
 
-#include "test/ivf_video_source.h"
 #include "./vpx_config.h"
+#include "test/ivf_video_source.h"
 #include "vpx/vp8dx.h"
 #include "vpx/vpx_decoder.h"
 
@@ -25,6 +26,9 @@ TEST(DecodeAPI, InvalidParams) {
 #endif
 #if CONFIG_VP9_DECODER
     &vpx_codec_vp9_dx_algo,
+#endif
+#if CONFIG_VP10_DECODER
+    &vpx_codec_vp10_dx_algo,
 #endif
   };
   uint8_t buf[1] = {0};
@@ -129,8 +133,13 @@ TEST(DecodeAPI, Vp9InvalidDecode) {
   vpx_codec_ctx_t dec;
   EXPECT_EQ(VPX_CODEC_OK, vpx_codec_dec_init(&dec, codec, NULL, 0));
   const uint32_t frame_size = static_cast<uint32_t>(video.frame_size());
+#if CONFIG_VP9_HIGHBITDEPTH
   EXPECT_EQ(VPX_CODEC_MEM_ERROR,
             vpx_codec_decode(&dec, video.cxdata(), frame_size, NULL, 0));
+#else
+  EXPECT_EQ(VPX_CODEC_UNSUP_BITSTREAM,
+            vpx_codec_decode(&dec, video.cxdata(), frame_size, NULL, 0));
+#endif
   vpx_codec_iter_t iter = NULL;
   EXPECT_EQ(NULL, vpx_codec_get_frame(&dec, &iter));
 

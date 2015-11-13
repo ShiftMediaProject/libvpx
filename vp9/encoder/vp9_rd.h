@@ -103,8 +103,6 @@ typedef struct RD_OPT {
   int threshes[MAX_SEGMENTS][BLOCK_SIZES][MAX_MODES];
 
   int64_t prediction_type_threshes[MAX_REF_FRAMES][REFERENCE_MODES];
-  // TODO(agrange): can this overflow?
-  int tx_select_threshes[MAX_REF_FRAMES][TX_MODES];
 
   int64_t filter_threshes[MAX_REF_FRAMES][SWITCHABLE_FILTER_CONTEXTS];
 
@@ -150,7 +148,7 @@ int16_t* vp9_raster_block_offset_int16(BLOCK_SIZE plane_bsize,
 YV12_BUFFER_CONFIG *vp9_get_scaled_ref_frame(const struct VP9_COMP *cpi,
                                              int ref_frame);
 
-void vp9_init_me_luts();
+void vp9_init_me_luts(void);
 
 void vp9_get_entropy_contexts(BLOCK_SIZE bsize, TX_SIZE tx_size,
                               const struct macroblockd_plane *pd,

@@ -17,6 +17,7 @@
 
 #include "vp9/common/vp9_entropy.h"
 #include "vp9/common/vp9_pred_common.h"
+#include "vp9/common/vp9_scan.h"
 #include "vp9/common/vp9_seg_common.h"
 
 #include "vp9/encoder/vp9_cost.h"
@@ -51,7 +52,7 @@ const TOKENVALUE *vp9_dct_cat_lt_10_value_tokens = dct_cat_lt_10_value_tokens +
     / 2;
 
 // Array indices are identical to previously-existing CONTEXT_NODE indices
-const vp9_tree_index vp9_coef_tree[TREE_SIZE(ENTROPY_TOKENS)] = {
+const vpx_tree_index vp9_coef_tree[TREE_SIZE(ENTROPY_TOKENS)] = {
   -EOB_TOKEN, 2,                       // 0  = EOB
   -ZERO_TOKEN, 4,                      // 1  = ZERO
   -ONE_TOKEN, 6,                       // 2  = ONE
@@ -64,26 +65,6 @@ const vp9_tree_index vp9_coef_tree[TREE_SIZE(ENTROPY_TOKENS)] = {
   -CATEGORY3_TOKEN, -CATEGORY4_TOKEN,  // 9  = CAT_THREE
   -CATEGORY5_TOKEN, -CATEGORY6_TOKEN   // 10 = CAT_FIVE
 };
-
-// Unconstrained Node Tree
-const vp9_tree_index vp9_coef_con_tree[TREE_SIZE(ENTROPY_TOKENS)] = {
-  2, 6,                                // 0 = LOW_VAL
-  -TWO_TOKEN, 4,                       // 1 = TWO
-  -THREE_TOKEN, -FOUR_TOKEN,           // 2 = THREE
-  8, 10,                               // 3 = HIGH_LOW
-  -CATEGORY1_TOKEN, -CATEGORY2_TOKEN,  // 4 = CAT_ONE
-  12, 14,                              // 5 = CAT_THREEFOUR
-  -CATEGORY3_TOKEN, -CATEGORY4_TOKEN,  // 6 = CAT_THREE
-  -CATEGORY5_TOKEN, -CATEGORY6_TOKEN   // 7 = CAT_FIVE
-};
-
-static const vp9_tree_index cat1[2] = {0, 0};
-static const vp9_tree_index cat2[4] = {2, 2, 0, 0};
-static const vp9_tree_index cat3[6] = {2, 2, 4, 4, 0, 0};
-static const vp9_tree_index cat4[8] = {2, 2, 4, 4, 6, 6, 0, 0};
-static const vp9_tree_index cat5[10] = {2, 2, 4, 4, 6, 6, 8, 8, 0, 0};
-static const vp9_tree_index cat6[28] = {2, 2, 4, 4, 6, 6, 8, 8, 10, 10, 12, 12,
-    14, 14, 16, 16, 18, 18, 20, 20, 22, 22, 24, 24, 26, 26, 0, 0};
 
 static const int16_t zero_cost[] = {0};
 static const int16_t one_cost[] = {255, 257};
@@ -377,68 +358,49 @@ const int16_t vp9_cat6_high12_high_cost[2048] = {
 };
 #endif
 
-#if CONFIG_VP9_HIGHBITDEPTH
-static const vp9_tree_index cat1_high10[2] = {0, 0};
-static const vp9_tree_index cat2_high10[4] = {2, 2, 0, 0};
-static const vp9_tree_index cat3_high10[6] = {2, 2, 4, 4, 0, 0};
-static const vp9_tree_index cat4_high10[8] = {2, 2, 4, 4, 6, 6, 0, 0};
-static const vp9_tree_index cat5_high10[10] = {2, 2, 4, 4, 6, 6, 8, 8, 0, 0};
-static const vp9_tree_index cat6_high10[32] = {2, 2, 4, 4, 6, 6, 8, 8, 10, 10,
-  12, 12, 14, 14, 16, 16, 18, 18, 20, 20, 22, 22, 24, 24, 26, 26, 28, 28,
-  30, 30, 0, 0};
-static const vp9_tree_index cat1_high12[2] = {0, 0};
-static const vp9_tree_index cat2_high12[4] = {2, 2, 0, 0};
-static const vp9_tree_index cat3_high12[6] = {2, 2, 4, 4, 0, 0};
-static const vp9_tree_index cat4_high12[8] = {2, 2, 4, 4, 6, 6, 0, 0};
-static const vp9_tree_index cat5_high12[10] = {2, 2, 4, 4, 6, 6, 8, 8, 0, 0};
-static const vp9_tree_index cat6_high12[36] = {2, 2, 4, 4, 6, 6, 8, 8, 10, 10,
-  12, 12, 14, 14, 16, 16, 18, 18, 20, 20, 22, 22, 24, 24, 26, 26, 28, 28,
-  30, 30, 32, 32, 34, 34, 0, 0};
-#endif
-
 const vp9_extra_bit vp9_extra_bits[ENTROPY_TOKENS] = {
-  {0, 0, 0, 0, zero_cost},                             // ZERO_TOKEN
-  {0, 0, 0, 1, one_cost},                              // ONE_TOKEN
-  {0, 0, 0, 2, two_cost},                              // TWO_TOKEN
-  {0, 0, 0, 3, three_cost},                            // THREE_TOKEN
-  {0, 0, 0, 4, four_cost},                             // FOUR_TOKEN
-  {cat1, vp9_cat1_prob, 1,  CAT1_MIN_VAL, cat1_cost},  // CATEGORY1_TOKEN
-  {cat2, vp9_cat2_prob, 2,  CAT2_MIN_VAL, cat2_cost},  // CATEGORY2_TOKEN
-  {cat3, vp9_cat3_prob, 3,  CAT3_MIN_VAL, cat3_cost},  // CATEGORY3_TOKEN
-  {cat4, vp9_cat4_prob, 4,  CAT4_MIN_VAL, cat4_cost},  // CATEGORY4_TOKEN
-  {cat5, vp9_cat5_prob, 5,  CAT5_MIN_VAL, cat5_cost},  // CATEGORY5_TOKEN
-  {cat6, vp9_cat6_prob, 14, CAT6_MIN_VAL, 0},          // CATEGORY6_TOKEN
-  {0, 0, 0, 0, zero_cost}                              // EOB_TOKEN
+  {0, 0, 0, zero_cost},                          // ZERO_TOKEN
+  {0, 0, 1, one_cost},                           // ONE_TOKEN
+  {0, 0, 2, two_cost},                           // TWO_TOKEN
+  {0, 0, 3, three_cost},                         // THREE_TOKEN
+  {0, 0, 4, four_cost},                          // FOUR_TOKEN
+  {vp9_cat1_prob, 1,  CAT1_MIN_VAL, cat1_cost},  // CATEGORY1_TOKEN
+  {vp9_cat2_prob, 2,  CAT2_MIN_VAL, cat2_cost},  // CATEGORY2_TOKEN
+  {vp9_cat3_prob, 3,  CAT3_MIN_VAL, cat3_cost},  // CATEGORY3_TOKEN
+  {vp9_cat4_prob, 4,  CAT4_MIN_VAL, cat4_cost},  // CATEGORY4_TOKEN
+  {vp9_cat5_prob, 5,  CAT5_MIN_VAL, cat5_cost},  // CATEGORY5_TOKEN
+  {vp9_cat6_prob, 14, CAT6_MIN_VAL, 0},          // CATEGORY6_TOKEN
+  {0, 0, 0, zero_cost}                           // EOB_TOKEN
 };
 
 #if CONFIG_VP9_HIGHBITDEPTH
 const vp9_extra_bit vp9_extra_bits_high10[ENTROPY_TOKENS] = {
-  {0, 0, 0, 0, zero_cost},                                           // ZERO
-  {0, 0, 0, 1, one_cost},                                            // ONE
-  {0, 0, 0, 2, two_cost},                                            // TWO
-  {0, 0, 0, 3, three_cost},                                          // THREE
-  {0, 0, 0, 4, four_cost},                                           // FOUR
-  {cat1_high10, vp9_cat1_prob_high10, 1,  CAT1_MIN_VAL, cat1_cost},  // CAT1
-  {cat2_high10, vp9_cat2_prob_high10, 2,  CAT2_MIN_VAL, cat2_cost},  // CAT2
-  {cat3_high10, vp9_cat3_prob_high10, 3,  CAT3_MIN_VAL, cat3_cost},  // CAT3
-  {cat4_high10, vp9_cat4_prob_high10, 4,  CAT4_MIN_VAL, cat4_cost},  // CAT4
-  {cat5_high10, vp9_cat5_prob_high10, 5,  CAT5_MIN_VAL, cat5_cost},  // CAT5
-  {cat6_high10, vp9_cat6_prob_high10, 16, CAT6_MIN_VAL, 0},          // CAT6
-  {0, 0, 0, 0, zero_cost}                                            // EOB
+  {0, 0, 0, zero_cost},                                 // ZERO
+  {0, 0, 1, one_cost},                                  // ONE
+  {0, 0, 2, two_cost},                                  // TWO
+  {0, 0, 3, three_cost},                                // THREE
+  {0, 0, 4, four_cost},                                 // FOUR
+  {vp9_cat1_prob_high10, 1,  CAT1_MIN_VAL, cat1_cost},  // CAT1
+  {vp9_cat2_prob_high10, 2,  CAT2_MIN_VAL, cat2_cost},  // CAT2
+  {vp9_cat3_prob_high10, 3,  CAT3_MIN_VAL, cat3_cost},  // CAT3
+  {vp9_cat4_prob_high10, 4,  CAT4_MIN_VAL, cat4_cost},  // CAT4
+  {vp9_cat5_prob_high10, 5,  CAT5_MIN_VAL, cat5_cost},  // CAT5
+  {vp9_cat6_prob_high10, 16, CAT6_MIN_VAL, 0},          // CAT6
+  {0, 0, 0, zero_cost}                                  // EOB
 };
 const vp9_extra_bit vp9_extra_bits_high12[ENTROPY_TOKENS] = {
-  {0, 0, 0, 0, zero_cost},                                           // ZERO
-  {0, 0, 0, 1, one_cost},                                            // ONE
-  {0, 0, 0, 2, two_cost},                                            // TWO
-  {0, 0, 0, 3, three_cost},                                          // THREE
-  {0, 0, 0, 4, four_cost},                                           // FOUR
-  {cat1_high12, vp9_cat1_prob_high12, 1,  CAT1_MIN_VAL, cat1_cost},  // CAT1
-  {cat2_high12, vp9_cat2_prob_high12, 2,  CAT2_MIN_VAL, cat2_cost},  // CAT2
-  {cat3_high12, vp9_cat3_prob_high12, 3,  CAT3_MIN_VAL, cat3_cost},  // CAT3
-  {cat4_high12, vp9_cat4_prob_high12, 4,  CAT4_MIN_VAL, cat4_cost},  // CAT4
-  {cat5_high12, vp9_cat5_prob_high12, 5,  CAT5_MIN_VAL, cat5_cost},  // CAT5
-  {cat6_high12, vp9_cat6_prob_high12, 18, CAT6_MIN_VAL, 0},          // CAT6
-  {0, 0, 0, 0, zero_cost}                                            // EOB
+  {0, 0, 0, zero_cost},                                 // ZERO
+  {0, 0, 1, one_cost},                                  // ONE
+  {0, 0, 2, two_cost},                                  // TWO
+  {0, 0, 3, three_cost},                                // THREE
+  {0, 0, 4, four_cost},                                 // FOUR
+  {vp9_cat1_prob_high12, 1,  CAT1_MIN_VAL, cat1_cost},  // CAT1
+  {vp9_cat2_prob_high12, 2,  CAT2_MIN_VAL, cat2_cost},  // CAT2
+  {vp9_cat3_prob_high12, 3,  CAT3_MIN_VAL, cat3_cost},  // CAT3
+  {vp9_cat4_prob_high12, 4,  CAT4_MIN_VAL, cat4_cost},  // CAT4
+  {vp9_cat5_prob_high12, 5,  CAT5_MIN_VAL, cat5_cost},  // CAT5
+  {vp9_cat6_prob_high12, 18, CAT6_MIN_VAL, 0},          // CAT6
+  {0, 0, 0, zero_cost}                                  // EOB
 };
 #endif
 
@@ -468,7 +430,7 @@ static void set_entropy_context_b(int plane, int block, BLOCK_SIZE plane_bsize,
                    aoff, loff);
 }
 
-static INLINE void add_token(TOKENEXTRA **t, const vp9_prob *context_tree,
+static INLINE void add_token(TOKENEXTRA **t, const vpx_prob *context_tree,
                              int32_t extra, uint8_t token,
                              uint8_t skip_eob_node,
                              unsigned int *counts) {
@@ -481,7 +443,7 @@ static INLINE void add_token(TOKENEXTRA **t, const vp9_prob *context_tree,
 }
 
 static INLINE void add_token_no_extra(TOKENEXTRA **t,
-                                      const vp9_prob *context_tree,
+                                      const vpx_prob *context_tree,
                                       uint8_t token,
                                       uint8_t skip_eob_node,
                                       unsigned int *counts) {
@@ -495,7 +457,7 @@ static INLINE void add_token_no_extra(TOKENEXTRA **t,
 static INLINE int get_tx_eob(const struct segmentation *seg, int segment_id,
                              TX_SIZE tx_size) {
   const int eob_max = 16 << (tx_size << 1);
-  return vp9_segfeature_active(seg, segment_id, SEG_LVL_SKIP) ? 0 : eob_max;
+  return segfeature_active(seg, segment_id, SEG_LVL_SKIP) ? 0 : eob_max;
 }
 
 static void tokenize_b(int plane, int block, BLOCK_SIZE plane_bsize,
@@ -509,12 +471,12 @@ static void tokenize_b(int plane, int block, BLOCK_SIZE plane_bsize,
   uint8_t token_cache[32 * 32];
   struct macroblock_plane *p = &x->plane[plane];
   struct macroblockd_plane *pd = &xd->plane[plane];
-  MB_MODE_INFO *mbmi = &xd->mi[0].src_mi->mbmi;
+  MB_MODE_INFO *mbmi = &xd->mi[0]->mbmi;
   int pt; /* near block/prev token context index */
   int c;
   TOKENEXTRA *t = *tp;        /* store tokens starting here */
   int eob = p->eobs[block];
-  const PLANE_TYPE type = pd->plane_type;
+  const PLANE_TYPE type = get_plane_type(plane);
   const tran_low_t *qcoeff = BLOCK_OFFSET(p->qcoeff, block);
   const int segment_id = mbmi->segment_id;
   const int16_t *scan, *nb;
@@ -522,7 +484,7 @@ static void tokenize_b(int plane, int block, BLOCK_SIZE plane_bsize,
   const int ref = is_inter_block(mbmi);
   unsigned int (*const counts)[COEFF_CONTEXTS][ENTROPY_TOKENS] =
       td->rd_counts.coef_counts[tx_size][type][ref];
-  vp9_prob (*const coef_probs)[COEFF_CONTEXTS][UNCONSTRAINED_NODES] =
+  vpx_prob (*const coef_probs)[COEFF_CONTEXTS][UNCONSTRAINED_NODES] =
       cpi->common.fc->coef_probs[tx_size][type][ref];
   unsigned int (*const eob_branch)[COEFF_CONTEXTS] =
       td->counts->eob_branch[tx_size][type][ref];
@@ -579,23 +541,24 @@ static void tokenize_b(int plane, int block, BLOCK_SIZE plane_bsize,
 }
 
 struct is_skippable_args {
-  MACROBLOCK *x;
+  uint16_t *eobs;
   int *skippable;
 };
 static void is_skippable(int plane, int block,
                          BLOCK_SIZE plane_bsize, TX_SIZE tx_size,
                          void *argv) {
   struct is_skippable_args *args = argv;
+  (void)plane;
   (void)plane_bsize;
   (void)tx_size;
-  args->skippable[0] &= (!args->x->plane[plane].eobs[block]);
+  args->skippable[0] &= (!args->eobs[block]);
 }
 
 // TODO(yaowu): rewrite and optimize this function to remove the usage of
 //              vp9_foreach_transform_block() and simplify is_skippable().
 int vp9_is_skippable_in_plane(MACROBLOCK *x, BLOCK_SIZE bsize, int plane) {
   int result = 1;
-  struct is_skippable_args args = {x, &result};
+  struct is_skippable_args args = {x->plane[plane].eobs, &result};
   vp9_foreach_transformed_block_in_plane(&x->e_mbd, bsize, plane, is_skippable,
                                          &args);
   return result;
@@ -606,14 +569,15 @@ static void has_high_freq_coeff(int plane, int block,
                                 void *argv) {
   struct is_skippable_args *args = argv;
   int eobs = (tx_size == TX_4X4) ? 3 : 10;
+  (void) plane;
   (void) plane_bsize;
 
-  *(args->skippable) |= (args->x->plane[plane].eobs[block] > eobs);
+  *(args->skippable) |= (args->eobs[block] > eobs);
 }
 
 int vp9_has_high_freq_in_plane(MACROBLOCK *x, BLOCK_SIZE bsize, int plane) {
   int result = 0;
-  struct is_skippable_args args = {x, &result};
+  struct is_skippable_args args = {x->plane[plane].eobs, &result};
   vp9_foreach_transformed_block_in_plane(&x->e_mbd, bsize, plane,
                                          has_high_freq_coeff, &args);
   return result;
@@ -624,18 +588,15 @@ void vp9_tokenize_sb(VP9_COMP *cpi, ThreadData *td, TOKENEXTRA **t,
   VP9_COMMON *const cm = &cpi->common;
   MACROBLOCK *const x = &td->mb;
   MACROBLOCKD *const xd = &x->e_mbd;
-  MB_MODE_INFO *const mbmi = &xd->mi[0].src_mi->mbmi;
-  TOKENEXTRA *t_backup = *t;
+  MB_MODE_INFO *const mbmi = &xd->mi[0]->mbmi;
   const int ctx = vp9_get_skip_context(xd);
-  const int skip_inc = !vp9_segfeature_active(&cm->seg, mbmi->segment_id,
-                                              SEG_LVL_SKIP);
+  const int skip_inc = !segfeature_active(&cm->seg, mbmi->segment_id,
+                                          SEG_LVL_SKIP);
   struct tokenize_b_args arg = {cpi, td, t};
   if (mbmi->skip) {
     if (!dry_run)
       td->counts->skip[ctx][1] += skip_inc;
     reset_skip_context(xd, bsize);
-    if (dry_run)
-      *t = t_backup;
     return;
   }
 
@@ -644,6 +605,5 @@ void vp9_tokenize_sb(VP9_COMP *cpi, ThreadData *td, TOKENEXTRA **t,
     vp9_foreach_transformed_block(xd, bsize, tokenize_b, &arg);
   } else {
     vp9_foreach_transformed_block(xd, bsize, set_entropy_context_b, &arg);
-    *t = t_backup;
   }
 }

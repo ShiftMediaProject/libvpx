@@ -12,9 +12,18 @@
 #include <stdio.h>
 #include <limits.h>
 
+#include "./vp9_rtcd.h"
 #include "./vpx_config.h"
+#include "./vpx_dsp_rtcd.h"
 #include "./vpx_scale_rtcd.h"
 #include "vpx/internal/vpx_psnr.h"
+#include "vpx_dsp/vpx_dsp_common.h"
+#include "vpx_dsp/vpx_filter.h"
+#if CONFIG_INTERNAL_STATS
+#include "vpx_dsp/ssim.h"
+#endif
+#include "vpx_ports/mem.h"
+#include "vpx_ports/system_state.h"
 #include "vpx_ports/vpx_timer.h"
 
 #include "vp9/common/vp9_alloccommon.h"
@@ -25,7 +34,6 @@
 #endif
 #include "vp9/common/vp9_reconinter.h"
 #include "vp9/common/vp9_reconintra.h"
-#include "vp9/common/vp9_systemdependent.h"
 #include "vp9/common/vp9_tile_common.h"
 
 #include "vp9/encoder/vp9_aq_complexity.h"
@@ -46,9 +54,6 @@
 #include "vp9/encoder/vp9_segmentation.h"
 #include "vp9/encoder/vp9_skin_detection.h"
 #include "vp9/encoder/vp9_speed_features.h"
-#if CONFIG_INTERNAL_STATS
-#include "vp9/encoder/vp9_ssim.h"
-#endif
 #include "vp9/encoder/vp9_svc_layercontext.h"
 #include "vp9/encoder/vp9_temporal_filter.h"
 
@@ -109,7 +114,7 @@ static INLINE void Scale2Ratio(VPX_SCALING mode, int *hr, int *hs) {
 
 // Mark all inactive blocks as active. Other segmentation features may be set
 // so memset cannot be used, instead only inactive blocks should be reset.
-void vp9_suppress_active_map(VP9_COMP *cpi) {
+static void suppress_active_map(VP9_COMP *cpi) {
   unsigned char *const seg_map = cpi->segmentation_map;
   int i;
   if (cpi->active_map.enabled || cpi->active_map.update)
@@ -118,7 +123,7 @@ void vp9_suppress_active_map(VP9_COMP *cpi) {
         seg_map[i] = AM_SEGMENT_ID_ACTIVE;
 }
 
-void vp9_apply_active_map(VP9_COMP *cpi) {
+static void apply_active_map(VP9_COMP *cpi) {
   struct segmentation *const seg = &cpi->common.seg;
   unsigned char *const seg_map = cpi->segmentation_map;
   const unsigned char *const active_map = cpi->active_map.map;
@@ -126,14 +131,25 @@ void vp9_apply_active_map(VP9_COMP *cpi) {
 
   assert(AM_SEGMENT_ID_ACTIVE == CR_SEGMENT_ID_BASE);
 
+  if (frame_is_intra_only(&cpi->common)) {
+    cpi->active_map.enabled = 0;
+    cpi->active_map.update = 1;
+  }
+
   if (cpi->active_map.update) {
     if (cpi->active_map.enabled) {
       for (i = 0; i < cpi->common.mi_rows * cpi->common.mi_cols; ++i)
         if (seg_map[i] == AM_SEGMENT_ID_ACTIVE) seg_map[i] = active_map[i];
       vp9_enable_segmentation(seg);
       vp9_enable_segfeature(seg, AM_SEGMENT_ID_INACTIVE, SEG_LVL_SKIP);
+      vp9_enable_segfeature(seg, AM_SEGMENT_ID_INACTIVE, SEG_LVL_ALT_LF);
+      // Setting the data to -MAX_LOOP_FILTER will result in the computed loop
+      // filter level being zero regardless of the value of seg->abs_delta.
+      vp9_set_segdata(seg, AM_SEGMENT_ID_INACTIVE,
+                      SEG_LVL_ALT_LF, -MAX_LOOP_FILTER);
     } else {
       vp9_disable_segfeature(seg, AM_SEGMENT_ID_INACTIVE, SEG_LVL_SKIP);
+      vp9_disable_segfeature(seg, AM_SEGMENT_ID_INACTIVE, SEG_LVL_ALT_LF);
       if (seg->enabled) {
         seg->update_data = 1;
         seg->update_map = 1;
@@ -165,6 +181,33 @@ int vp9_set_active_map(VP9_COMP* cpi,
       cpi->active_map.enabled = 1;
     } else {
       cpi->active_map.enabled = 0;
+    }
+    return 0;
+  } else {
+    return -1;
+  }
+}
+
+int vp9_get_active_map(VP9_COMP* cpi,
+                       unsigned char* new_map_16x16,
+                       int rows,
+                       int cols) {
+  if (rows == cpi->common.mb_rows && cols == cpi->common.mb_cols &&
+      new_map_16x16) {
+    unsigned char* const seg_map_8x8 = cpi->segmentation_map;
+    const int mi_rows = cpi->common.mi_rows;
+    const int mi_cols = cpi->common.mi_cols;
+    memset(new_map_16x16, !cpi->active_map.enabled, rows * cols);
+    if (cpi->active_map.enabled) {
+      int r, c;
+      for (r = 0; r < mi_rows; ++r) {
+        for (c = 0; c < mi_cols; ++c) {
+          // Cyclic refresh segments are considered active despite not having
+          // AM_SEGMENT_ID_ACTIVE
+          new_map_16x16[(r >> 1) * cols + (c >> 1)] |=
+              seg_map_8x8[r * mi_cols + c] != AM_SEGMENT_ID_INACTIVE;
+        }
+      }
     }
     return 0;
   } else {
@@ -212,13 +255,19 @@ static void setup_frame(VP9_COMP *cpi) {
 static void vp9_enc_setup_mi(VP9_COMMON *cm) {
   int i;
   cm->mi = cm->mip + cm->mi_stride + 1;
-  vpx_memset(cm->mip, 0, cm->mi_stride * (cm->mi_rows + 1) * sizeof(*cm->mip));
+  memset(cm->mip, 0, cm->mi_stride * (cm->mi_rows + 1) * sizeof(*cm->mip));
   cm->prev_mi = cm->prev_mip + cm->mi_stride + 1;
   // Clear top border row
-  vpx_memset(cm->prev_mip, 0, sizeof(*cm->prev_mip) * cm->mi_stride);
+  memset(cm->prev_mip, 0, sizeof(*cm->prev_mip) * cm->mi_stride);
   // Clear left border column
   for (i = 1; i < cm->mi_rows + 1; ++i)
-    vpx_memset(&cm->prev_mip[i * cm->mi_stride], 0, sizeof(*cm->prev_mip));
+    memset(&cm->prev_mip[i * cm->mi_stride], 0, sizeof(*cm->prev_mip));
+
+  cm->mi_grid_visible = cm->mi_grid_base + cm->mi_stride + 1;
+  cm->prev_mi_grid_visible = cm->prev_mi_grid_base + cm->mi_stride + 1;
+
+  memset(cm->mi_grid_base, 0,
+         cm->mi_stride * (cm->mi_rows + 1) * sizeof(*cm->mi_grid_base));
 }
 
 static int vp9_enc_alloc_mi(VP9_COMMON *cm, int mi_size) {
@@ -229,6 +278,14 @@ static int vp9_enc_alloc_mi(VP9_COMMON *cm, int mi_size) {
   if (!cm->prev_mip)
     return 1;
   cm->mi_alloc_size = mi_size;
+
+  cm->mi_grid_base = (MODE_INFO **)vpx_calloc(mi_size, sizeof(MODE_INFO*));
+  if (!cm->mi_grid_base)
+    return 1;
+  cm->prev_mi_grid_base = (MODE_INFO **)vpx_calloc(mi_size, sizeof(MODE_INFO*));
+  if (!cm->prev_mi_grid_base)
+    return 1;
+
   return 0;
 }
 
@@ -237,10 +294,15 @@ static void vp9_enc_free_mi(VP9_COMMON *cm) {
   cm->mip = NULL;
   vpx_free(cm->prev_mip);
   cm->prev_mip = NULL;
+  vpx_free(cm->mi_grid_base);
+  cm->mi_grid_base = NULL;
+  vpx_free(cm->prev_mi_grid_base);
+  cm->prev_mi_grid_base = NULL;
 }
 
 static void vp9_swap_mi_and_prev_mi(VP9_COMMON *cm) {
   // Current mip will be the prev_mip for the next frame.
+  MODE_INFO **temp_base = cm->prev_mi_grid_base;
   MODE_INFO *temp = cm->prev_mip;
   cm->prev_mip = cm->mip;
   cm->mip = temp;
@@ -248,6 +310,11 @@ static void vp9_swap_mi_and_prev_mi(VP9_COMMON *cm) {
   // Update the upper left visible macroblock ptrs.
   cm->mi = cm->mip + cm->mi_stride + 1;
   cm->prev_mi = cm->prev_mip + cm->mi_stride + 1;
+
+  cm->prev_mi_grid_base = cm->mi_grid_base;
+  cm->mi_grid_base = temp_base;
+  cm->mi_grid_visible = cm->mi_grid_base + cm->mi_stride + 1;
+  cm->prev_mi_grid_visible = cm->prev_mi_grid_base + cm->mi_stride + 1;
 }
 
 void vp9_initialize_enc(void) {
@@ -255,6 +322,8 @@ void vp9_initialize_enc(void) {
 
   if (!init_done) {
     vp9_rtcd();
+    vpx_dsp_rtcd();
+    vpx_scale_rtcd();
     vp9_init_intra_predictors();
     vp9_init_me_luts();
     vp9_rc_init_minq_luts();
@@ -267,6 +336,9 @@ void vp9_initialize_enc(void) {
 static void dealloc_compressor_data(VP9_COMP *cpi) {
   VP9_COMMON *const cm = &cpi->common;
   int i;
+
+  vpx_free(cpi->mbmi_ext_base);
+  cpi->mbmi_ext_base = NULL;
 
   vpx_free(cpi->tile_data);
   cpi->tile_data = NULL;
@@ -303,13 +375,16 @@ static void dealloc_compressor_data(VP9_COMP *cpi) {
   vpx_free(cpi->active_map.map);
   cpi->active_map.map = NULL;
 
-  vp9_free_ref_frame_buffers(cm);
+  vp9_free_ref_frame_buffers(cm->buffer_pool);
+#if CONFIG_VP9_POSTPROC
+  vp9_free_postproc_buffers(cm);
+#endif
   vp9_free_context_buffers(cm);
 
-  vp9_free_frame_buffer(&cpi->last_frame_uf);
-  vp9_free_frame_buffer(&cpi->scaled_source);
-  vp9_free_frame_buffer(&cpi->scaled_last_source);
-  vp9_free_frame_buffer(&cpi->alt_ref_buffer);
+  vpx_free_frame_buffer(&cpi->last_frame_uf);
+  vpx_free_frame_buffer(&cpi->scaled_source);
+  vpx_free_frame_buffer(&cpi->scaled_last_source);
+  vpx_free_frame_buffer(&cpi->alt_ref_buffer);
   vp9_lookahead_destroy(cpi->lookahead);
 
   vpx_free(cpi->tile_tok[0][0]);
@@ -330,13 +405,15 @@ static void dealloc_compressor_data(VP9_COMP *cpi) {
   }
 
   for (i = 0; i < MAX_LAG_BUFFERS; ++i) {
-    vp9_free_frame_buffer(&cpi->svc.scaled_frames[i]);
+    vpx_free_frame_buffer(&cpi->svc.scaled_frames[i]);
   }
-  vpx_memset(&cpi->svc.scaled_frames[0], 0,
-             MAX_LAG_BUFFERS * sizeof(cpi->svc.scaled_frames[0]));
+  memset(&cpi->svc.scaled_frames[0], 0,
+         MAX_LAG_BUFFERS * sizeof(cpi->svc.scaled_frames[0]));
 
-  vp9_free_frame_buffer(&cpi->svc.empty_frame.img);
-  vpx_memset(&cpi->svc.empty_frame, 0, sizeof(cpi->svc.empty_frame));
+  vpx_free_frame_buffer(&cpi->svc.empty_frame.img);
+  memset(&cpi->svc.empty_frame, 0, sizeof(cpi->svc.empty_frame));
+
+  vp9_free_svc_cyclic_refresh(cpi);
 }
 
 static void save_coding_context(VP9_COMP *cpi) {
@@ -349,19 +426,19 @@ static void save_coding_context(VP9_COMP *cpi) {
   // quantizer value is adjusted between loop iterations.
   vp9_copy(cc->nmvjointcost,  cpi->td.mb.nmvjointcost);
 
-  vpx_memcpy(cc->nmvcosts[0], cpi->nmvcosts[0],
-             MV_VALS * sizeof(*cpi->nmvcosts[0]));
-  vpx_memcpy(cc->nmvcosts[1], cpi->nmvcosts[1],
-             MV_VALS * sizeof(*cpi->nmvcosts[1]));
-  vpx_memcpy(cc->nmvcosts_hp[0], cpi->nmvcosts_hp[0],
-             MV_VALS * sizeof(*cpi->nmvcosts_hp[0]));
-  vpx_memcpy(cc->nmvcosts_hp[1], cpi->nmvcosts_hp[1],
-             MV_VALS * sizeof(*cpi->nmvcosts_hp[1]));
+  memcpy(cc->nmvcosts[0], cpi->nmvcosts[0],
+         MV_VALS * sizeof(*cpi->nmvcosts[0]));
+  memcpy(cc->nmvcosts[1], cpi->nmvcosts[1],
+         MV_VALS * sizeof(*cpi->nmvcosts[1]));
+  memcpy(cc->nmvcosts_hp[0], cpi->nmvcosts_hp[0],
+         MV_VALS * sizeof(*cpi->nmvcosts_hp[0]));
+  memcpy(cc->nmvcosts_hp[1], cpi->nmvcosts_hp[1],
+         MV_VALS * sizeof(*cpi->nmvcosts_hp[1]));
 
   vp9_copy(cc->segment_pred_probs, cm->seg.pred_probs);
 
-  vpx_memcpy(cpi->coding_context.last_frame_seg_map_copy,
-             cm->last_frame_seg_map, (cm->mi_rows * cm->mi_cols));
+  memcpy(cpi->coding_context.last_frame_seg_map_copy,
+         cm->last_frame_seg_map, (cm->mi_rows * cm->mi_cols));
 
   vp9_copy(cc->last_ref_lf_deltas, cm->lf.last_ref_deltas);
   vp9_copy(cc->last_mode_lf_deltas, cm->lf.last_mode_deltas);
@@ -377,20 +454,18 @@ static void restore_coding_context(VP9_COMP *cpi) {
   // previous call to vp9_save_coding_context.
   vp9_copy(cpi->td.mb.nmvjointcost, cc->nmvjointcost);
 
-  vpx_memcpy(cpi->nmvcosts[0], cc->nmvcosts[0],
-             MV_VALS * sizeof(*cc->nmvcosts[0]));
-  vpx_memcpy(cpi->nmvcosts[1], cc->nmvcosts[1],
-             MV_VALS * sizeof(*cc->nmvcosts[1]));
-  vpx_memcpy(cpi->nmvcosts_hp[0], cc->nmvcosts_hp[0],
-             MV_VALS * sizeof(*cc->nmvcosts_hp[0]));
-  vpx_memcpy(cpi->nmvcosts_hp[1], cc->nmvcosts_hp[1],
-             MV_VALS * sizeof(*cc->nmvcosts_hp[1]));
+  memcpy(cpi->nmvcosts[0], cc->nmvcosts[0], MV_VALS * sizeof(*cc->nmvcosts[0]));
+  memcpy(cpi->nmvcosts[1], cc->nmvcosts[1], MV_VALS * sizeof(*cc->nmvcosts[1]));
+  memcpy(cpi->nmvcosts_hp[0], cc->nmvcosts_hp[0],
+         MV_VALS * sizeof(*cc->nmvcosts_hp[0]));
+  memcpy(cpi->nmvcosts_hp[1], cc->nmvcosts_hp[1],
+         MV_VALS * sizeof(*cc->nmvcosts_hp[1]));
 
   vp9_copy(cm->seg.pred_probs, cc->segment_pred_probs);
 
-  vpx_memcpy(cm->last_frame_seg_map,
-             cpi->coding_context.last_frame_seg_map_copy,
-             (cm->mi_rows * cm->mi_cols));
+  memcpy(cm->last_frame_seg_map,
+         cpi->coding_context.last_frame_seg_map_copy,
+         (cm->mi_rows * cm->mi_cols));
 
   vp9_copy(cm->lf.last_ref_deltas, cc->last_ref_lf_deltas);
   vp9_copy(cm->lf.last_mode_deltas, cc->last_mode_lf_deltas);
@@ -409,7 +484,7 @@ static void configure_static_seg_features(VP9_COMP *cpi) {
   // Disable and clear down for KF
   if (cm->frame_type == KEY_FRAME) {
     // Clear down the global segmentation map
-    vpx_memset(cpi->segmentation_map, 0, cm->mi_rows * cm->mi_cols);
+    memset(cpi->segmentation_map, 0, cm->mi_rows * cm->mi_cols);
     seg->update_map = 0;
     seg->update_data = 0;
     cpi->static_mb_pct = 0;
@@ -422,7 +497,7 @@ static void configure_static_seg_features(VP9_COMP *cpi) {
   } else if (cpi->refresh_alt_ref_frame) {
     // If this is an alt ref frame
     // Clear down the global segmentation map
-    vpx_memset(cpi->segmentation_map, 0, cm->mi_rows * cm->mi_cols);
+    memset(cpi->segmentation_map, 0, cm->mi_rows * cm->mi_cols);
     seg->update_map = 0;
     seg->update_data = 0;
     cpi->static_mb_pct = 0;
@@ -483,7 +558,7 @@ static void configure_static_seg_features(VP9_COMP *cpi) {
 
         vp9_disable_segmentation(seg);
 
-        vpx_memset(cpi->segmentation_map, 0, cm->mi_rows * cm->mi_cols);
+        memset(cpi->segmentation_map, 0, cm->mi_rows * cm->mi_cols);
 
         seg->update_map = 0;
         seg->update_data = 0;
@@ -524,15 +599,15 @@ static void configure_static_seg_features(VP9_COMP *cpi) {
 
 static void update_reference_segmentation_map(VP9_COMP *cpi) {
   VP9_COMMON *const cm = &cpi->common;
-  MODE_INFO *mi_8x8_ptr = cm->mi;
+  MODE_INFO **mi_8x8_ptr = cm->mi_grid_visible;
   uint8_t *cache_ptr = cm->last_frame_seg_map;
   int row, col;
 
   for (row = 0; row < cm->mi_rows; row++) {
-    MODE_INFO *mi_8x8 = mi_8x8_ptr;
+    MODE_INFO **mi_8x8 = mi_8x8_ptr;
     uint8_t *cache = cache_ptr;
     for (col = 0; col < cm->mi_cols; col++, mi_8x8++, cache++)
-      cache[0] = mi_8x8[0].src_mi->mbmi.segment_id;
+      cache[0] = mi_8x8[0]->mbmi.segment_id;
     mi_8x8_ptr += cm->mi_stride;
     cache_ptr += cm->mi_cols;
   }
@@ -554,7 +629,7 @@ static void alloc_raw_frame_buffers(VP9_COMP *cpi) {
                        "Failed to allocate lag buffers");
 
   // TODO(agrange) Check if ARF is enabled and skip allocation if not.
-  if (vp9_realloc_frame_buffer(&cpi->alt_ref_buffer,
+  if (vpx_realloc_frame_buffer(&cpi->alt_ref_buffer,
                                oxcf->width, oxcf->height,
                                cm->subsampling_x, cm->subsampling_y,
 #if CONFIG_VP9_HIGHBITDEPTH
@@ -568,7 +643,7 @@ static void alloc_raw_frame_buffers(VP9_COMP *cpi) {
 
 static void alloc_util_frame_buffers(VP9_COMP *cpi) {
   VP9_COMMON *const cm = &cpi->common;
-  if (vp9_realloc_frame_buffer(&cpi->last_frame_uf,
+  if (vpx_realloc_frame_buffer(&cpi->last_frame_uf,
                                cm->width, cm->height,
                                cm->subsampling_x, cm->subsampling_y,
 #if CONFIG_VP9_HIGHBITDEPTH
@@ -579,7 +654,7 @@ static void alloc_util_frame_buffers(VP9_COMP *cpi) {
     vpx_internal_error(&cm->error, VPX_CODEC_MEM_ERROR,
                        "Failed to allocate last frame buffer");
 
-  if (vp9_realloc_frame_buffer(&cpi->scaled_source,
+  if (vpx_realloc_frame_buffer(&cpi->scaled_source,
                                cm->width, cm->height,
                                cm->subsampling_x, cm->subsampling_y,
 #if CONFIG_VP9_HIGHBITDEPTH
@@ -590,7 +665,7 @@ static void alloc_util_frame_buffers(VP9_COMP *cpi) {
     vpx_internal_error(&cm->error, VPX_CODEC_MEM_ERROR,
                        "Failed to allocate scaled source buffer");
 
-  if (vp9_realloc_frame_buffer(&cpi->scaled_last_source,
+  if (vpx_realloc_frame_buffer(&cpi->scaled_last_source,
                                cm->width, cm->height,
                                cm->subsampling_x, cm->subsampling_y,
 #if CONFIG_VP9_HIGHBITDEPTH
@@ -602,10 +677,24 @@ static void alloc_util_frame_buffers(VP9_COMP *cpi) {
                        "Failed to allocate scaled last source buffer");
 }
 
-void vp9_alloc_compressor_data(VP9_COMP *cpi) {
+
+static int alloc_context_buffers_ext(VP9_COMP *cpi) {
+  VP9_COMMON *cm = &cpi->common;
+  int mi_size = cm->mi_cols * cm->mi_rows;
+
+  cpi->mbmi_ext_base = vpx_calloc(mi_size, sizeof(*cpi->mbmi_ext_base));
+  if (!cpi->mbmi_ext_base)
+    return 1;
+
+  return 0;
+}
+
+static void alloc_compressor_data(VP9_COMP *cpi) {
   VP9_COMMON *cm = &cpi->common;
 
   vp9_alloc_context_buffers(cm, cm->width, cm->height);
+
+  alloc_context_buffers_ext(cpi);
 
   vpx_free(cpi->tile_tok[0][0]);
 
@@ -616,28 +705,6 @@ void vp9_alloc_compressor_data(VP9_COMP *cpi) {
   }
 
   vp9_setup_pc_tree(&cpi->common, &cpi->td);
-}
-
-static void update_frame_size(VP9_COMP *cpi) {
-  VP9_COMMON *const cm = &cpi->common;
-  MACROBLOCKD *const xd = &cpi->td.mb.e_mbd;
-
-  vp9_set_mb_mi(cm, cm->width, cm->height);
-  vp9_init_context_buffers(cm);
-  init_macroblockd(cm, xd);
-
-  if (is_two_pass_svc(cpi)) {
-    if (vp9_realloc_frame_buffer(&cpi->alt_ref_buffer,
-                                 cm->width, cm->height,
-                                 cm->subsampling_x, cm->subsampling_y,
-#if CONFIG_VP9_HIGHBITDEPTH
-                                 cm->use_highbitdepth,
-#endif
-                                 VP9_ENC_BORDER_IN_PIXELS, cm->byte_alignment,
-                                 NULL, NULL, NULL))
-      vpx_internal_error(&cm->error, VPX_CODEC_MEM_ERROR,
-                         "Failed to reallocate alt_ref_buffer");
-  }
 }
 
 void vp9_new_framerate(VP9_COMP *cpi, double framerate) {
@@ -651,9 +718,43 @@ static void set_tile_limits(VP9_COMP *cpi) {
   int min_log2_tile_cols, max_log2_tile_cols;
   vp9_get_tile_n_bits(cm->mi_cols, &min_log2_tile_cols, &max_log2_tile_cols);
 
-  cm->log2_tile_cols = clamp(cpi->oxcf.tile_columns,
-                             min_log2_tile_cols, max_log2_tile_cols);
-  cm->log2_tile_rows = cpi->oxcf.tile_rows;
+  if (is_two_pass_svc(cpi) &&
+      (cpi->svc.encode_empty_frame_state == ENCODING ||
+      cpi->svc.number_spatial_layers > 1)) {
+    cm->log2_tile_cols = 0;
+    cm->log2_tile_rows = 0;
+  } else {
+    cm->log2_tile_cols = clamp(cpi->oxcf.tile_columns,
+                               min_log2_tile_cols, max_log2_tile_cols);
+    cm->log2_tile_rows = cpi->oxcf.tile_rows;
+  }
+}
+
+static void update_frame_size(VP9_COMP *cpi) {
+  VP9_COMMON *const cm = &cpi->common;
+  MACROBLOCKD *const xd = &cpi->td.mb.e_mbd;
+
+  vp9_set_mb_mi(cm, cm->width, cm->height);
+  vp9_init_context_buffers(cm);
+  vp9_init_macroblockd(cm, xd, NULL);
+  cpi->td.mb.mbmi_ext_base = cpi->mbmi_ext_base;
+  memset(cpi->mbmi_ext_base, 0,
+         cm->mi_rows * cm->mi_cols * sizeof(*cpi->mbmi_ext_base));
+
+  set_tile_limits(cpi);
+
+  if (is_two_pass_svc(cpi)) {
+    if (vpx_realloc_frame_buffer(&cpi->alt_ref_buffer,
+                                 cm->width, cm->height,
+                                 cm->subsampling_x, cm->subsampling_y,
+#if CONFIG_VP9_HIGHBITDEPTH
+                                 cm->use_highbitdepth,
+#endif
+                                 VP9_ENC_BORDER_IN_PIXELS, cm->byte_alignment,
+                                 NULL, NULL, NULL))
+      vpx_internal_error(&cm->error, VPX_CODEC_MEM_ERROR,
+                         "Failed to reallocate alt_ref_buffer");
+  }
 }
 
 static void init_buffer_indices(VP9_COMP *cpi) {
@@ -674,10 +775,13 @@ static void init_config(struct VP9_COMP *cpi, VP9EncoderConfig *oxcf) {
   cm->use_highbitdepth = oxcf->use_highbitdepth;
 #endif
   cm->color_space = oxcf->color_space;
+  cm->color_range = oxcf->color_range;
 
   cm->width = oxcf->width;
   cm->height = oxcf->height;
-  vp9_alloc_compressor_data(cpi);
+  alloc_compressor_data(cpi);
+
+  cpi->svc.temporal_layering_mode = oxcf->temporal_layering_mode;
 
   // Single thread case: use counts in common.
   cpi->td.counts = &cm->counts;
@@ -859,61 +963,61 @@ static void fnname##_bits12(const uint8_t *src_ptr, \
   sad_array[i] >>= 4; \
 }
 
-MAKE_BFP_SAD_WRAPPER(vp9_highbd_sad32x16)
-MAKE_BFP_SADAVG_WRAPPER(vp9_highbd_sad32x16_avg)
-MAKE_BFP_SAD4D_WRAPPER(vp9_highbd_sad32x16x4d)
-MAKE_BFP_SAD_WRAPPER(vp9_highbd_sad16x32)
-MAKE_BFP_SADAVG_WRAPPER(vp9_highbd_sad16x32_avg)
-MAKE_BFP_SAD4D_WRAPPER(vp9_highbd_sad16x32x4d)
-MAKE_BFP_SAD_WRAPPER(vp9_highbd_sad64x32)
-MAKE_BFP_SADAVG_WRAPPER(vp9_highbd_sad64x32_avg)
-MAKE_BFP_SAD4D_WRAPPER(vp9_highbd_sad64x32x4d)
-MAKE_BFP_SAD_WRAPPER(vp9_highbd_sad32x64)
-MAKE_BFP_SADAVG_WRAPPER(vp9_highbd_sad32x64_avg)
-MAKE_BFP_SAD4D_WRAPPER(vp9_highbd_sad32x64x4d)
-MAKE_BFP_SAD_WRAPPER(vp9_highbd_sad32x32)
-MAKE_BFP_SADAVG_WRAPPER(vp9_highbd_sad32x32_avg)
-MAKE_BFP_SAD3_WRAPPER(vp9_highbd_sad32x32x3)
-MAKE_BFP_SAD8_WRAPPER(vp9_highbd_sad32x32x8)
-MAKE_BFP_SAD4D_WRAPPER(vp9_highbd_sad32x32x4d)
-MAKE_BFP_SAD_WRAPPER(vp9_highbd_sad64x64)
-MAKE_BFP_SADAVG_WRAPPER(vp9_highbd_sad64x64_avg)
-MAKE_BFP_SAD3_WRAPPER(vp9_highbd_sad64x64x3)
-MAKE_BFP_SAD8_WRAPPER(vp9_highbd_sad64x64x8)
-MAKE_BFP_SAD4D_WRAPPER(vp9_highbd_sad64x64x4d)
-MAKE_BFP_SAD_WRAPPER(vp9_highbd_sad16x16)
-MAKE_BFP_SADAVG_WRAPPER(vp9_highbd_sad16x16_avg)
-MAKE_BFP_SAD3_WRAPPER(vp9_highbd_sad16x16x3)
-MAKE_BFP_SAD8_WRAPPER(vp9_highbd_sad16x16x8)
-MAKE_BFP_SAD4D_WRAPPER(vp9_highbd_sad16x16x4d)
-MAKE_BFP_SAD_WRAPPER(vp9_highbd_sad16x8)
-MAKE_BFP_SADAVG_WRAPPER(vp9_highbd_sad16x8_avg)
-MAKE_BFP_SAD3_WRAPPER(vp9_highbd_sad16x8x3)
-MAKE_BFP_SAD8_WRAPPER(vp9_highbd_sad16x8x8)
-MAKE_BFP_SAD4D_WRAPPER(vp9_highbd_sad16x8x4d)
-MAKE_BFP_SAD_WRAPPER(vp9_highbd_sad8x16)
-MAKE_BFP_SADAVG_WRAPPER(vp9_highbd_sad8x16_avg)
-MAKE_BFP_SAD3_WRAPPER(vp9_highbd_sad8x16x3)
-MAKE_BFP_SAD8_WRAPPER(vp9_highbd_sad8x16x8)
-MAKE_BFP_SAD4D_WRAPPER(vp9_highbd_sad8x16x4d)
-MAKE_BFP_SAD_WRAPPER(vp9_highbd_sad8x8)
-MAKE_BFP_SADAVG_WRAPPER(vp9_highbd_sad8x8_avg)
-MAKE_BFP_SAD3_WRAPPER(vp9_highbd_sad8x8x3)
-MAKE_BFP_SAD8_WRAPPER(vp9_highbd_sad8x8x8)
-MAKE_BFP_SAD4D_WRAPPER(vp9_highbd_sad8x8x4d)
-MAKE_BFP_SAD_WRAPPER(vp9_highbd_sad8x4)
-MAKE_BFP_SADAVG_WRAPPER(vp9_highbd_sad8x4_avg)
-MAKE_BFP_SAD8_WRAPPER(vp9_highbd_sad8x4x8)
-MAKE_BFP_SAD4D_WRAPPER(vp9_highbd_sad8x4x4d)
-MAKE_BFP_SAD_WRAPPER(vp9_highbd_sad4x8)
-MAKE_BFP_SADAVG_WRAPPER(vp9_highbd_sad4x8_avg)
-MAKE_BFP_SAD8_WRAPPER(vp9_highbd_sad4x8x8)
-MAKE_BFP_SAD4D_WRAPPER(vp9_highbd_sad4x8x4d)
-MAKE_BFP_SAD_WRAPPER(vp9_highbd_sad4x4)
-MAKE_BFP_SADAVG_WRAPPER(vp9_highbd_sad4x4_avg)
-MAKE_BFP_SAD3_WRAPPER(vp9_highbd_sad4x4x3)
-MAKE_BFP_SAD8_WRAPPER(vp9_highbd_sad4x4x8)
-MAKE_BFP_SAD4D_WRAPPER(vp9_highbd_sad4x4x4d)
+MAKE_BFP_SAD_WRAPPER(vpx_highbd_sad32x16)
+MAKE_BFP_SADAVG_WRAPPER(vpx_highbd_sad32x16_avg)
+MAKE_BFP_SAD4D_WRAPPER(vpx_highbd_sad32x16x4d)
+MAKE_BFP_SAD_WRAPPER(vpx_highbd_sad16x32)
+MAKE_BFP_SADAVG_WRAPPER(vpx_highbd_sad16x32_avg)
+MAKE_BFP_SAD4D_WRAPPER(vpx_highbd_sad16x32x4d)
+MAKE_BFP_SAD_WRAPPER(vpx_highbd_sad64x32)
+MAKE_BFP_SADAVG_WRAPPER(vpx_highbd_sad64x32_avg)
+MAKE_BFP_SAD4D_WRAPPER(vpx_highbd_sad64x32x4d)
+MAKE_BFP_SAD_WRAPPER(vpx_highbd_sad32x64)
+MAKE_BFP_SADAVG_WRAPPER(vpx_highbd_sad32x64_avg)
+MAKE_BFP_SAD4D_WRAPPER(vpx_highbd_sad32x64x4d)
+MAKE_BFP_SAD_WRAPPER(vpx_highbd_sad32x32)
+MAKE_BFP_SADAVG_WRAPPER(vpx_highbd_sad32x32_avg)
+MAKE_BFP_SAD3_WRAPPER(vpx_highbd_sad32x32x3)
+MAKE_BFP_SAD8_WRAPPER(vpx_highbd_sad32x32x8)
+MAKE_BFP_SAD4D_WRAPPER(vpx_highbd_sad32x32x4d)
+MAKE_BFP_SAD_WRAPPER(vpx_highbd_sad64x64)
+MAKE_BFP_SADAVG_WRAPPER(vpx_highbd_sad64x64_avg)
+MAKE_BFP_SAD3_WRAPPER(vpx_highbd_sad64x64x3)
+MAKE_BFP_SAD8_WRAPPER(vpx_highbd_sad64x64x8)
+MAKE_BFP_SAD4D_WRAPPER(vpx_highbd_sad64x64x4d)
+MAKE_BFP_SAD_WRAPPER(vpx_highbd_sad16x16)
+MAKE_BFP_SADAVG_WRAPPER(vpx_highbd_sad16x16_avg)
+MAKE_BFP_SAD3_WRAPPER(vpx_highbd_sad16x16x3)
+MAKE_BFP_SAD8_WRAPPER(vpx_highbd_sad16x16x8)
+MAKE_BFP_SAD4D_WRAPPER(vpx_highbd_sad16x16x4d)
+MAKE_BFP_SAD_WRAPPER(vpx_highbd_sad16x8)
+MAKE_BFP_SADAVG_WRAPPER(vpx_highbd_sad16x8_avg)
+MAKE_BFP_SAD3_WRAPPER(vpx_highbd_sad16x8x3)
+MAKE_BFP_SAD8_WRAPPER(vpx_highbd_sad16x8x8)
+MAKE_BFP_SAD4D_WRAPPER(vpx_highbd_sad16x8x4d)
+MAKE_BFP_SAD_WRAPPER(vpx_highbd_sad8x16)
+MAKE_BFP_SADAVG_WRAPPER(vpx_highbd_sad8x16_avg)
+MAKE_BFP_SAD3_WRAPPER(vpx_highbd_sad8x16x3)
+MAKE_BFP_SAD8_WRAPPER(vpx_highbd_sad8x16x8)
+MAKE_BFP_SAD4D_WRAPPER(vpx_highbd_sad8x16x4d)
+MAKE_BFP_SAD_WRAPPER(vpx_highbd_sad8x8)
+MAKE_BFP_SADAVG_WRAPPER(vpx_highbd_sad8x8_avg)
+MAKE_BFP_SAD3_WRAPPER(vpx_highbd_sad8x8x3)
+MAKE_BFP_SAD8_WRAPPER(vpx_highbd_sad8x8x8)
+MAKE_BFP_SAD4D_WRAPPER(vpx_highbd_sad8x8x4d)
+MAKE_BFP_SAD_WRAPPER(vpx_highbd_sad8x4)
+MAKE_BFP_SADAVG_WRAPPER(vpx_highbd_sad8x4_avg)
+MAKE_BFP_SAD8_WRAPPER(vpx_highbd_sad8x4x8)
+MAKE_BFP_SAD4D_WRAPPER(vpx_highbd_sad8x4x4d)
+MAKE_BFP_SAD_WRAPPER(vpx_highbd_sad4x8)
+MAKE_BFP_SADAVG_WRAPPER(vpx_highbd_sad4x8_avg)
+MAKE_BFP_SAD8_WRAPPER(vpx_highbd_sad4x8x8)
+MAKE_BFP_SAD4D_WRAPPER(vpx_highbd_sad4x8x4d)
+MAKE_BFP_SAD_WRAPPER(vpx_highbd_sad4x4)
+MAKE_BFP_SADAVG_WRAPPER(vpx_highbd_sad4x4_avg)
+MAKE_BFP_SAD3_WRAPPER(vpx_highbd_sad4x4x3)
+MAKE_BFP_SAD8_WRAPPER(vpx_highbd_sad4x4x8)
+MAKE_BFP_SAD4D_WRAPPER(vpx_highbd_sad4x4x4d)
 
 static void  highbd_set_var_fns(VP9_COMP *const cpi) {
   VP9_COMMON *const cm = &cpi->common;
@@ -921,398 +1025,398 @@ static void  highbd_set_var_fns(VP9_COMP *const cpi) {
     switch (cm->bit_depth) {
       case VPX_BITS_8:
         HIGHBD_BFP(BLOCK_32X16,
-                   vp9_highbd_sad32x16_bits8,
-                   vp9_highbd_sad32x16_avg_bits8,
-                   vp9_highbd_variance32x16,
-                   vp9_highbd_sub_pixel_variance32x16,
-                   vp9_highbd_sub_pixel_avg_variance32x16,
+                   vpx_highbd_sad32x16_bits8,
+                   vpx_highbd_sad32x16_avg_bits8,
+                   vpx_highbd_8_variance32x16,
+                   vpx_highbd_8_sub_pixel_variance32x16,
+                   vpx_highbd_8_sub_pixel_avg_variance32x16,
                    NULL,
                    NULL,
-                   vp9_highbd_sad32x16x4d_bits8)
+                   vpx_highbd_sad32x16x4d_bits8)
 
         HIGHBD_BFP(BLOCK_16X32,
-                   vp9_highbd_sad16x32_bits8,
-                   vp9_highbd_sad16x32_avg_bits8,
-                   vp9_highbd_variance16x32,
-                   vp9_highbd_sub_pixel_variance16x32,
-                   vp9_highbd_sub_pixel_avg_variance16x32,
+                   vpx_highbd_sad16x32_bits8,
+                   vpx_highbd_sad16x32_avg_bits8,
+                   vpx_highbd_8_variance16x32,
+                   vpx_highbd_8_sub_pixel_variance16x32,
+                   vpx_highbd_8_sub_pixel_avg_variance16x32,
                    NULL,
                    NULL,
-                   vp9_highbd_sad16x32x4d_bits8)
+                   vpx_highbd_sad16x32x4d_bits8)
 
         HIGHBD_BFP(BLOCK_64X32,
-                   vp9_highbd_sad64x32_bits8,
-                   vp9_highbd_sad64x32_avg_bits8,
-                   vp9_highbd_variance64x32,
-                   vp9_highbd_sub_pixel_variance64x32,
-                   vp9_highbd_sub_pixel_avg_variance64x32,
+                   vpx_highbd_sad64x32_bits8,
+                   vpx_highbd_sad64x32_avg_bits8,
+                   vpx_highbd_8_variance64x32,
+                   vpx_highbd_8_sub_pixel_variance64x32,
+                   vpx_highbd_8_sub_pixel_avg_variance64x32,
                    NULL,
                    NULL,
-                   vp9_highbd_sad64x32x4d_bits8)
+                   vpx_highbd_sad64x32x4d_bits8)
 
         HIGHBD_BFP(BLOCK_32X64,
-                   vp9_highbd_sad32x64_bits8,
-                   vp9_highbd_sad32x64_avg_bits8,
-                   vp9_highbd_variance32x64,
-                   vp9_highbd_sub_pixel_variance32x64,
-                   vp9_highbd_sub_pixel_avg_variance32x64,
+                   vpx_highbd_sad32x64_bits8,
+                   vpx_highbd_sad32x64_avg_bits8,
+                   vpx_highbd_8_variance32x64,
+                   vpx_highbd_8_sub_pixel_variance32x64,
+                   vpx_highbd_8_sub_pixel_avg_variance32x64,
                    NULL,
                    NULL,
-                   vp9_highbd_sad32x64x4d_bits8)
+                   vpx_highbd_sad32x64x4d_bits8)
 
         HIGHBD_BFP(BLOCK_32X32,
-                   vp9_highbd_sad32x32_bits8,
-                   vp9_highbd_sad32x32_avg_bits8,
-                   vp9_highbd_variance32x32,
-                   vp9_highbd_sub_pixel_variance32x32,
-                   vp9_highbd_sub_pixel_avg_variance32x32,
-                   vp9_highbd_sad32x32x3_bits8,
-                   vp9_highbd_sad32x32x8_bits8,
-                   vp9_highbd_sad32x32x4d_bits8)
+                   vpx_highbd_sad32x32_bits8,
+                   vpx_highbd_sad32x32_avg_bits8,
+                   vpx_highbd_8_variance32x32,
+                   vpx_highbd_8_sub_pixel_variance32x32,
+                   vpx_highbd_8_sub_pixel_avg_variance32x32,
+                   vpx_highbd_sad32x32x3_bits8,
+                   vpx_highbd_sad32x32x8_bits8,
+                   vpx_highbd_sad32x32x4d_bits8)
 
         HIGHBD_BFP(BLOCK_64X64,
-                   vp9_highbd_sad64x64_bits8,
-                   vp9_highbd_sad64x64_avg_bits8,
-                   vp9_highbd_variance64x64,
-                   vp9_highbd_sub_pixel_variance64x64,
-                   vp9_highbd_sub_pixel_avg_variance64x64,
-                   vp9_highbd_sad64x64x3_bits8,
-                   vp9_highbd_sad64x64x8_bits8,
-                   vp9_highbd_sad64x64x4d_bits8)
+                   vpx_highbd_sad64x64_bits8,
+                   vpx_highbd_sad64x64_avg_bits8,
+                   vpx_highbd_8_variance64x64,
+                   vpx_highbd_8_sub_pixel_variance64x64,
+                   vpx_highbd_8_sub_pixel_avg_variance64x64,
+                   vpx_highbd_sad64x64x3_bits8,
+                   vpx_highbd_sad64x64x8_bits8,
+                   vpx_highbd_sad64x64x4d_bits8)
 
         HIGHBD_BFP(BLOCK_16X16,
-                   vp9_highbd_sad16x16_bits8,
-                   vp9_highbd_sad16x16_avg_bits8,
-                   vp9_highbd_variance16x16,
-                   vp9_highbd_sub_pixel_variance16x16,
-                   vp9_highbd_sub_pixel_avg_variance16x16,
-                   vp9_highbd_sad16x16x3_bits8,
-                   vp9_highbd_sad16x16x8_bits8,
-                   vp9_highbd_sad16x16x4d_bits8)
+                   vpx_highbd_sad16x16_bits8,
+                   vpx_highbd_sad16x16_avg_bits8,
+                   vpx_highbd_8_variance16x16,
+                   vpx_highbd_8_sub_pixel_variance16x16,
+                   vpx_highbd_8_sub_pixel_avg_variance16x16,
+                   vpx_highbd_sad16x16x3_bits8,
+                   vpx_highbd_sad16x16x8_bits8,
+                   vpx_highbd_sad16x16x4d_bits8)
 
         HIGHBD_BFP(BLOCK_16X8,
-                   vp9_highbd_sad16x8_bits8,
-                   vp9_highbd_sad16x8_avg_bits8,
-                   vp9_highbd_variance16x8,
-                   vp9_highbd_sub_pixel_variance16x8,
-                   vp9_highbd_sub_pixel_avg_variance16x8,
-                   vp9_highbd_sad16x8x3_bits8,
-                   vp9_highbd_sad16x8x8_bits8,
-                   vp9_highbd_sad16x8x4d_bits8)
+                   vpx_highbd_sad16x8_bits8,
+                   vpx_highbd_sad16x8_avg_bits8,
+                   vpx_highbd_8_variance16x8,
+                   vpx_highbd_8_sub_pixel_variance16x8,
+                   vpx_highbd_8_sub_pixel_avg_variance16x8,
+                   vpx_highbd_sad16x8x3_bits8,
+                   vpx_highbd_sad16x8x8_bits8,
+                   vpx_highbd_sad16x8x4d_bits8)
 
         HIGHBD_BFP(BLOCK_8X16,
-                   vp9_highbd_sad8x16_bits8,
-                   vp9_highbd_sad8x16_avg_bits8,
-                   vp9_highbd_variance8x16,
-                   vp9_highbd_sub_pixel_variance8x16,
-                   vp9_highbd_sub_pixel_avg_variance8x16,
-                   vp9_highbd_sad8x16x3_bits8,
-                   vp9_highbd_sad8x16x8_bits8,
-                   vp9_highbd_sad8x16x4d_bits8)
+                   vpx_highbd_sad8x16_bits8,
+                   vpx_highbd_sad8x16_avg_bits8,
+                   vpx_highbd_8_variance8x16,
+                   vpx_highbd_8_sub_pixel_variance8x16,
+                   vpx_highbd_8_sub_pixel_avg_variance8x16,
+                   vpx_highbd_sad8x16x3_bits8,
+                   vpx_highbd_sad8x16x8_bits8,
+                   vpx_highbd_sad8x16x4d_bits8)
 
         HIGHBD_BFP(BLOCK_8X8,
-                   vp9_highbd_sad8x8_bits8,
-                   vp9_highbd_sad8x8_avg_bits8,
-                   vp9_highbd_variance8x8,
-                   vp9_highbd_sub_pixel_variance8x8,
-                   vp9_highbd_sub_pixel_avg_variance8x8,
-                   vp9_highbd_sad8x8x3_bits8,
-                   vp9_highbd_sad8x8x8_bits8,
-                   vp9_highbd_sad8x8x4d_bits8)
+                   vpx_highbd_sad8x8_bits8,
+                   vpx_highbd_sad8x8_avg_bits8,
+                   vpx_highbd_8_variance8x8,
+                   vpx_highbd_8_sub_pixel_variance8x8,
+                   vpx_highbd_8_sub_pixel_avg_variance8x8,
+                   vpx_highbd_sad8x8x3_bits8,
+                   vpx_highbd_sad8x8x8_bits8,
+                   vpx_highbd_sad8x8x4d_bits8)
 
         HIGHBD_BFP(BLOCK_8X4,
-                   vp9_highbd_sad8x4_bits8,
-                   vp9_highbd_sad8x4_avg_bits8,
-                   vp9_highbd_variance8x4,
-                   vp9_highbd_sub_pixel_variance8x4,
-                   vp9_highbd_sub_pixel_avg_variance8x4,
+                   vpx_highbd_sad8x4_bits8,
+                   vpx_highbd_sad8x4_avg_bits8,
+                   vpx_highbd_8_variance8x4,
+                   vpx_highbd_8_sub_pixel_variance8x4,
+                   vpx_highbd_8_sub_pixel_avg_variance8x4,
                    NULL,
-                   vp9_highbd_sad8x4x8_bits8,
-                   vp9_highbd_sad8x4x4d_bits8)
+                   vpx_highbd_sad8x4x8_bits8,
+                   vpx_highbd_sad8x4x4d_bits8)
 
         HIGHBD_BFP(BLOCK_4X8,
-                   vp9_highbd_sad4x8_bits8,
-                   vp9_highbd_sad4x8_avg_bits8,
-                   vp9_highbd_variance4x8,
-                   vp9_highbd_sub_pixel_variance4x8,
-                   vp9_highbd_sub_pixel_avg_variance4x8,
+                   vpx_highbd_sad4x8_bits8,
+                   vpx_highbd_sad4x8_avg_bits8,
+                   vpx_highbd_8_variance4x8,
+                   vpx_highbd_8_sub_pixel_variance4x8,
+                   vpx_highbd_8_sub_pixel_avg_variance4x8,
                    NULL,
-                   vp9_highbd_sad4x8x8_bits8,
-                   vp9_highbd_sad4x8x4d_bits8)
+                   vpx_highbd_sad4x8x8_bits8,
+                   vpx_highbd_sad4x8x4d_bits8)
 
         HIGHBD_BFP(BLOCK_4X4,
-                   vp9_highbd_sad4x4_bits8,
-                   vp9_highbd_sad4x4_avg_bits8,
-                   vp9_highbd_variance4x4,
-                   vp9_highbd_sub_pixel_variance4x4,
-                   vp9_highbd_sub_pixel_avg_variance4x4,
-                   vp9_highbd_sad4x4x3_bits8,
-                   vp9_highbd_sad4x4x8_bits8,
-                   vp9_highbd_sad4x4x4d_bits8)
+                   vpx_highbd_sad4x4_bits8,
+                   vpx_highbd_sad4x4_avg_bits8,
+                   vpx_highbd_8_variance4x4,
+                   vpx_highbd_8_sub_pixel_variance4x4,
+                   vpx_highbd_8_sub_pixel_avg_variance4x4,
+                   vpx_highbd_sad4x4x3_bits8,
+                   vpx_highbd_sad4x4x8_bits8,
+                   vpx_highbd_sad4x4x4d_bits8)
         break;
 
       case VPX_BITS_10:
         HIGHBD_BFP(BLOCK_32X16,
-                   vp9_highbd_sad32x16_bits10,
-                   vp9_highbd_sad32x16_avg_bits10,
-                   vp9_highbd_10_variance32x16,
-                   vp9_highbd_10_sub_pixel_variance32x16,
-                   vp9_highbd_10_sub_pixel_avg_variance32x16,
+                   vpx_highbd_sad32x16_bits10,
+                   vpx_highbd_sad32x16_avg_bits10,
+                   vpx_highbd_10_variance32x16,
+                   vpx_highbd_10_sub_pixel_variance32x16,
+                   vpx_highbd_10_sub_pixel_avg_variance32x16,
                    NULL,
                    NULL,
-                   vp9_highbd_sad32x16x4d_bits10)
+                   vpx_highbd_sad32x16x4d_bits10)
 
         HIGHBD_BFP(BLOCK_16X32,
-                   vp9_highbd_sad16x32_bits10,
-                   vp9_highbd_sad16x32_avg_bits10,
-                   vp9_highbd_10_variance16x32,
-                   vp9_highbd_10_sub_pixel_variance16x32,
-                   vp9_highbd_10_sub_pixel_avg_variance16x32,
+                   vpx_highbd_sad16x32_bits10,
+                   vpx_highbd_sad16x32_avg_bits10,
+                   vpx_highbd_10_variance16x32,
+                   vpx_highbd_10_sub_pixel_variance16x32,
+                   vpx_highbd_10_sub_pixel_avg_variance16x32,
                    NULL,
                    NULL,
-                   vp9_highbd_sad16x32x4d_bits10)
+                   vpx_highbd_sad16x32x4d_bits10)
 
         HIGHBD_BFP(BLOCK_64X32,
-                   vp9_highbd_sad64x32_bits10,
-                   vp9_highbd_sad64x32_avg_bits10,
-                   vp9_highbd_10_variance64x32,
-                   vp9_highbd_10_sub_pixel_variance64x32,
-                   vp9_highbd_10_sub_pixel_avg_variance64x32,
+                   vpx_highbd_sad64x32_bits10,
+                   vpx_highbd_sad64x32_avg_bits10,
+                   vpx_highbd_10_variance64x32,
+                   vpx_highbd_10_sub_pixel_variance64x32,
+                   vpx_highbd_10_sub_pixel_avg_variance64x32,
                    NULL,
                    NULL,
-                   vp9_highbd_sad64x32x4d_bits10)
+                   vpx_highbd_sad64x32x4d_bits10)
 
         HIGHBD_BFP(BLOCK_32X64,
-                   vp9_highbd_sad32x64_bits10,
-                   vp9_highbd_sad32x64_avg_bits10,
-                   vp9_highbd_10_variance32x64,
-                   vp9_highbd_10_sub_pixel_variance32x64,
-                   vp9_highbd_10_sub_pixel_avg_variance32x64,
+                   vpx_highbd_sad32x64_bits10,
+                   vpx_highbd_sad32x64_avg_bits10,
+                   vpx_highbd_10_variance32x64,
+                   vpx_highbd_10_sub_pixel_variance32x64,
+                   vpx_highbd_10_sub_pixel_avg_variance32x64,
                    NULL,
                    NULL,
-                   vp9_highbd_sad32x64x4d_bits10)
+                   vpx_highbd_sad32x64x4d_bits10)
 
         HIGHBD_BFP(BLOCK_32X32,
-                   vp9_highbd_sad32x32_bits10,
-                   vp9_highbd_sad32x32_avg_bits10,
-                   vp9_highbd_10_variance32x32,
-                   vp9_highbd_10_sub_pixel_variance32x32,
-                   vp9_highbd_10_sub_pixel_avg_variance32x32,
-                   vp9_highbd_sad32x32x3_bits10,
-                   vp9_highbd_sad32x32x8_bits10,
-                   vp9_highbd_sad32x32x4d_bits10)
+                   vpx_highbd_sad32x32_bits10,
+                   vpx_highbd_sad32x32_avg_bits10,
+                   vpx_highbd_10_variance32x32,
+                   vpx_highbd_10_sub_pixel_variance32x32,
+                   vpx_highbd_10_sub_pixel_avg_variance32x32,
+                   vpx_highbd_sad32x32x3_bits10,
+                   vpx_highbd_sad32x32x8_bits10,
+                   vpx_highbd_sad32x32x4d_bits10)
 
         HIGHBD_BFP(BLOCK_64X64,
-                   vp9_highbd_sad64x64_bits10,
-                   vp9_highbd_sad64x64_avg_bits10,
-                   vp9_highbd_10_variance64x64,
-                   vp9_highbd_10_sub_pixel_variance64x64,
-                   vp9_highbd_10_sub_pixel_avg_variance64x64,
-                   vp9_highbd_sad64x64x3_bits10,
-                   vp9_highbd_sad64x64x8_bits10,
-                   vp9_highbd_sad64x64x4d_bits10)
+                   vpx_highbd_sad64x64_bits10,
+                   vpx_highbd_sad64x64_avg_bits10,
+                   vpx_highbd_10_variance64x64,
+                   vpx_highbd_10_sub_pixel_variance64x64,
+                   vpx_highbd_10_sub_pixel_avg_variance64x64,
+                   vpx_highbd_sad64x64x3_bits10,
+                   vpx_highbd_sad64x64x8_bits10,
+                   vpx_highbd_sad64x64x4d_bits10)
 
         HIGHBD_BFP(BLOCK_16X16,
-                   vp9_highbd_sad16x16_bits10,
-                   vp9_highbd_sad16x16_avg_bits10,
-                   vp9_highbd_10_variance16x16,
-                   vp9_highbd_10_sub_pixel_variance16x16,
-                   vp9_highbd_10_sub_pixel_avg_variance16x16,
-                   vp9_highbd_sad16x16x3_bits10,
-                   vp9_highbd_sad16x16x8_bits10,
-                   vp9_highbd_sad16x16x4d_bits10)
+                   vpx_highbd_sad16x16_bits10,
+                   vpx_highbd_sad16x16_avg_bits10,
+                   vpx_highbd_10_variance16x16,
+                   vpx_highbd_10_sub_pixel_variance16x16,
+                   vpx_highbd_10_sub_pixel_avg_variance16x16,
+                   vpx_highbd_sad16x16x3_bits10,
+                   vpx_highbd_sad16x16x8_bits10,
+                   vpx_highbd_sad16x16x4d_bits10)
 
         HIGHBD_BFP(BLOCK_16X8,
-                   vp9_highbd_sad16x8_bits10,
-                   vp9_highbd_sad16x8_avg_bits10,
-                   vp9_highbd_10_variance16x8,
-                   vp9_highbd_10_sub_pixel_variance16x8,
-                   vp9_highbd_10_sub_pixel_avg_variance16x8,
-                   vp9_highbd_sad16x8x3_bits10,
-                   vp9_highbd_sad16x8x8_bits10,
-                   vp9_highbd_sad16x8x4d_bits10)
+                   vpx_highbd_sad16x8_bits10,
+                   vpx_highbd_sad16x8_avg_bits10,
+                   vpx_highbd_10_variance16x8,
+                   vpx_highbd_10_sub_pixel_variance16x8,
+                   vpx_highbd_10_sub_pixel_avg_variance16x8,
+                   vpx_highbd_sad16x8x3_bits10,
+                   vpx_highbd_sad16x8x8_bits10,
+                   vpx_highbd_sad16x8x4d_bits10)
 
         HIGHBD_BFP(BLOCK_8X16,
-                   vp9_highbd_sad8x16_bits10,
-                   vp9_highbd_sad8x16_avg_bits10,
-                   vp9_highbd_10_variance8x16,
-                   vp9_highbd_10_sub_pixel_variance8x16,
-                   vp9_highbd_10_sub_pixel_avg_variance8x16,
-                   vp9_highbd_sad8x16x3_bits10,
-                   vp9_highbd_sad8x16x8_bits10,
-                   vp9_highbd_sad8x16x4d_bits10)
+                   vpx_highbd_sad8x16_bits10,
+                   vpx_highbd_sad8x16_avg_bits10,
+                   vpx_highbd_10_variance8x16,
+                   vpx_highbd_10_sub_pixel_variance8x16,
+                   vpx_highbd_10_sub_pixel_avg_variance8x16,
+                   vpx_highbd_sad8x16x3_bits10,
+                   vpx_highbd_sad8x16x8_bits10,
+                   vpx_highbd_sad8x16x4d_bits10)
 
         HIGHBD_BFP(BLOCK_8X8,
-                   vp9_highbd_sad8x8_bits10,
-                   vp9_highbd_sad8x8_avg_bits10,
-                   vp9_highbd_10_variance8x8,
-                   vp9_highbd_10_sub_pixel_variance8x8,
-                   vp9_highbd_10_sub_pixel_avg_variance8x8,
-                   vp9_highbd_sad8x8x3_bits10,
-                   vp9_highbd_sad8x8x8_bits10,
-                   vp9_highbd_sad8x8x4d_bits10)
+                   vpx_highbd_sad8x8_bits10,
+                   vpx_highbd_sad8x8_avg_bits10,
+                   vpx_highbd_10_variance8x8,
+                   vpx_highbd_10_sub_pixel_variance8x8,
+                   vpx_highbd_10_sub_pixel_avg_variance8x8,
+                   vpx_highbd_sad8x8x3_bits10,
+                   vpx_highbd_sad8x8x8_bits10,
+                   vpx_highbd_sad8x8x4d_bits10)
 
         HIGHBD_BFP(BLOCK_8X4,
-                   vp9_highbd_sad8x4_bits10,
-                   vp9_highbd_sad8x4_avg_bits10,
-                   vp9_highbd_10_variance8x4,
-                   vp9_highbd_10_sub_pixel_variance8x4,
-                   vp9_highbd_10_sub_pixel_avg_variance8x4,
+                   vpx_highbd_sad8x4_bits10,
+                   vpx_highbd_sad8x4_avg_bits10,
+                   vpx_highbd_10_variance8x4,
+                   vpx_highbd_10_sub_pixel_variance8x4,
+                   vpx_highbd_10_sub_pixel_avg_variance8x4,
                    NULL,
-                   vp9_highbd_sad8x4x8_bits10,
-                   vp9_highbd_sad8x4x4d_bits10)
+                   vpx_highbd_sad8x4x8_bits10,
+                   vpx_highbd_sad8x4x4d_bits10)
 
         HIGHBD_BFP(BLOCK_4X8,
-                   vp9_highbd_sad4x8_bits10,
-                   vp9_highbd_sad4x8_avg_bits10,
-                   vp9_highbd_10_variance4x8,
-                   vp9_highbd_10_sub_pixel_variance4x8,
-                   vp9_highbd_10_sub_pixel_avg_variance4x8,
+                   vpx_highbd_sad4x8_bits10,
+                   vpx_highbd_sad4x8_avg_bits10,
+                   vpx_highbd_10_variance4x8,
+                   vpx_highbd_10_sub_pixel_variance4x8,
+                   vpx_highbd_10_sub_pixel_avg_variance4x8,
                    NULL,
-                   vp9_highbd_sad4x8x8_bits10,
-                   vp9_highbd_sad4x8x4d_bits10)
+                   vpx_highbd_sad4x8x8_bits10,
+                   vpx_highbd_sad4x8x4d_bits10)
 
         HIGHBD_BFP(BLOCK_4X4,
-                   vp9_highbd_sad4x4_bits10,
-                   vp9_highbd_sad4x4_avg_bits10,
-                   vp9_highbd_10_variance4x4,
-                   vp9_highbd_10_sub_pixel_variance4x4,
-                   vp9_highbd_10_sub_pixel_avg_variance4x4,
-                   vp9_highbd_sad4x4x3_bits10,
-                   vp9_highbd_sad4x4x8_bits10,
-                   vp9_highbd_sad4x4x4d_bits10)
+                   vpx_highbd_sad4x4_bits10,
+                   vpx_highbd_sad4x4_avg_bits10,
+                   vpx_highbd_10_variance4x4,
+                   vpx_highbd_10_sub_pixel_variance4x4,
+                   vpx_highbd_10_sub_pixel_avg_variance4x4,
+                   vpx_highbd_sad4x4x3_bits10,
+                   vpx_highbd_sad4x4x8_bits10,
+                   vpx_highbd_sad4x4x4d_bits10)
         break;
 
       case VPX_BITS_12:
         HIGHBD_BFP(BLOCK_32X16,
-                   vp9_highbd_sad32x16_bits12,
-                   vp9_highbd_sad32x16_avg_bits12,
-                   vp9_highbd_12_variance32x16,
-                   vp9_highbd_12_sub_pixel_variance32x16,
-                   vp9_highbd_12_sub_pixel_avg_variance32x16,
+                   vpx_highbd_sad32x16_bits12,
+                   vpx_highbd_sad32x16_avg_bits12,
+                   vpx_highbd_12_variance32x16,
+                   vpx_highbd_12_sub_pixel_variance32x16,
+                   vpx_highbd_12_sub_pixel_avg_variance32x16,
                    NULL,
                    NULL,
-                   vp9_highbd_sad32x16x4d_bits12)
+                   vpx_highbd_sad32x16x4d_bits12)
 
         HIGHBD_BFP(BLOCK_16X32,
-                   vp9_highbd_sad16x32_bits12,
-                   vp9_highbd_sad16x32_avg_bits12,
-                   vp9_highbd_12_variance16x32,
-                   vp9_highbd_12_sub_pixel_variance16x32,
-                   vp9_highbd_12_sub_pixel_avg_variance16x32,
+                   vpx_highbd_sad16x32_bits12,
+                   vpx_highbd_sad16x32_avg_bits12,
+                   vpx_highbd_12_variance16x32,
+                   vpx_highbd_12_sub_pixel_variance16x32,
+                   vpx_highbd_12_sub_pixel_avg_variance16x32,
                    NULL,
                    NULL,
-                   vp9_highbd_sad16x32x4d_bits12)
+                   vpx_highbd_sad16x32x4d_bits12)
 
         HIGHBD_BFP(BLOCK_64X32,
-                   vp9_highbd_sad64x32_bits12,
-                   vp9_highbd_sad64x32_avg_bits12,
-                   vp9_highbd_12_variance64x32,
-                   vp9_highbd_12_sub_pixel_variance64x32,
-                   vp9_highbd_12_sub_pixel_avg_variance64x32,
+                   vpx_highbd_sad64x32_bits12,
+                   vpx_highbd_sad64x32_avg_bits12,
+                   vpx_highbd_12_variance64x32,
+                   vpx_highbd_12_sub_pixel_variance64x32,
+                   vpx_highbd_12_sub_pixel_avg_variance64x32,
                    NULL,
                    NULL,
-                   vp9_highbd_sad64x32x4d_bits12)
+                   vpx_highbd_sad64x32x4d_bits12)
 
         HIGHBD_BFP(BLOCK_32X64,
-                   vp9_highbd_sad32x64_bits12,
-                   vp9_highbd_sad32x64_avg_bits12,
-                   vp9_highbd_12_variance32x64,
-                   vp9_highbd_12_sub_pixel_variance32x64,
-                   vp9_highbd_12_sub_pixel_avg_variance32x64,
+                   vpx_highbd_sad32x64_bits12,
+                   vpx_highbd_sad32x64_avg_bits12,
+                   vpx_highbd_12_variance32x64,
+                   vpx_highbd_12_sub_pixel_variance32x64,
+                   vpx_highbd_12_sub_pixel_avg_variance32x64,
                    NULL,
                    NULL,
-                   vp9_highbd_sad32x64x4d_bits12)
+                   vpx_highbd_sad32x64x4d_bits12)
 
         HIGHBD_BFP(BLOCK_32X32,
-                   vp9_highbd_sad32x32_bits12,
-                   vp9_highbd_sad32x32_avg_bits12,
-                   vp9_highbd_12_variance32x32,
-                   vp9_highbd_12_sub_pixel_variance32x32,
-                   vp9_highbd_12_sub_pixel_avg_variance32x32,
-                   vp9_highbd_sad32x32x3_bits12,
-                   vp9_highbd_sad32x32x8_bits12,
-                   vp9_highbd_sad32x32x4d_bits12)
+                   vpx_highbd_sad32x32_bits12,
+                   vpx_highbd_sad32x32_avg_bits12,
+                   vpx_highbd_12_variance32x32,
+                   vpx_highbd_12_sub_pixel_variance32x32,
+                   vpx_highbd_12_sub_pixel_avg_variance32x32,
+                   vpx_highbd_sad32x32x3_bits12,
+                   vpx_highbd_sad32x32x8_bits12,
+                   vpx_highbd_sad32x32x4d_bits12)
 
         HIGHBD_BFP(BLOCK_64X64,
-                   vp9_highbd_sad64x64_bits12,
-                   vp9_highbd_sad64x64_avg_bits12,
-                   vp9_highbd_12_variance64x64,
-                   vp9_highbd_12_sub_pixel_variance64x64,
-                   vp9_highbd_12_sub_pixel_avg_variance64x64,
-                   vp9_highbd_sad64x64x3_bits12,
-                   vp9_highbd_sad64x64x8_bits12,
-                   vp9_highbd_sad64x64x4d_bits12)
+                   vpx_highbd_sad64x64_bits12,
+                   vpx_highbd_sad64x64_avg_bits12,
+                   vpx_highbd_12_variance64x64,
+                   vpx_highbd_12_sub_pixel_variance64x64,
+                   vpx_highbd_12_sub_pixel_avg_variance64x64,
+                   vpx_highbd_sad64x64x3_bits12,
+                   vpx_highbd_sad64x64x8_bits12,
+                   vpx_highbd_sad64x64x4d_bits12)
 
         HIGHBD_BFP(BLOCK_16X16,
-                   vp9_highbd_sad16x16_bits12,
-                   vp9_highbd_sad16x16_avg_bits12,
-                   vp9_highbd_12_variance16x16,
-                   vp9_highbd_12_sub_pixel_variance16x16,
-                   vp9_highbd_12_sub_pixel_avg_variance16x16,
-                   vp9_highbd_sad16x16x3_bits12,
-                   vp9_highbd_sad16x16x8_bits12,
-                   vp9_highbd_sad16x16x4d_bits12)
+                   vpx_highbd_sad16x16_bits12,
+                   vpx_highbd_sad16x16_avg_bits12,
+                   vpx_highbd_12_variance16x16,
+                   vpx_highbd_12_sub_pixel_variance16x16,
+                   vpx_highbd_12_sub_pixel_avg_variance16x16,
+                   vpx_highbd_sad16x16x3_bits12,
+                   vpx_highbd_sad16x16x8_bits12,
+                   vpx_highbd_sad16x16x4d_bits12)
 
         HIGHBD_BFP(BLOCK_16X8,
-                   vp9_highbd_sad16x8_bits12,
-                   vp9_highbd_sad16x8_avg_bits12,
-                   vp9_highbd_12_variance16x8,
-                   vp9_highbd_12_sub_pixel_variance16x8,
-                   vp9_highbd_12_sub_pixel_avg_variance16x8,
-                   vp9_highbd_sad16x8x3_bits12,
-                   vp9_highbd_sad16x8x8_bits12,
-                   vp9_highbd_sad16x8x4d_bits12)
+                   vpx_highbd_sad16x8_bits12,
+                   vpx_highbd_sad16x8_avg_bits12,
+                   vpx_highbd_12_variance16x8,
+                   vpx_highbd_12_sub_pixel_variance16x8,
+                   vpx_highbd_12_sub_pixel_avg_variance16x8,
+                   vpx_highbd_sad16x8x3_bits12,
+                   vpx_highbd_sad16x8x8_bits12,
+                   vpx_highbd_sad16x8x4d_bits12)
 
         HIGHBD_BFP(BLOCK_8X16,
-                   vp9_highbd_sad8x16_bits12,
-                   vp9_highbd_sad8x16_avg_bits12,
-                   vp9_highbd_12_variance8x16,
-                   vp9_highbd_12_sub_pixel_variance8x16,
-                   vp9_highbd_12_sub_pixel_avg_variance8x16,
-                   vp9_highbd_sad8x16x3_bits12,
-                   vp9_highbd_sad8x16x8_bits12,
-                   vp9_highbd_sad8x16x4d_bits12)
+                   vpx_highbd_sad8x16_bits12,
+                   vpx_highbd_sad8x16_avg_bits12,
+                   vpx_highbd_12_variance8x16,
+                   vpx_highbd_12_sub_pixel_variance8x16,
+                   vpx_highbd_12_sub_pixel_avg_variance8x16,
+                   vpx_highbd_sad8x16x3_bits12,
+                   vpx_highbd_sad8x16x8_bits12,
+                   vpx_highbd_sad8x16x4d_bits12)
 
         HIGHBD_BFP(BLOCK_8X8,
-                   vp9_highbd_sad8x8_bits12,
-                   vp9_highbd_sad8x8_avg_bits12,
-                   vp9_highbd_12_variance8x8,
-                   vp9_highbd_12_sub_pixel_variance8x8,
-                   vp9_highbd_12_sub_pixel_avg_variance8x8,
-                   vp9_highbd_sad8x8x3_bits12,
-                   vp9_highbd_sad8x8x8_bits12,
-                   vp9_highbd_sad8x8x4d_bits12)
+                   vpx_highbd_sad8x8_bits12,
+                   vpx_highbd_sad8x8_avg_bits12,
+                   vpx_highbd_12_variance8x8,
+                   vpx_highbd_12_sub_pixel_variance8x8,
+                   vpx_highbd_12_sub_pixel_avg_variance8x8,
+                   vpx_highbd_sad8x8x3_bits12,
+                   vpx_highbd_sad8x8x8_bits12,
+                   vpx_highbd_sad8x8x4d_bits12)
 
         HIGHBD_BFP(BLOCK_8X4,
-                   vp9_highbd_sad8x4_bits12,
-                   vp9_highbd_sad8x4_avg_bits12,
-                   vp9_highbd_12_variance8x4,
-                   vp9_highbd_12_sub_pixel_variance8x4,
-                   vp9_highbd_12_sub_pixel_avg_variance8x4,
+                   vpx_highbd_sad8x4_bits12,
+                   vpx_highbd_sad8x4_avg_bits12,
+                   vpx_highbd_12_variance8x4,
+                   vpx_highbd_12_sub_pixel_variance8x4,
+                   vpx_highbd_12_sub_pixel_avg_variance8x4,
                    NULL,
-                   vp9_highbd_sad8x4x8_bits12,
-                   vp9_highbd_sad8x4x4d_bits12)
+                   vpx_highbd_sad8x4x8_bits12,
+                   vpx_highbd_sad8x4x4d_bits12)
 
         HIGHBD_BFP(BLOCK_4X8,
-                   vp9_highbd_sad4x8_bits12,
-                   vp9_highbd_sad4x8_avg_bits12,
-                   vp9_highbd_12_variance4x8,
-                   vp9_highbd_12_sub_pixel_variance4x8,
-                   vp9_highbd_12_sub_pixel_avg_variance4x8,
+                   vpx_highbd_sad4x8_bits12,
+                   vpx_highbd_sad4x8_avg_bits12,
+                   vpx_highbd_12_variance4x8,
+                   vpx_highbd_12_sub_pixel_variance4x8,
+                   vpx_highbd_12_sub_pixel_avg_variance4x8,
                    NULL,
-                   vp9_highbd_sad4x8x8_bits12,
-                   vp9_highbd_sad4x8x4d_bits12)
+                   vpx_highbd_sad4x8x8_bits12,
+                   vpx_highbd_sad4x8x4d_bits12)
 
         HIGHBD_BFP(BLOCK_4X4,
-                   vp9_highbd_sad4x4_bits12,
-                   vp9_highbd_sad4x4_avg_bits12,
-                   vp9_highbd_12_variance4x4,
-                   vp9_highbd_12_sub_pixel_variance4x4,
-                   vp9_highbd_12_sub_pixel_avg_variance4x4,
-                   vp9_highbd_sad4x4x3_bits12,
-                   vp9_highbd_sad4x4x8_bits12,
-                   vp9_highbd_sad4x4x4d_bits12)
+                   vpx_highbd_sad4x4_bits12,
+                   vpx_highbd_sad4x4_avg_bits12,
+                   vpx_highbd_12_variance4x4,
+                   vpx_highbd_12_sub_pixel_variance4x4,
+                   vpx_highbd_12_sub_pixel_avg_variance4x4,
+                   vpx_highbd_sad4x4x3_bits12,
+                   vpx_highbd_sad4x4x8_bits12,
+                   vpx_highbd_sad4x4x4d_bits12)
         break;
 
       default:
@@ -1352,11 +1456,14 @@ static void realloc_segmentation_maps(VP9_COMP *cpi) {
 void vp9_change_config(struct VP9_COMP *cpi, const VP9EncoderConfig *oxcf) {
   VP9_COMMON *const cm = &cpi->common;
   RATE_CONTROL *const rc = &cpi->rc;
+  int last_w = cpi->oxcf.width;
+  int last_h = cpi->oxcf.height;
 
   if (cm->profile != oxcf->profile)
     cm->profile = oxcf->profile;
   cm->bit_depth = oxcf->bit_depth;
   cm->color_space = oxcf->color_space;
+  cm->color_range = oxcf->color_range;
 
   if (cm->profile <= PROFILE_1)
     assert(cm->bit_depth == VPX_BITS_8);
@@ -1368,7 +1475,7 @@ void vp9_change_config(struct VP9_COMP *cpi, const VP9EncoderConfig *oxcf) {
   cpi->td.mb.e_mbd.bd = (int)cm->bit_depth;
 #endif  // CONFIG_VP9_HIGHBITDEPTH
 
-  rc->baseline_gf_interval = DEFAULT_GF_INTERVAL;
+  rc->baseline_gf_interval = (MIN_GF_INTERVAL + MAX_GF_INTERVAL) / 2;
 
   cpi->refresh_golden_frame = 0;
   cpi->refresh_last_frame = 1;
@@ -1390,8 +1497,8 @@ void vp9_change_config(struct VP9_COMP *cpi, const VP9EncoderConfig *oxcf) {
 
   // Under a configuration change, where maximum_buffer_size may change,
   // keep buffer level clipped to the maximum allowed buffer size.
-  rc->bits_off_target = MIN(rc->bits_off_target, rc->maximum_buffer_size);
-  rc->buffer_level = MIN(rc->buffer_level, rc->maximum_buffer_size);
+  rc->bits_off_target = VPXMIN(rc->bits_off_target, rc->maximum_buffer_size);
+  rc->buffer_level = VPXMIN(rc->buffer_level, rc->maximum_buffer_size);
 
   // Set up frame rate and related parameters rate control values.
   vp9_new_framerate(cpi, cpi->framerate);
@@ -1402,15 +1509,25 @@ void vp9_change_config(struct VP9_COMP *cpi, const VP9EncoderConfig *oxcf) {
 
   cm->interp_filter = cpi->sf.default_interp_filter;
 
-  cm->display_width = cpi->oxcf.width;
-  cm->display_height = cpi->oxcf.height;
-  cm->width = cpi->oxcf.width;
-  cm->height = cpi->oxcf.height;
+  if (cpi->oxcf.render_width > 0 && cpi->oxcf.render_height > 0) {
+    cm->render_width = cpi->oxcf.render_width;
+    cm->render_height = cpi->oxcf.render_height;
+  } else {
+    cm->render_width = cpi->oxcf.width;
+    cm->render_height = cpi->oxcf.height;
+  }
+  if (last_w != cpi->oxcf.width || last_h != cpi->oxcf.height) {
+    cm->width = cpi->oxcf.width;
+    cm->height = cpi->oxcf.height;
+  }
 
   if (cpi->initial_width) {
-    if (cm->width > cpi->initial_width || cm->height > cpi->initial_height) {
+    int new_mi_size = 0;
+    vp9_set_mb_mi(cm, cm->width, cm->height);
+    new_mi_size = cm->mi_stride * calc_mi_size(cm->mi_rows);
+    if (cm->mi_alloc_size < new_mi_size) {
       vp9_free_context_buffers(cm);
-      vp9_alloc_compressor_data(cpi);
+      alloc_compressor_data(cpi);
       realloc_segmentation_maps(cpi);
       cpi->initial_width = cpi->initial_height = 0;
     }
@@ -1517,7 +1634,12 @@ VP9_COMP *vp9_create_compressor(VP9EncoderConfig *oxcf,
                   sizeof(*cm->frame_contexts)));
 
   cpi->use_svc = 0;
+  cpi->resize_state = 0;
+  cpi->resize_avg_qp = 0;
+  cpi->resize_buffer_underflow = 0;
   cpi->common.buffer_pool = pool;
+
+  cpi->rc.high_source_sad = 0;
 
   init_config(cpi, oxcf);
   vp9_rc_init(&cpi->oxcf, oxcf->pass, &cpi->rc);
@@ -1569,22 +1691,19 @@ VP9_COMP *vp9_create_compressor(VP9EncoderConfig *oxcf,
   cpi->b_calculate_psnr = CONFIG_INTERNAL_STATS;
 #if CONFIG_INTERNAL_STATS
   cpi->b_calculate_ssimg = 0;
+  cpi->b_calculate_blockiness = 1;
+  cpi->b_calculate_consistency = 1;
+  cpi->total_inconsistency = 0;
+  cpi->psnr.worst = 100.0;
+  cpi->worst_ssim = 100.0;
 
   cpi->count = 0;
   cpi->bytes = 0;
 
   if (cpi->b_calculate_psnr) {
-    cpi->total_y = 0.0;
-    cpi->total_u = 0.0;
-    cpi->total_v = 0.0;
-    cpi->total = 0.0;
     cpi->total_sq_error = 0;
     cpi->total_samples = 0;
 
-    cpi->totalp_y = 0.0;
-    cpi->totalp_u = 0.0;
-    cpi->totalp_v = 0.0;
-    cpi->totalp = 0.0;
     cpi->totalp_sq_error = 0;
     cpi->totalp_samples = 0;
 
@@ -1596,10 +1715,21 @@ VP9_COMP *vp9_create_compressor(VP9EncoderConfig *oxcf,
   }
 
   if (cpi->b_calculate_ssimg) {
-    cpi->total_ssimg_y = 0;
-    cpi->total_ssimg_u = 0;
-    cpi->total_ssimg_v = 0;
-    cpi->total_ssimg_all = 0;
+    cpi->ssimg.worst= 100.0;
+  }
+  cpi->fastssim.worst = 100.0;
+
+  cpi->psnrhvs.worst = 100.0;
+
+  if (cpi->b_calculate_blockiness) {
+    cpi->total_blockiness = 0;
+    cpi->worst_blockiness = 0.0;
+  }
+
+  if (cpi->b_calculate_consistency) {
+    cpi->ssim_vars = vpx_malloc(sizeof(*cpi->ssim_vars) *
+                                4 * cpi->common.mi_rows * cpi->common.mi_cols);
+    cpi->worst_consistency = 100.0;
   }
 
 #endif
@@ -1722,64 +1852,64 @@ VP9_COMP *vp9_create_compressor(VP9EncoderConfig *oxcf,
     cpi->fn_ptr[BT].sdx8f          = SDX8F; \
     cpi->fn_ptr[BT].sdx4df         = SDX4DF;
 
-  BFP(BLOCK_32X16, vp9_sad32x16, vp9_sad32x16_avg,
-      vp9_variance32x16, vp9_sub_pixel_variance32x16,
-      vp9_sub_pixel_avg_variance32x16, NULL, NULL, vp9_sad32x16x4d)
+  BFP(BLOCK_32X16, vpx_sad32x16, vpx_sad32x16_avg,
+      vpx_variance32x16, vpx_sub_pixel_variance32x16,
+      vpx_sub_pixel_avg_variance32x16, NULL, NULL, vpx_sad32x16x4d)
 
-  BFP(BLOCK_16X32, vp9_sad16x32, vp9_sad16x32_avg,
-      vp9_variance16x32, vp9_sub_pixel_variance16x32,
-      vp9_sub_pixel_avg_variance16x32, NULL, NULL, vp9_sad16x32x4d)
+  BFP(BLOCK_16X32, vpx_sad16x32, vpx_sad16x32_avg,
+      vpx_variance16x32, vpx_sub_pixel_variance16x32,
+      vpx_sub_pixel_avg_variance16x32, NULL, NULL, vpx_sad16x32x4d)
 
-  BFP(BLOCK_64X32, vp9_sad64x32, vp9_sad64x32_avg,
-      vp9_variance64x32, vp9_sub_pixel_variance64x32,
-      vp9_sub_pixel_avg_variance64x32, NULL, NULL, vp9_sad64x32x4d)
+  BFP(BLOCK_64X32, vpx_sad64x32, vpx_sad64x32_avg,
+      vpx_variance64x32, vpx_sub_pixel_variance64x32,
+      vpx_sub_pixel_avg_variance64x32, NULL, NULL, vpx_sad64x32x4d)
 
-  BFP(BLOCK_32X64, vp9_sad32x64, vp9_sad32x64_avg,
-      vp9_variance32x64, vp9_sub_pixel_variance32x64,
-      vp9_sub_pixel_avg_variance32x64, NULL, NULL, vp9_sad32x64x4d)
+  BFP(BLOCK_32X64, vpx_sad32x64, vpx_sad32x64_avg,
+      vpx_variance32x64, vpx_sub_pixel_variance32x64,
+      vpx_sub_pixel_avg_variance32x64, NULL, NULL, vpx_sad32x64x4d)
 
-  BFP(BLOCK_32X32, vp9_sad32x32, vp9_sad32x32_avg,
-      vp9_variance32x32, vp9_sub_pixel_variance32x32,
-      vp9_sub_pixel_avg_variance32x32, vp9_sad32x32x3, vp9_sad32x32x8,
-      vp9_sad32x32x4d)
+  BFP(BLOCK_32X32, vpx_sad32x32, vpx_sad32x32_avg,
+      vpx_variance32x32, vpx_sub_pixel_variance32x32,
+      vpx_sub_pixel_avg_variance32x32, vpx_sad32x32x3, vpx_sad32x32x8,
+      vpx_sad32x32x4d)
 
-  BFP(BLOCK_64X64, vp9_sad64x64, vp9_sad64x64_avg,
-      vp9_variance64x64, vp9_sub_pixel_variance64x64,
-      vp9_sub_pixel_avg_variance64x64, vp9_sad64x64x3, vp9_sad64x64x8,
-      vp9_sad64x64x4d)
+  BFP(BLOCK_64X64, vpx_sad64x64, vpx_sad64x64_avg,
+      vpx_variance64x64, vpx_sub_pixel_variance64x64,
+      vpx_sub_pixel_avg_variance64x64, vpx_sad64x64x3, vpx_sad64x64x8,
+      vpx_sad64x64x4d)
 
-  BFP(BLOCK_16X16, vp9_sad16x16, vp9_sad16x16_avg,
-      vp9_variance16x16, vp9_sub_pixel_variance16x16,
-      vp9_sub_pixel_avg_variance16x16, vp9_sad16x16x3, vp9_sad16x16x8,
-      vp9_sad16x16x4d)
+  BFP(BLOCK_16X16, vpx_sad16x16, vpx_sad16x16_avg,
+      vpx_variance16x16, vpx_sub_pixel_variance16x16,
+      vpx_sub_pixel_avg_variance16x16, vpx_sad16x16x3, vpx_sad16x16x8,
+      vpx_sad16x16x4d)
 
-  BFP(BLOCK_16X8, vp9_sad16x8, vp9_sad16x8_avg,
-      vp9_variance16x8, vp9_sub_pixel_variance16x8,
-      vp9_sub_pixel_avg_variance16x8,
-      vp9_sad16x8x3, vp9_sad16x8x8, vp9_sad16x8x4d)
+  BFP(BLOCK_16X8, vpx_sad16x8, vpx_sad16x8_avg,
+      vpx_variance16x8, vpx_sub_pixel_variance16x8,
+      vpx_sub_pixel_avg_variance16x8,
+      vpx_sad16x8x3, vpx_sad16x8x8, vpx_sad16x8x4d)
 
-  BFP(BLOCK_8X16, vp9_sad8x16, vp9_sad8x16_avg,
-      vp9_variance8x16, vp9_sub_pixel_variance8x16,
-      vp9_sub_pixel_avg_variance8x16,
-      vp9_sad8x16x3, vp9_sad8x16x8, vp9_sad8x16x4d)
+  BFP(BLOCK_8X16, vpx_sad8x16, vpx_sad8x16_avg,
+      vpx_variance8x16, vpx_sub_pixel_variance8x16,
+      vpx_sub_pixel_avg_variance8x16,
+      vpx_sad8x16x3, vpx_sad8x16x8, vpx_sad8x16x4d)
 
-  BFP(BLOCK_8X8, vp9_sad8x8, vp9_sad8x8_avg,
-      vp9_variance8x8, vp9_sub_pixel_variance8x8,
-      vp9_sub_pixel_avg_variance8x8,
-      vp9_sad8x8x3, vp9_sad8x8x8, vp9_sad8x8x4d)
+  BFP(BLOCK_8X8, vpx_sad8x8, vpx_sad8x8_avg,
+      vpx_variance8x8, vpx_sub_pixel_variance8x8,
+      vpx_sub_pixel_avg_variance8x8,
+      vpx_sad8x8x3, vpx_sad8x8x8, vpx_sad8x8x4d)
 
-  BFP(BLOCK_8X4, vp9_sad8x4, vp9_sad8x4_avg,
-      vp9_variance8x4, vp9_sub_pixel_variance8x4,
-      vp9_sub_pixel_avg_variance8x4, NULL, vp9_sad8x4x8, vp9_sad8x4x4d)
+  BFP(BLOCK_8X4, vpx_sad8x4, vpx_sad8x4_avg,
+      vpx_variance8x4, vpx_sub_pixel_variance8x4,
+      vpx_sub_pixel_avg_variance8x4, NULL, vpx_sad8x4x8, vpx_sad8x4x4d)
 
-  BFP(BLOCK_4X8, vp9_sad4x8, vp9_sad4x8_avg,
-      vp9_variance4x8, vp9_sub_pixel_variance4x8,
-      vp9_sub_pixel_avg_variance4x8, NULL, vp9_sad4x8x8, vp9_sad4x8x4d)
+  BFP(BLOCK_4X8, vpx_sad4x8, vpx_sad4x8_avg,
+      vpx_variance4x8, vpx_sub_pixel_variance4x8,
+      vpx_sub_pixel_avg_variance4x8, NULL, vpx_sad4x8x8, vpx_sad4x8x4d)
 
-  BFP(BLOCK_4X4, vp9_sad4x4, vp9_sad4x4_avg,
-      vp9_variance4x4, vp9_sub_pixel_variance4x4,
-      vp9_sub_pixel_avg_variance4x4,
-      vp9_sad4x4x3, vp9_sad4x4x8, vp9_sad4x4x4d)
+  BFP(BLOCK_4X4, vpx_sad4x4, vpx_sad4x4_avg,
+      vpx_variance4x4, vpx_sub_pixel_variance4x4,
+      vpx_sub_pixel_avg_variance4x4,
+      vpx_sad4x4x3, vpx_sad4x4x8, vpx_sad4x4x4d)
 
 #if CONFIG_VP9_HIGHBITDEPTH
   highbd_set_var_fns(cpi);
@@ -1798,22 +1928,28 @@ VP9_COMP *vp9_create_compressor(VP9EncoderConfig *oxcf,
 
   return cpi;
 }
+#define SNPRINT(H, T) \
+  snprintf((H) + strlen(H), sizeof(H) - strlen(H), (T))
+
+#define SNPRINT2(H, T, V) \
+  snprintf((H) + strlen(H), sizeof(H) - strlen(H), (T), (V))
 
 void vp9_remove_compressor(VP9_COMP *cpi) {
-  VP9_COMMON *const cm = &cpi->common;
+  VP9_COMMON *cm;
   unsigned int i;
   int t;
 
   if (!cpi)
     return;
 
-  if (cpi && (cm->current_video_frame > 0)) {
+  cm = &cpi->common;
+  if (cm->current_video_frame > 0) {
 #if CONFIG_INTERNAL_STATS
+    vpx_clear_system_state();
 
-    vp9_clear_system_state();
-
-    // printf("\n8x8-4x4:%d-%d\n", cpi->t8x8_count, cpi->t4x4_count);
     if (cpi->oxcf.pass != 1) {
+      char headings[512] = {0};
+      char results[512] = {0};
       FILE *f = fopen("opsnr.stt", "a");
       double time_encoded = (cpi->last_end_time_stamp_seen
                              - cpi->first_time_stamp_ever) / 10000000.000;
@@ -1831,25 +1967,50 @@ void vp9_remove_compressor(VP9_COMP *cpi) {
             vpx_sse_to_psnr((double)cpi->totalp_samples, peak,
                             (double)cpi->totalp_sq_error);
         const double total_ssim = 100 * pow(cpi->summed_quality /
-                                                cpi->summed_weights, 8.0);
+                                            cpi->summed_weights, 8.0);
         const double totalp_ssim = 100 * pow(cpi->summedp_quality /
-                                                cpi->summedp_weights, 8.0);
+                                             cpi->summedp_weights, 8.0);
 
-        fprintf(f, "Bitrate\tAVGPsnr\tGLBPsnr\tAVPsnrP\tGLPsnrP\t"
-                "VPXSSIM\tVPSSIMP\t  Time(ms)\n");
-        fprintf(f, "%7.2f\t%7.3f\t%7.3f\t%7.3f\t%7.3f\t%7.3f\t%7.3f\t%8.0f\n",
-                dr, cpi->total / cpi->count, total_psnr,
-                cpi->totalp / cpi->count, totalp_psnr, total_ssim, totalp_ssim,
-                total_encode_time);
-      }
+        snprintf(headings, sizeof(headings),
+                 "Bitrate\tAVGPsnr\tGLBPsnr\tAVPsnrP\tGLPsnrP\t"
+                 "VPXSSIM\tVPSSIMP\tFASTSIM\tPSNRHVS\t"
+                 "WstPsnr\tWstSsim\tWstFast\tWstHVS");
+        snprintf(results, sizeof(results),
+                 "%7.2f\t%7.3f\t%7.3f\t%7.3f\t%7.3f\t"
+                 "%7.3f\t%7.3f\t%7.3f\t%7.3f\t"
+                 "%7.3f\t%7.3f\t%7.3f\t%7.3f",
+                 dr, cpi->psnr.stat[ALL] / cpi->count, total_psnr,
+                 cpi->psnrp.stat[ALL] / cpi->count, totalp_psnr,
+                 total_ssim, totalp_ssim,
+                 cpi->fastssim.stat[ALL] / cpi->count,
+                 cpi->psnrhvs.stat[ALL] / cpi->count,
+                 cpi->psnr.worst, cpi->worst_ssim, cpi->fastssim.worst,
+                 cpi->psnrhvs.worst);
 
-      if (cpi->b_calculate_ssimg) {
-        fprintf(f, "BitRate\tSSIM_Y\tSSIM_U\tSSIM_V\tSSIM_A\t  Time(ms)\n");
-        fprintf(f, "%7.2f\t%6.4f\t%6.4f\t%6.4f\t%6.4f\t%8.0f\n", dr,
-                cpi->total_ssimg_y / cpi->count,
-                cpi->total_ssimg_u / cpi->count,
-                cpi->total_ssimg_v / cpi->count,
-                cpi->total_ssimg_all / cpi->count, total_encode_time);
+        if (cpi->b_calculate_blockiness) {
+          SNPRINT(headings, "\t  Block\tWstBlck");
+          SNPRINT2(results, "\t%7.3f", cpi->total_blockiness / cpi->count);
+          SNPRINT2(results, "\t%7.3f", cpi->worst_blockiness);
+        }
+
+        if (cpi->b_calculate_consistency) {
+          double consistency =
+              vpx_sse_to_psnr((double)cpi->totalp_samples, peak,
+                              (double)cpi->total_inconsistency);
+
+          SNPRINT(headings, "\tConsist\tWstCons");
+          SNPRINT2(results, "\t%7.3f", consistency);
+          SNPRINT2(results, "\t%7.3f", cpi->worst_consistency);
+        }
+
+        if (cpi->b_calculate_ssimg) {
+          SNPRINT(headings, "\t  SSIMG\tWtSSIMG");
+          SNPRINT2(results, "\t%7.3f", cpi->ssimg.stat[ALL] / cpi->count);
+          SNPRINT2(results, "\t%7.3f", cpi->ssimg.worst);
+        }
+
+        fprintf(f, "%s\t    Time\n", headings);
+        fprintf(f, "%s\t%8.0f\n", results, total_encode_time);
       }
 
       fclose(f);
@@ -1874,11 +2035,11 @@ void vp9_remove_compressor(VP9_COMP *cpi) {
 #endif
 
   for (t = 0; t < cpi->num_workers; ++t) {
-    VP9Worker *const worker = &cpi->workers[t];
+    VPxWorker *const worker = &cpi->workers[t];
     EncWorkerData *const thread_data = &cpi->tile_thr_data[t];
 
     // Deallocate allocated threads.
-    vp9_get_worker_interface()->end(worker);
+    vpx_get_worker_interface()->end(worker);
 
     // Deallocate allocated thread data.
     if (t < cpi->num_workers - 1) {
@@ -1908,6 +2069,10 @@ void vp9_remove_compressor(VP9_COMP *cpi) {
 #endif
 
   vp9_remove_common(cm);
+  vp9_free_ref_frame_buffers(cm->buffer_pool);
+#if CONFIG_VP9_POSTPROC
+  vp9_free_postproc_buffers(cm);
+#endif
   vpx_free(cpi);
 
 #if CONFIG_VP9_TEMPORAL_DENOISING
@@ -1936,6 +2101,65 @@ void vp9_remove_compressor(VP9_COMP *cpi) {
 #endif
 }
 
+/* TODO(yaowu): The block_variance calls the unoptimized versions of variance()
+ * and highbd_8_variance(). It should not.
+ */
+static void encoder_variance(const uint8_t *a, int  a_stride,
+                             const uint8_t *b, int  b_stride,
+                             int  w, int  h, unsigned int *sse, int *sum) {
+  int i, j;
+
+  *sum = 0;
+  *sse = 0;
+
+  for (i = 0; i < h; i++) {
+    for (j = 0; j < w; j++) {
+      const int diff = a[j] - b[j];
+      *sum += diff;
+      *sse += diff * diff;
+    }
+
+    a += a_stride;
+    b += b_stride;
+  }
+}
+
+#if CONFIG_VP9_HIGHBITDEPTH
+static void encoder_highbd_variance64(const uint8_t *a8, int  a_stride,
+                                      const uint8_t *b8, int  b_stride,
+                                      int w, int h, uint64_t *sse,
+                                      uint64_t *sum) {
+  int i, j;
+
+  uint16_t *a = CONVERT_TO_SHORTPTR(a8);
+  uint16_t *b = CONVERT_TO_SHORTPTR(b8);
+  *sum = 0;
+  *sse = 0;
+
+  for (i = 0; i < h; i++) {
+    for (j = 0; j < w; j++) {
+      const int diff = a[j] - b[j];
+      *sum += diff;
+      *sse += diff * diff;
+    }
+    a += a_stride;
+    b += b_stride;
+  }
+}
+
+static void encoder_highbd_8_variance(const uint8_t *a8, int  a_stride,
+                                      const uint8_t *b8, int  b_stride,
+                                      int w, int h,
+                                      unsigned int *sse, int *sum) {
+  uint64_t sse_long = 0;
+  uint64_t sum_long = 0;
+  encoder_highbd_variance64(a8, a_stride, b8, b_stride, w, h,
+                            &sse_long, &sum_long);
+  *sse = (unsigned int)sse_long;
+  *sum = (int)sum_long;
+}
+#endif  // CONFIG_VP9_HIGHBITDEPTH
+
 static int64_t get_sse(const uint8_t *a, int a_stride,
                        const uint8_t *b, int b_stride,
                        int width, int height) {
@@ -1947,15 +2171,15 @@ static int64_t get_sse(const uint8_t *a, int a_stride,
   int x, y;
 
   if (dw > 0) {
-    variance(&a[width - dw], a_stride, &b[width - dw], b_stride,
-             dw, height, &sse, &sum);
+    encoder_variance(&a[width - dw], a_stride, &b[width - dw], b_stride,
+                     dw, height, &sse, &sum);
     total_sse += sse;
   }
 
   if (dh > 0) {
-    variance(&a[(height - dh) * a_stride], a_stride,
-             &b[(height - dh) * b_stride], b_stride,
-             width - dw, dh, &sse, &sum);
+    encoder_variance(&a[(height - dh) * a_stride], a_stride,
+                     &b[(height - dh) * b_stride], b_stride,
+                     width - dw, dh, &sse, &sum);
     total_sse += sse;
   }
 
@@ -1963,7 +2187,7 @@ static int64_t get_sse(const uint8_t *a, int a_stride,
     const uint8_t *pa = a;
     const uint8_t *pb = b;
     for (x = 0; x < width / 16; ++x) {
-      vp9_mse16x16(pa, a_stride, pb, b_stride, &sse);
+      vpx_mse16x16(pa, a_stride, pb, b_stride, &sse);
       total_sse += sse;
 
       pa += 16;
@@ -2008,21 +2232,22 @@ static int64_t highbd_get_sse(const uint8_t *a, int a_stride,
   unsigned int sse = 0;
   int sum = 0;
   if (dw > 0) {
-    highbd_variance(&a[width - dw], a_stride, &b[width - dw], b_stride,
-                    dw, height, &sse, &sum);
+    encoder_highbd_8_variance(&a[width - dw], a_stride,
+                              &b[width - dw], b_stride,
+                              dw, height, &sse, &sum);
     total_sse += sse;
   }
   if (dh > 0) {
-    highbd_variance(&a[(height - dh) * a_stride], a_stride,
-                    &b[(height - dh) * b_stride], b_stride,
-                    width - dw, dh, &sse, &sum);
+    encoder_highbd_8_variance(&a[(height - dh) * a_stride], a_stride,
+                              &b[(height - dh) * b_stride], b_stride,
+                              width - dw, dh, &sse, &sum);
     total_sse += sse;
   }
   for (y = 0; y < height / 16; ++y) {
     const uint8_t *pa = a;
     const uint8_t *pb = b;
     for (x = 0; x < width / 16; ++x) {
-      vp9_highbd_mse16x16(pa, a_stride, pb, b_stride, &sse);
+      vpx_highbd_8_mse16x16(pa, a_stride, pb, b_stride, &sse);
       total_sse += sse;
       pa += 16;
       pb += 16;
@@ -2039,42 +2264,6 @@ typedef struct {
   uint64_t sse[4];      // total/y/u/v
   uint32_t samples[4];  // total/y/u/v
 } PSNR_STATS;
-
-static void calc_psnr(const YV12_BUFFER_CONFIG *a, const YV12_BUFFER_CONFIG *b,
-                      PSNR_STATS *psnr) {
-  static const double peak = 255.0;
-  const int widths[3]        = {
-      a->y_crop_width, a->uv_crop_width, a->uv_crop_width};
-  const int heights[3]       = {
-      a->y_crop_height, a->uv_crop_height, a->uv_crop_height};
-  const uint8_t *a_planes[3] = {a->y_buffer, a->u_buffer, a->v_buffer};
-  const int a_strides[3]     = {a->y_stride, a->uv_stride, a->uv_stride};
-  const uint8_t *b_planes[3] = {b->y_buffer, b->u_buffer, b->v_buffer};
-  const int b_strides[3]     = {b->y_stride, b->uv_stride, b->uv_stride};
-  int i;
-  uint64_t total_sse = 0;
-  uint32_t total_samples = 0;
-
-  for (i = 0; i < 3; ++i) {
-    const int w = widths[i];
-    const int h = heights[i];
-    const uint32_t samples = w * h;
-    const uint64_t sse = get_sse(a_planes[i], a_strides[i],
-                                 b_planes[i], b_strides[i],
-                                 w, h);
-    psnr->sse[1 + i] = sse;
-    psnr->samples[1 + i] = samples;
-    psnr->psnr[1 + i] = vpx_sse_to_psnr(samples, peak, (double)sse);
-
-    total_sse += sse;
-    total_samples += samples;
-  }
-
-  psnr->sse[0] = total_sse;
-  psnr->samples[0] = total_samples;
-  psnr->psnr[0] = vpx_sse_to_psnr((double)total_samples, peak,
-                                  (double)total_sse);
-}
 
 #if CONFIG_VP9_HIGHBITDEPTH
 static void calc_highbd_psnr(const YV12_BUFFER_CONFIG *a,
@@ -2128,6 +2317,44 @@ static void calc_highbd_psnr(const YV12_BUFFER_CONFIG *a,
   psnr->psnr[0] = vpx_sse_to_psnr((double)total_samples, peak,
                                   (double)total_sse);
 }
+
+#else  // !CONFIG_VP9_HIGHBITDEPTH
+
+static void calc_psnr(const YV12_BUFFER_CONFIG *a, const YV12_BUFFER_CONFIG *b,
+                      PSNR_STATS *psnr) {
+  static const double peak = 255.0;
+  const int widths[3]        = {
+      a->y_crop_width, a->uv_crop_width, a->uv_crop_width};
+  const int heights[3]       = {
+      a->y_crop_height, a->uv_crop_height, a->uv_crop_height};
+  const uint8_t *a_planes[3] = {a->y_buffer, a->u_buffer, a->v_buffer};
+  const int a_strides[3]     = {a->y_stride, a->uv_stride, a->uv_stride};
+  const uint8_t *b_planes[3] = {b->y_buffer, b->u_buffer, b->v_buffer};
+  const int b_strides[3]     = {b->y_stride, b->uv_stride, b->uv_stride};
+  int i;
+  uint64_t total_sse = 0;
+  uint32_t total_samples = 0;
+
+  for (i = 0; i < 3; ++i) {
+    const int w = widths[i];
+    const int h = heights[i];
+    const uint32_t samples = w * h;
+    const uint64_t sse = get_sse(a_planes[i], a_strides[i],
+                                 b_planes[i], b_strides[i],
+                                 w, h);
+    psnr->sse[1 + i] = sse;
+    psnr->samples[1 + i] = samples;
+    psnr->psnr[1 + i] = vpx_sse_to_psnr(samples, peak, (double)sse);
+
+    total_sse += sse;
+    total_samples += samples;
+  }
+
+  psnr->sse[0] = total_sse;
+  psnr->samples[0] = total_samples;
+  psnr->psnr[0] = vpx_sse_to_psnr((double)total_samples, peak,
+                                  (double)total_sse);
+}
 #endif  // CONFIG_VP9_HIGHBITDEPTH
 
 static void generate_psnr_packet(VP9_COMP *cpi) {
@@ -2147,8 +2374,9 @@ static void generate_psnr_packet(VP9_COMP *cpi) {
     pkt.data.psnr.psnr[i] = psnr.psnr[i];
   }
   pkt.kind = VPX_CODEC_PSNR_PKT;
-  if (is_two_pass_svc(cpi))
-    cpi->svc.layer_context[cpi->svc.spatial_layer_id].psnr_pkt = pkt.data.psnr;
+  if (cpi->use_svc)
+    cpi->svc.layer_context[cpi->svc.spatial_layer_id *
+        cpi->svc.number_temporal_layers].psnr_pkt = pkt.data.psnr;
   else
     vpx_codec_pkt_list_add(cpi->output_pkt_list, &pkt);
 }
@@ -2340,7 +2568,7 @@ static void scale_and_extend_frame_nonnormative(const YV12_BUFFER_CONFIG *src,
                      dsts[i], dst_heights[i], dst_widths[i], dst_strides[i]);
 #endif  // CONFIG_VP9_HIGHBITDEPTH
   }
-  vp9_extend_frame_borders(dst);
+  vpx_extend_frame_borders(dst);
 }
 
 #if CONFIG_VP9_HIGHBITDEPTH
@@ -2358,7 +2586,7 @@ static void scale_and_extend_frame(const YV12_BUFFER_CONFIG *src,
   const int src_strides[3] = {src->y_stride, src->uv_stride, src->uv_stride};
   uint8_t *const dsts[3] = {dst->y_buffer, dst->u_buffer, dst->v_buffer};
   const int dst_strides[3] = {dst->y_stride, dst->uv_stride, dst->uv_stride};
-  const InterpKernel *const kernel = vp9_get_interp_kernel(EIGHTTAP);
+  const InterpKernel *const kernel = vp9_filter_kernels[EIGHTTAP];
   int x, y, i;
 
   for (y = 0; y < dst_h; y += 16) {
@@ -2375,18 +2603,18 @@ static void scale_and_extend_frame(const YV12_BUFFER_CONFIG *src,
 
 #if CONFIG_VP9_HIGHBITDEPTH
         if (src->flags & YV12_FLAG_HIGHBITDEPTH) {
-          vp9_highbd_convolve8(src_ptr, src_stride, dst_ptr, dst_stride,
+          vpx_highbd_convolve8(src_ptr, src_stride, dst_ptr, dst_stride,
                                kernel[x_q4 & 0xf], 16 * src_w / dst_w,
                                kernel[y_q4 & 0xf], 16 * src_h / dst_h,
                                16 / factor, 16 / factor, bd);
         } else {
-          vp9_convolve8(src_ptr, src_stride, dst_ptr, dst_stride,
+          vpx_scaled_2d(src_ptr, src_stride, dst_ptr, dst_stride,
                         kernel[x_q4 & 0xf], 16 * src_w / dst_w,
                         kernel[y_q4 & 0xf], 16 * src_h / dst_h,
                         16 / factor, 16 / factor);
         }
 #else
-        vp9_convolve8(src_ptr, src_stride, dst_ptr, dst_stride,
+        vpx_scaled_2d(src_ptr, src_stride, dst_ptr, dst_stride,
                       kernel[x_q4 & 0xf], 16 * src_w / dst_w,
                       kernel[y_q4 & 0xf], 16 * src_h / dst_h,
                       16 / factor, 16 / factor);
@@ -2395,7 +2623,7 @@ static void scale_and_extend_frame(const YV12_BUFFER_CONFIG *src,
     }
   }
 
-  vp9_extend_frame_borders(dst);
+  vpx_extend_frame_borders(dst);
 }
 
 static int scale_down(VP9_COMP *cpi, int q) {
@@ -2407,7 +2635,7 @@ static int scale_down(VP9_COMP *cpi, int q) {
   if (rc->frame_size_selector == UNSCALED &&
       q >= rc->rf_level_maxq[gf_group->rf_level[gf_group->index]]) {
     const int max_size_thresh = (int)(rate_thresh_mult[SCALE_STEP1]
-        * MAX(rc->this_frame_target, rc->avg_frame_bandwidth));
+        * VPXMAX(rc->this_frame_target, rc->avg_frame_bandwidth));
     scale = rc->projected_frame_size > max_size_thresh ? 1 : 0;
   }
   return scale;
@@ -2423,9 +2651,10 @@ static int recode_loop_test(VP9_COMP *cpi,
   const int frame_is_kfgfarf = frame_is_kf_gf_arf(cpi);
   int force_recode = 0;
 
-  if ((cpi->sf.recode_loop == ALLOW_RECODE) ||
+  if ((rc->projected_frame_size >= rc->max_frame_bandwidth) ||
+      (cpi->sf.recode_loop == ALLOW_RECODE) ||
       (frame_is_kfgfarf &&
-      (cpi->sf.recode_loop == ALLOW_RECODE_KFARFGF))) {
+       (cpi->sf.recode_loop == ALLOW_RECODE_KFARFGF))) {
     if (frame_is_kfgfarf &&
         (oxcf->resize_mode == RESIZE_DYNAMIC) &&
         scale_down(cpi, q)) {
@@ -2493,22 +2722,22 @@ void vp9_update_reference_frames(VP9_COMP *cpi) {
 
       ref_cnt_fb(pool->frame_bufs,
                  &cm->ref_frame_map[arf_idx], cm->new_fb_idx);
-      vpx_memcpy(cpi->interp_filter_selected[ALTREF_FRAME],
-                 cpi->interp_filter_selected[0],
-                 sizeof(cpi->interp_filter_selected[0]));
+      memcpy(cpi->interp_filter_selected[ALTREF_FRAME],
+             cpi->interp_filter_selected[0],
+             sizeof(cpi->interp_filter_selected[0]));
     }
 
     if (cpi->refresh_golden_frame) {
       ref_cnt_fb(pool->frame_bufs,
                  &cm->ref_frame_map[cpi->gld_fb_idx], cm->new_fb_idx);
       if (!cpi->rc.is_src_frame_alt_ref)
-        vpx_memcpy(cpi->interp_filter_selected[GOLDEN_FRAME],
-                   cpi->interp_filter_selected[0],
-                   sizeof(cpi->interp_filter_selected[0]));
+        memcpy(cpi->interp_filter_selected[GOLDEN_FRAME],
+               cpi->interp_filter_selected[0],
+               sizeof(cpi->interp_filter_selected[0]));
       else
-        vpx_memcpy(cpi->interp_filter_selected[GOLDEN_FRAME],
-                   cpi->interp_filter_selected[ALTREF_FRAME],
-                   sizeof(cpi->interp_filter_selected[ALTREF_FRAME]));
+        memcpy(cpi->interp_filter_selected[GOLDEN_FRAME],
+               cpi->interp_filter_selected[ALTREF_FRAME],
+               sizeof(cpi->interp_filter_selected[ALTREF_FRAME]));
     }
   }
 
@@ -2516,9 +2745,9 @@ void vp9_update_reference_frames(VP9_COMP *cpi) {
     ref_cnt_fb(pool->frame_bufs,
                &cm->ref_frame_map[cpi->lst_fb_idx], cm->new_fb_idx);
     if (!cpi->rc.is_src_frame_alt_ref)
-      vpx_memcpy(cpi->interp_filter_selected[LAST_FRAME],
-                 cpi->interp_filter_selected[0],
-                 sizeof(cpi->interp_filter_selected[0]));
+      memcpy(cpi->interp_filter_selected[LAST_FRAME],
+             cpi->interp_filter_selected[0],
+             sizeof(cpi->interp_filter_selected[0]));
   }
 #if CONFIG_VP9_TEMPORAL_DENOISING
   if (cpi->oxcf.noise_sensitivity > 0) {
@@ -2527,7 +2756,8 @@ void vp9_update_reference_frames(VP9_COMP *cpi) {
                                    cpi->common.frame_type,
                                    cpi->refresh_alt_ref_frame,
                                    cpi->refresh_golden_frame,
-                                   cpi->refresh_last_frame);
+                                   cpi->refresh_last_frame,
+                                   cpi->resize_pending);
   }
 #endif
 }
@@ -2535,12 +2765,13 @@ void vp9_update_reference_frames(VP9_COMP *cpi) {
 static void loopfilter_frame(VP9_COMP *cpi, VP9_COMMON *cm) {
   MACROBLOCKD *xd = &cpi->td.mb.e_mbd;
   struct loopfilter *lf = &cm->lf;
+
   if (xd->lossless) {
       lf->filter_level = 0;
   } else {
     struct vpx_usec_timer timer;
 
-    vp9_clear_system_state();
+    vpx_clear_system_state();
 
     vpx_usec_timer_start(&timer);
 
@@ -2551,6 +2782,8 @@ static void loopfilter_frame(VP9_COMP *cpi, VP9_COMMON *cm) {
   }
 
   if (lf->filter_level > 0) {
+    vp9_build_mask_frame(cm, lf->filter_level, 0);
+
     if (cpi->num_workers > 1)
       vp9_loop_filter_frame_mt(cm->frame_to_show, cm, xd->plane,
                                lf->filter_level, 0, 0,
@@ -2560,7 +2793,7 @@ static void loopfilter_frame(VP9_COMP *cpi, VP9_COMMON *cm) {
       vp9_loop_filter_frame(cm->frame_to_show, cm, xd, lf->filter_level, 0, 0);
   }
 
-  vp9_extend_frame_inner_borders(cm->frame_to_show);
+  vpx_extend_frame_inner_borders(cm->frame_to_show);
 }
 
 static INLINE void alloc_frame_mvs(const VP9_COMMON *cm,
@@ -2597,37 +2830,65 @@ void vp9_scale_references(VP9_COMP *cpi) {
 
 #if CONFIG_VP9_HIGHBITDEPTH
       if (ref->y_crop_width != cm->width || ref->y_crop_height != cm->height) {
-        const int new_fb = get_free_fb(cm);
-        RefCntBuffer *const new_fb_ptr = &pool->frame_bufs[new_fb];
-        cm->cur_frame = &pool->frame_bufs[new_fb];
-        vp9_realloc_frame_buffer(&pool->frame_bufs[new_fb].buf,
-                                 cm->width, cm->height,
-                                 cm->subsampling_x, cm->subsampling_y,
-                                 cm->use_highbitdepth,
-                                 VP9_ENC_BORDER_IN_PIXELS, cm->byte_alignment,
-                                 NULL, NULL, NULL);
-        scale_and_extend_frame(ref, &new_fb_ptr->buf, (int)cm->bit_depth);
+        RefCntBuffer *new_fb_ptr = NULL;
+        int force_scaling = 0;
+        int new_fb = cpi->scaled_ref_idx[ref_frame - 1];
+        if (new_fb == INVALID_IDX) {
+          new_fb = get_free_fb(cm);
+          force_scaling = 1;
+        }
+        if (new_fb == INVALID_IDX)
+          return;
+        new_fb_ptr = &pool->frame_bufs[new_fb];
+        if (force_scaling ||
+            new_fb_ptr->buf.y_crop_width != cm->width ||
+            new_fb_ptr->buf.y_crop_height != cm->height) {
+          vpx_realloc_frame_buffer(&new_fb_ptr->buf,
+                                   cm->width, cm->height,
+                                   cm->subsampling_x, cm->subsampling_y,
+                                   cm->use_highbitdepth,
+                                   VP9_ENC_BORDER_IN_PIXELS, cm->byte_alignment,
+                                   NULL, NULL, NULL);
+          scale_and_extend_frame(ref, &new_fb_ptr->buf, (int)cm->bit_depth);
+          cpi->scaled_ref_idx[ref_frame - 1] = new_fb;
+          alloc_frame_mvs(cm, new_fb);
+        }
 #else
       if (ref->y_crop_width != cm->width || ref->y_crop_height != cm->height) {
-        const int new_fb = get_free_fb(cm);
-        RefCntBuffer *const new_fb_ptr = &pool->frame_bufs[new_fb];
-        vp9_realloc_frame_buffer(&new_fb_ptr->buf,
-                                 cm->width, cm->height,
-                                 cm->subsampling_x, cm->subsampling_y,
-                                 VP9_ENC_BORDER_IN_PIXELS, cm->byte_alignment,
-                                 NULL, NULL, NULL);
-        scale_and_extend_frame(ref, &new_fb_ptr->buf);
+        RefCntBuffer *new_fb_ptr = NULL;
+        int force_scaling = 0;
+        int new_fb = cpi->scaled_ref_idx[ref_frame - 1];
+        if (new_fb == INVALID_IDX) {
+          new_fb = get_free_fb(cm);
+          force_scaling = 1;
+        }
+        if (new_fb == INVALID_IDX)
+          return;
+        new_fb_ptr = &pool->frame_bufs[new_fb];
+        if (force_scaling ||
+            new_fb_ptr->buf.y_crop_width != cm->width ||
+            new_fb_ptr->buf.y_crop_height != cm->height) {
+          vpx_realloc_frame_buffer(&new_fb_ptr->buf,
+                                   cm->width, cm->height,
+                                   cm->subsampling_x, cm->subsampling_y,
+                                   VP9_ENC_BORDER_IN_PIXELS, cm->byte_alignment,
+                                   NULL, NULL, NULL);
+          scale_and_extend_frame(ref, &new_fb_ptr->buf);
+          cpi->scaled_ref_idx[ref_frame - 1] = new_fb;
+          alloc_frame_mvs(cm, new_fb);
+        }
 #endif  // CONFIG_VP9_HIGHBITDEPTH
-        cpi->scaled_ref_idx[ref_frame - 1] = new_fb;
-
-        alloc_frame_mvs(cm, new_fb);
       } else {
         const int buf_idx = get_ref_frame_buf_idx(cpi, ref_frame);
+        RefCntBuffer *const buf = &pool->frame_bufs[buf_idx];
+        buf->buf.y_crop_width = ref->y_crop_width;
+        buf->buf.y_crop_height = ref->y_crop_height;
         cpi->scaled_ref_idx[ref_frame - 1] = buf_idx;
-        ++pool->frame_bufs[buf_idx].ref_count;
+        ++buf->ref_count;
       }
     } else {
-      cpi->scaled_ref_idx[ref_frame - 1] = INVALID_IDX;
+      if (cpi->oxcf.pass != 0 || cpi->use_svc)
+        cpi->scaled_ref_idx[ref_frame - 1] = INVALID_IDX;
     }
   }
 }
@@ -2635,13 +2896,35 @@ void vp9_scale_references(VP9_COMP *cpi) {
 static void release_scaled_references(VP9_COMP *cpi) {
   VP9_COMMON *cm = &cpi->common;
   int i;
-  for (i = 0; i < MAX_REF_FRAMES; ++i) {
-    const int idx = cpi->scaled_ref_idx[i];
-    RefCntBuffer *const buf = idx != INVALID_IDX ?
-        &cm->buffer_pool->frame_bufs[idx] : NULL;
-    if (buf != NULL) {
-      --buf->ref_count;
-      cpi->scaled_ref_idx[i] = INVALID_IDX;
+  if (cpi->oxcf.pass == 0 && !cpi->use_svc) {
+    // Only release scaled references under certain conditions:
+    // if reference will be updated, or if scaled reference has same resolution.
+    int refresh[3];
+    refresh[0] = (cpi->refresh_last_frame) ? 1 : 0;
+    refresh[1] = (cpi->refresh_golden_frame) ? 1 : 0;
+    refresh[2] = (cpi->refresh_alt_ref_frame) ? 1 : 0;
+    for (i = LAST_FRAME; i <= ALTREF_FRAME; ++i) {
+      const int idx = cpi->scaled_ref_idx[i - 1];
+      RefCntBuffer *const buf = idx != INVALID_IDX ?
+          &cm->buffer_pool->frame_bufs[idx] : NULL;
+      const YV12_BUFFER_CONFIG *const ref = get_ref_frame_buffer(cpi, i);
+      if (buf != NULL &&
+          (refresh[i - 1] ||
+          (buf->buf.y_crop_width == ref->y_crop_width &&
+           buf->buf.y_crop_height == ref->y_crop_height))) {
+        --buf->ref_count;
+        cpi->scaled_ref_idx[i -1] = INVALID_IDX;
+      }
+    }
+  } else {
+    for (i = 0; i < MAX_REF_FRAMES; ++i) {
+      const int idx = cpi->scaled_ref_idx[i];
+      RefCntBuffer *const buf = idx != INVALID_IDX ?
+          &cm->buffer_pool->frame_bufs[idx] : NULL;
+      if (buf != NULL) {
+        --buf->ref_count;
+        cpi->scaled_ref_idx[i] = INVALID_IDX;
+      }
     }
   }
 }
@@ -2674,24 +2957,30 @@ static void output_frame_level_debug_stats(VP9_COMP *cpi) {
   FILE *const f = fopen("tmp.stt", cm->current_video_frame ? "a" : "w");
   int64_t recon_err;
 
-  vp9_clear_system_state();
+  vpx_clear_system_state();
 
   recon_err = vp9_get_y_sse(cpi->Source, get_frame_new_buffer(cm));
 
   if (cpi->twopass.total_left_stats.coded_error != 0.0)
-    fprintf(f, "%10u %dx%d %10d %10d %10d %10d"
-        "%10"PRId64" %10"PRId64" %10"PRId64" %10"PRId64" %10d "
-        "%7.2lf %7.2lf %7.2lf %7.2lf %7.2lf"
+    fprintf(f, "%10u %dx%d %d %d %10d %10d %10d %10d"
+       "%10"PRId64" %10"PRId64" %5d %5d %10"PRId64" "
+       "%10"PRId64" %10"PRId64" %10d "
+       "%7.2lf %7.2lf %7.2lf %7.2lf %7.2lf"
         "%6d %6d %5d %5d %5d "
         "%10"PRId64" %10.3lf"
-        "%10lf %8u %10"PRId64" %10d %10d\n",
+        "%10lf %8u %10"PRId64" %10d %10d %10d\n",
         cpi->common.current_video_frame,
         cm->width, cm->height,
+        cpi->rc.source_alt_ref_pending,
+        cpi->rc.source_alt_ref_active,
         cpi->rc.this_frame_target,
         cpi->rc.projected_frame_size,
         cpi->rc.projected_frame_size / cpi->common.MBs,
         (cpi->rc.projected_frame_size - cpi->rc.this_frame_target),
         cpi->rc.vbr_bits_off_target,
+        cpi->rc.vbr_bits_off_target_fast,
+        cpi->twopass.extend_minq,
+        cpi->twopass.extend_minq_fast,
         cpi->rc.total_target_vs_actual,
         (cpi->rc.starting_buffer_level - cpi->rc.bits_off_target),
         cpi->rc.total_actual_bits, cm->base_qindex,
@@ -2708,7 +2997,8 @@ static void output_frame_level_debug_stats(VP9_COMP *cpi) {
         cpi->twopass.bits_left /
             (1 + cpi->twopass.total_left_stats.coded_error),
         cpi->tot_recode_hits, recon_err, cpi->rc.kf_boost,
-        cpi->twopass.kf_zeromotion_pct);
+        cpi->twopass.kf_zeromotion_pct,
+        cpi->twopass.fr_content_type);
 
   fclose(f);
 
@@ -2732,7 +3022,7 @@ static void output_frame_level_debug_stats(VP9_COMP *cpi) {
 
 static void set_mv_search_params(VP9_COMP *cpi) {
   const VP9_COMMON *const cm = &cpi->common;
-  const unsigned int max_mv_def = MIN(cm->width, cm->height);
+  const unsigned int max_mv_def = VPXMIN(cm->width, cm->height);
 
   // Default based on max resolution.
   cpi->mv_step_param = vp9_init_search_range(max_mv_def);
@@ -2747,8 +3037,8 @@ static void set_mv_search_params(VP9_COMP *cpi) {
         // Allow mv_steps to correspond to twice the max mv magnitude found
         // in the previous frame, capped by the default max_mv_magnitude based
         // on resolution.
-        cpi->mv_step_param =
-            vp9_init_search_range(MIN(max_mv_def, 2 * cpi->max_mv_magnitude));
+        cpi->mv_step_param = vp9_init_search_range(
+            VPXMIN(max_mv_def, 2 * cpi->max_mv_magnitude));
       }
       cpi->max_mv_magnitude = 0;
     }
@@ -2810,6 +3100,21 @@ static void set_size_dependent_vars(VP9_COMP *cpi, int *q,
 #endif  // CONFIG_VP9_POSTPROC
 }
 
+#if CONFIG_VP9_TEMPORAL_DENOISING
+static void setup_denoiser_buffer(VP9_COMP *cpi) {
+  VP9_COMMON *const cm = &cpi->common;
+  if (cpi->oxcf.noise_sensitivity > 0 &&
+      !cpi->denoiser.frame_buffer_initialized) {
+    vp9_denoiser_alloc(&(cpi->denoiser), cm->width, cm->height,
+                       cm->subsampling_x, cm->subsampling_y,
+#if CONFIG_VP9_HIGHBITDEPTH
+                       cm->use_highbitdepth,
+#endif
+                       VP9_ENC_BORDER_IN_PIXELS);
+  }
+}
+#endif
+
 static void init_motion_estimation(VP9_COMP *cpi) {
   int y_stride = cpi->scaled_source.y_stride;
 
@@ -2820,7 +3125,7 @@ static void init_motion_estimation(VP9_COMP *cpi) {
   }
 }
 
-void set_frame_size(VP9_COMP *cpi) {
+static void set_frame_size(VP9_COMP *cpi) {
   int ref_frame;
   VP9_COMMON *const cm = &cpi->common;
   VP9EncoderConfig *const oxcf = &cpi->oxcf;
@@ -2838,6 +3143,35 @@ void set_frame_size(VP9_COMP *cpi) {
                          oxcf->scaled_frame_height);
   }
 
+  if (oxcf->pass == 0 &&
+      oxcf->rc_mode == VPX_CBR &&
+      !cpi->use_svc &&
+      oxcf->resize_mode == RESIZE_DYNAMIC &&
+      cpi->resize_pending != 0) {
+    oxcf->scaled_frame_width =
+        (oxcf->width * cpi->resize_scale_num) / cpi->resize_scale_den;
+    oxcf->scaled_frame_height =
+        (oxcf->height * cpi->resize_scale_num) /cpi->resize_scale_den;
+    // There has been a change in frame size.
+    vp9_set_size_literal(cpi,
+                         oxcf->scaled_frame_width,
+                         oxcf->scaled_frame_height);
+
+    // TODO(agrange) Scale cpi->max_mv_magnitude if frame-size has changed.
+    set_mv_search_params(cpi);
+
+#if CONFIG_VP9_TEMPORAL_DENOISING
+    // Reset the denoiser on the resized frame.
+    if (cpi->oxcf.noise_sensitivity > 0) {
+      vp9_denoiser_free(&(cpi->denoiser));
+      setup_denoiser_buffer(cpi);
+      // Dynamic resize is only triggered for non-SVC, so we can force
+      // golden frame update here as temporary fix to denoiser.
+      cpi->refresh_golden_frame = 1;
+    }
+#endif
+  }
+
   if ((oxcf->pass == 2) &&
       (!cpi->use_svc ||
           (is_two_pass_svc(cpi) &&
@@ -2848,7 +3182,7 @@ void set_frame_size(VP9_COMP *cpi) {
   alloc_frame_mvs(cm, cm->new_fb_idx);
 
   // Reset the frame pointers to the current frame size.
-  vp9_realloc_frame_buffer(get_frame_new_buffer(cm),
+  vpx_realloc_frame_buffer(get_frame_new_buffer(cm),
                            cm->width, cm->height,
                            cm->subsampling_x, cm->subsampling_y,
 #if CONFIG_VP9_HIGHBITDEPTH
@@ -2881,7 +3215,7 @@ void set_frame_size(VP9_COMP *cpi) {
                                         cm->width, cm->height);
 #endif  // CONFIG_VP9_HIGHBITDEPTH
       if (vp9_is_scaled(&ref_buf->sf))
-        vp9_extend_frame_borders(buf);
+        vpx_extend_frame_borders(buf);
     } else {
       ref_buf->buf = NULL;
     }
@@ -2890,20 +3224,45 @@ void set_frame_size(VP9_COMP *cpi) {
   set_ref_ptrs(cm, xd, LAST_FRAME, LAST_FRAME);
 }
 
-static void encode_without_recode_loop(VP9_COMP *cpi) {
+static void encode_without_recode_loop(VP9_COMP *cpi,
+                                       size_t *size,
+                                       uint8_t *dest) {
   VP9_COMMON *const cm = &cpi->common;
   int q = 0, bottom_index = 0, top_index = 0;  // Dummy variables.
 
-  vp9_clear_system_state();
+  vpx_clear_system_state();
 
   set_frame_size(cpi);
 
-  cpi->Source = vp9_scale_if_required(cm, cpi->un_scaled_source,
-                                      &cpi->scaled_source);
+  cpi->Source = vp9_scale_if_required(cm,
+                                      cpi->un_scaled_source,
+                                      &cpi->scaled_source,
+                                      (cpi->oxcf.pass == 0));
 
-  if (cpi->unscaled_last_source != NULL)
-    cpi->Last_Source = vp9_scale_if_required(cm, cpi->unscaled_last_source,
-                                             &cpi->scaled_last_source);
+  // Avoid scaling last_source unless its needed.
+  // Last source is currently only used for screen-content mode,
+  // or if partition_search_type == SOURCE_VAR_BASED_PARTITION.
+  if (cpi->unscaled_last_source != NULL &&
+      (cpi->oxcf.content == VP9E_CONTENT_SCREEN ||
+      cpi->sf.partition_search_type == SOURCE_VAR_BASED_PARTITION))
+    cpi->Last_Source = vp9_scale_if_required(cm,
+                                             cpi->unscaled_last_source,
+                                             &cpi->scaled_last_source,
+                                             (cpi->oxcf.pass == 0));
+
+#if CONFIG_VP9_TEMPORAL_DENOISING
+  if (cpi->oxcf.noise_sensitivity > 0 &&
+      cpi->oxcf.aq_mode == CYCLIC_REFRESH_AQ) {
+    vp9_denoiser_update_noise_estimate(cpi);
+  }
+#endif
+
+  if (cpi->oxcf.pass == 0 &&
+      cpi->oxcf.rc_mode == VPX_CBR &&
+      cpi->resize_state == 0 &&
+      cm->frame_type != KEY_FRAME &&
+      cpi->oxcf.content == VP9E_CONTENT_SCREEN)
+    vp9_avg_source_sad(cpi);
 
   if (frame_is_intra_only(cm) == 0) {
     vp9_scale_references(cpi);
@@ -2913,11 +3272,11 @@ static void encode_without_recode_loop(VP9_COMP *cpi) {
   set_size_dependent_vars(cpi, &q, &bottom_index, &top_index);
 
   vp9_set_quantizer(cm, q);
-  vp9_set_vbp_thresholds(cpi, q);
+  vp9_set_variance_partition_thresholds(cpi, q);
 
   setup_frame(cpi);
 
-  vp9_suppress_active_map(cpi);
+  suppress_active_map(cpi);
   // Variance adaptive and in frame q adjustment experiments are mutually
   // exclusive.
   if (cpi->oxcf.aq_mode == VARIANCE_AQ) {
@@ -2927,23 +3286,56 @@ static void encode_without_recode_loop(VP9_COMP *cpi) {
   } else if (cpi->oxcf.aq_mode == CYCLIC_REFRESH_AQ) {
     vp9_cyclic_refresh_setup(cpi);
   }
-  vp9_apply_active_map(cpi);
+  apply_active_map(cpi);
 
   // transform / motion compensation build reconstruction frame
   vp9_encode_frame(cpi);
+
+  // Check if we should drop this frame because of high overshoot.
+  // Only for frames where high temporal-source sad is detected.
+  if (cpi->oxcf.pass == 0 &&
+      cpi->oxcf.rc_mode == VPX_CBR &&
+      cpi->resize_state == 0 &&
+      cm->frame_type != KEY_FRAME &&
+      cpi->oxcf.content == VP9E_CONTENT_SCREEN &&
+      cpi->rc.high_source_sad == 1) {
+    int frame_size = 0;
+    // Get an estimate of the encoded frame size.
+    save_coding_context(cpi);
+    vp9_pack_bitstream(cpi, dest, size);
+    restore_coding_context(cpi);
+    frame_size = (int)(*size) << 3;
+    // Check if encoded frame will overshoot too much, and if so, set the q and
+    // adjust some rate control parameters, and return to re-encode the frame.
+    if (vp9_encodedframe_overshoot(cpi, frame_size, &q)) {
+      vpx_clear_system_state();
+      vp9_set_quantizer(cm, q);
+      vp9_set_variance_partition_thresholds(cpi, q);
+      suppress_active_map(cpi);
+      // Turn-off cyclic refresh for re-encoded frame.
+      if (cpi->oxcf.aq_mode == CYCLIC_REFRESH_AQ) {
+        unsigned char *const seg_map = cpi->segmentation_map;
+        memset(seg_map, 0, cm->mi_rows * cm->mi_cols);
+        vp9_disable_segmentation(&cm->seg);
+      }
+      apply_active_map(cpi);
+      vp9_encode_frame(cpi);
+    }
+  }
 
   // Update some stats from cyclic refresh, and check if we should not update
   // golden reference, for non-SVC 1 pass CBR.
   if (cpi->oxcf.aq_mode == CYCLIC_REFRESH_AQ &&
       cm->frame_type != KEY_FRAME &&
       !cpi->use_svc &&
+      cpi->ext_refresh_frame_flags_pending == 0 &&
       (cpi->oxcf.pass == 0 && cpi->oxcf.rc_mode == VPX_CBR))
     vp9_cyclic_refresh_check_golden_update(cpi);
 
   // Update the skip mb flag probabilities based on the distribution
   // seen in the last encoder iteration.
   // update_base_skip_probs(cpi);
-  vp9_clear_system_state();
+  vpx_clear_system_state();
 }
 
 static void encode_with_recode_loop(VP9_COMP *cpi,
@@ -2964,7 +3356,7 @@ static void encode_with_recode_loop(VP9_COMP *cpi,
   set_size_independent_vars(cpi);
 
   do {
-    vp9_clear_system_state();
+    vpx_clear_system_state();
 
     set_frame_size(cpi);
 
@@ -2995,11 +3387,13 @@ static void encode_with_recode_loop(VP9_COMP *cpi,
     }
 
     cpi->Source = vp9_scale_if_required(cm, cpi->un_scaled_source,
-                                      &cpi->scaled_source);
+                                      &cpi->scaled_source,
+                                      (cpi->oxcf.pass == 0));
 
     if (cpi->unscaled_last_source != NULL)
       cpi->Last_Source = vp9_scale_if_required(cm, cpi->unscaled_last_source,
-                                               &cpi->scaled_last_source);
+                                               &cpi->scaled_last_source,
+                                               (cpi->oxcf.pass == 0));
 
     if (frame_is_intra_only(cm) == 0) {
       if (loop_count > 0) {
@@ -3028,7 +3422,7 @@ static void encode_with_recode_loop(VP9_COMP *cpi,
     // seen in the last encoder iteration.
     // update_base_skip_probs(cpi);
 
-    vp9_clear_system_state();
+    vpx_clear_system_state();
 
     // Dummy pack of the bitstream using up to date stats to get an
     // accurate estimate of output frame size to determine if we need
@@ -3081,7 +3475,7 @@ static void encode_with_recode_loop(VP9_COMP *cpi,
 
           // Adjust Q
           q = (int)((q * high_err_target) / kf_err);
-          q = MIN(q, (q_high + q_low) >> 1);
+          q = VPXMIN(q, (q_high + q_low) >> 1);
         } else if (kf_err < low_err_target &&
                    rc->projected_frame_size >= frame_under_shoot_limit) {
           // The key frame is much better than the previous frame
@@ -3090,7 +3484,7 @@ static void encode_with_recode_loop(VP9_COMP *cpi,
 
           // Adjust Q
           q = (int)((q * low_err_target) / kf_err);
-          q = MIN(q, (q_high + q_low + 1) >> 1);
+          q = VPXMIN(q, (q_high + q_low + 1) >> 1);
         }
 
         // Clamp Q to upper and lower limits:
@@ -3099,7 +3493,7 @@ static void encode_with_recode_loop(VP9_COMP *cpi,
         loop = q != last_q;
       } else if (recode_loop_test(
           cpi, frame_over_shoot_limit, frame_under_shoot_limit,
-          q, MAX(q_high, top_index), bottom_index)) {
+          q, VPXMAX(q_high, top_index), bottom_index)) {
         // Is the projected frame size out of range and are we allowed
         // to attempt to recode.
         int last_q = q;
@@ -3141,12 +3535,12 @@ static void encode_with_recode_loop(VP9_COMP *cpi,
             vp9_rc_update_rate_correction_factors(cpi);
 
             q = vp9_rc_regulate_q(cpi, rc->this_frame_target,
-                                   bottom_index, MAX(q_high, top_index));
+                                  bottom_index, VPXMAX(q_high, top_index));
 
             while (q < q_low && retries < 10) {
               vp9_rc_update_rate_correction_factors(cpi);
               q = vp9_rc_regulate_q(cpi, rc->this_frame_target,
-                                     bottom_index, MAX(q_high, top_index));
+                                    bottom_index, VPXMAX(q_high, top_index));
               retries++;
             }
           }
@@ -3245,19 +3639,25 @@ static void set_ext_overrides(VP9_COMP *cpi) {
     cpi->refresh_last_frame = cpi->ext_refresh_last_frame;
     cpi->refresh_golden_frame = cpi->ext_refresh_golden_frame;
     cpi->refresh_alt_ref_frame = cpi->ext_refresh_alt_ref_frame;
-    cpi->ext_refresh_frame_flags_pending = 0;
   }
 }
 
 YV12_BUFFER_CONFIG *vp9_scale_if_required(VP9_COMMON *cm,
                                           YV12_BUFFER_CONFIG *unscaled,
-                                          YV12_BUFFER_CONFIG *scaled) {
+                                          YV12_BUFFER_CONFIG *scaled,
+                                          int use_normative_scaler) {
   if (cm->mi_cols * MI_SIZE != unscaled->y_width ||
       cm->mi_rows * MI_SIZE != unscaled->y_height) {
 #if CONFIG_VP9_HIGHBITDEPTH
-    scale_and_extend_frame_nonnormative(unscaled, scaled, (int)cm->bit_depth);
+    if (use_normative_scaler)
+      scale_and_extend_frame(unscaled, scaled, (int)cm->bit_depth);
+    else
+      scale_and_extend_frame_nonnormative(unscaled, scaled, (int)cm->bit_depth);
 #else
-    scale_and_extend_frame_nonnormative(unscaled, scaled);
+    if (use_normative_scaler)
+      scale_and_extend_frame(unscaled, scaled);
+    else
+      scale_and_extend_frame_nonnormative(unscaled, scaled);
 #endif  // CONFIG_VP9_HIGHBITDEPTH
     return scaled;
   } else {
@@ -3281,7 +3681,7 @@ static void set_arf_sign_bias(VP9_COMP *cpi) {
   cm->ref_frame_sign_bias[ALTREF_FRAME] = arf_sign_bias;
 }
 
-int setup_interp_filter_search_mask(VP9_COMP *cpi) {
+static int setup_interp_filter_search_mask(VP9_COMP *cpi) {
   INTERP_FILTER ifilter;
   int ref_total[MAX_REF_FRAMES] = {0};
   MV_REFERENCE_FRAME ref;
@@ -3317,7 +3717,7 @@ static void encode_frame_to_data_rate(VP9_COMP *cpi,
   TX_SIZE t;
 
   set_ext_overrides(cpi);
-  vp9_clear_system_state();
+  vpx_clear_system_state();
 
   // Set the arf sign bias for this frame.
   set_arf_sign_bias(cpi);
@@ -3358,34 +3758,41 @@ static void encode_frame_to_data_rate(VP9_COMP *cpi,
     }
   }
   if (is_two_pass_svc(cpi) && cm->error_resilient_mode == 0) {
-    // Use the last frame context for the empty frame.
+    // Use context 0 for intra only empty frame, but the last frame context
+    // for other empty frames.
+    if (cpi->svc.encode_empty_frame_state == ENCODING) {
+      if (cpi->svc.encode_intra_empty_frame != 0)
+        cm->frame_context_idx = 0;
+      else
+        cm->frame_context_idx = FRAME_CONTEXTS - 1;
+    } else {
     cm->frame_context_idx =
-        (cpi->svc.encode_empty_frame_state == ENCODING) ? FRAME_CONTEXTS - 1 :
         cpi->svc.spatial_layer_id * cpi->svc.number_temporal_layers +
         cpi->svc.temporal_layer_id;
+    }
+
+    cm->frame_parallel_decoding_mode = oxcf->frame_parallel_decoding_mode;
 
     // The probs will be updated based on the frame type of its previous
     // frame if frame_parallel_decoding_mode is 0. The type may vary for
     // the frame after a key frame in base layer since we may drop enhancement
     // layers. So set frame_parallel_decoding_mode to 1 in this case.
-    if (cpi->svc.number_temporal_layers == 1) {
-      if (cpi->svc.spatial_layer_id == 0 &&
-          cpi->svc.layer_context[0].last_frame_type == KEY_FRAME)
-        cm->frame_parallel_decoding_mode = 1;
-      else
-        cm->frame_parallel_decoding_mode = 0;
-    } else if (cpi->svc.spatial_layer_id == 0) {
-      // Find the 2nd frame in temporal base layer and 1st frame in temporal
-      // enhancement layers from the key frame.
-      int i;
-      for (i = 0; i < cpi->svc.number_temporal_layers; ++i) {
-        if (cpi->svc.layer_context[0].frames_from_key_frame == 1 << i) {
+    if (cm->frame_parallel_decoding_mode == 0) {
+      if (cpi->svc.number_temporal_layers == 1) {
+        if (cpi->svc.spatial_layer_id == 0 &&
+            cpi->svc.layer_context[0].last_frame_type == KEY_FRAME)
           cm->frame_parallel_decoding_mode = 1;
-          break;
+      } else if (cpi->svc.spatial_layer_id == 0) {
+        // Find the 2nd frame in temporal base layer and 1st frame in temporal
+        // enhancement layers from the key frame.
+        int i;
+        for (i = 0; i < cpi->svc.number_temporal_layers; ++i) {
+          if (cpi->svc.layer_context[0].frames_from_key_frame == 1 << i) {
+            cm->frame_parallel_decoding_mode = 1;
+            break;
+          }
         }
       }
-      if (i == cpi->svc.number_temporal_layers)
-        cm->frame_parallel_decoding_mode = 0;
     }
   }
 
@@ -3397,19 +3804,20 @@ static void encode_frame_to_data_rate(VP9_COMP *cpi,
     if (vp9_rc_drop_frame(cpi)) {
       vp9_rc_postencode_update_drop_frame(cpi);
       ++cm->current_video_frame;
+      cpi->ext_refresh_frame_flags_pending = 0;
       return;
     }
   }
 
-  vp9_clear_system_state();
+  vpx_clear_system_state();
 
 #if CONFIG_INTERNAL_STATS
-  vpx_memset(cpi->mode_chosen_counts, 0,
-             MAX_MODES * sizeof(*cpi->mode_chosen_counts));
+  memset(cpi->mode_chosen_counts, 0,
+         MAX_MODES * sizeof(*cpi->mode_chosen_counts));
 #endif
 
   if (cpi->sf.recode_loop == DISALLOW_RECODE) {
-    encode_without_recode_loop(cpi);
+    encode_without_recode_loop(cpi, size, dest);
   } else {
     encode_with_recode_loop(cpi, size, dest);
   }
@@ -3449,6 +3857,10 @@ static void encode_frame_to_data_rate(VP9_COMP *cpi,
     cpi->refresh_last_frame = 1;
 
   cm->frame_to_show = get_frame_new_buffer(cm);
+  cm->frame_to_show->color_space = cm->color_space;
+  cm->frame_to_show->color_range = cm->color_range;
+  cm->frame_to_show->render_width  = cm->render_width;
+  cm->frame_to_show->render_height = cm->render_height;
 
   // Pick the loop filter level for the frame.
   loopfilter_frame(cpi, cm);
@@ -3477,6 +3889,8 @@ static void encode_frame_to_data_rate(VP9_COMP *cpi,
       vp9_adapt_mv_probs(cm, cm->allow_high_precision_mv);
     }
   }
+
+  cpi->ext_refresh_frame_flags_pending = 0;
 
   if (cpi->refresh_golden_frame == 1)
     cpi->frame_flags |= FRAMEFLAGS_GOLDEN;
@@ -3530,9 +3944,11 @@ static void encode_frame_to_data_rate(VP9_COMP *cpi,
   }
   cm->prev_frame = cm->cur_frame;
 
-  if (is_two_pass_svc(cpi))
-    cpi->svc.layer_context[cpi->svc.spatial_layer_id].last_frame_type =
-        cm->frame_type;
+  if (cpi->use_svc)
+    cpi->svc.layer_context[cpi->svc.spatial_layer_id *
+                           cpi->svc.number_temporal_layers +
+                           cpi->svc.temporal_layer_id].last_frame_type =
+                               cm->frame_type;
 }
 
 static void SvcEncode(VP9_COMP *cpi, size_t *size, uint8_t *dest,
@@ -3601,21 +4017,6 @@ static void check_initial_width(VP9_COMP *cpi,
   }
 }
 
-#if CONFIG_VP9_TEMPORAL_DENOISING
-static void setup_denoiser_buffer(VP9_COMP *cpi) {
-  VP9_COMMON *const cm = &cpi->common;
-  if (cpi->oxcf.noise_sensitivity > 0 &&
-      !cpi->denoiser.frame_buffer_initialized) {
-    vp9_denoiser_alloc(&(cpi->denoiser), cm->width, cm->height,
-                       cm->subsampling_x, cm->subsampling_y,
-#if CONFIG_VP9_HIGHBITDEPTH
-                       cm->use_highbitdepth,
-#endif
-                       VP9_ENC_BORDER_IN_PIXELS);
-  }
-}
-#endif
-
 int vp9_receive_raw_frame(VP9_COMP *cpi, unsigned int frame_flags,
                           YV12_BUFFER_CONFIG *sd, int64_t time_stamp,
                           int64_t end_time) {
@@ -3675,8 +4076,8 @@ static int frame_is_reference(const VP9_COMP *cpi) {
          cm->seg.update_data;
 }
 
-void adjust_frame_rate(VP9_COMP *cpi,
-                       const struct lookahead_entry *source) {
+static void adjust_frame_rate(VP9_COMP *cpi,
+                              const struct lookahead_entry *source) {
   int64_t this_duration;
   int step = 0;
 
@@ -3701,8 +4102,8 @@ void adjust_frame_rate(VP9_COMP *cpi,
       // Average this frame's rate into the last second's average
       // frame rate. If we haven't seen 1 second yet, then average
       // over the whole interval seen.
-      const double interval = MIN((double)(source->ts_end
-                                   - cpi->first_time_stamp_ever), 10000000.0);
+      const double interval = VPXMIN(
+          (double)(source->ts_end - cpi->first_time_stamp_ever), 10000000.0);
       double avg_duration = 10000000.0 / cpi->framerate;
       avg_duration *= (interval - avg_duration + this_duration);
       avg_duration /= interval;
@@ -3755,6 +4156,21 @@ static void check_src_altref(VP9_COMP *cpi,
   }
 }
 
+#if CONFIG_INTERNAL_STATS
+extern double vp9_get_blockiness(const uint8_t *img1, int img1_pitch,
+                                 const uint8_t *img2, int img2_pitch,
+                                 int width, int height);
+
+static void adjust_image_stat(double y, double u, double v, double all,
+                              ImageStat *s) {
+  s->stat[Y] += y;
+  s->stat[U] += u;
+  s->stat[V] += v;
+  s->stat[ALL] += all;
+  s->worst = VPXMIN(s->worst, all);
+}
+#endif  // CONFIG_INTERNAL_STATS
+
 int vp9_get_compressed_data(VP9_COMP *cpi, unsigned int *frame_flags,
                             size_t *size, uint8_t *dest,
                             int64_t *time_stamp, int64_t *time_end, int flush) {
@@ -3778,6 +4194,8 @@ int vp9_get_compressed_data(VP9_COMP *cpi, unsigned int *frame_flags,
 #endif
     if (oxcf->pass == 2)
       vp9_restore_layer_context(cpi);
+  } else if (is_one_pass_cbr_svc(cpi)) {
+    vp9_one_pass_cbr_svc_start_layer(cpi);
   }
 
   vpx_usec_timer_start(&cmptimer);
@@ -3796,9 +4214,11 @@ int vp9_get_compressed_data(VP9_COMP *cpi, unsigned int *frame_flags,
   // Normal defaults
   cm->reset_frame_context = 0;
   cm->refresh_frame_context = 1;
-  cpi->refresh_last_frame = 1;
-  cpi->refresh_golden_frame = 0;
-  cpi->refresh_alt_ref_frame = 0;
+  if (!is_one_pass_cbr_svc(cpi)) {
+    cpi->refresh_last_frame = 1;
+    cpi->refresh_golden_frame = 0;
+    cpi->refresh_alt_ref_frame = 0;
+  }
 
   // Should we encode an arf frame.
   arf_src_index = get_arf_src_index(cpi);
@@ -3830,11 +4250,12 @@ int vp9_get_compressed_data(VP9_COMP *cpi, unsigned int *frame_flags,
       if (oxcf->arnr_max_frames > 0) {
         // Produce the filtered ARF frame.
         vp9_temporal_filter(cpi, arf_src_index);
-        vp9_extend_frame_borders(&cpi->alt_ref_buffer);
+        vpx_extend_frame_borders(&cpi->alt_ref_buffer);
         force_src_buffer = &cpi->alt_ref_buffer;
       }
 
       cm->show_frame = 0;
+      cm->intra_only = 0;
       cpi->refresh_alt_ref_frame = 1;
       cpi->refresh_golden_frame = 0;
       cpi->refresh_last_frame = 0;
@@ -3853,12 +4274,11 @@ int vp9_get_compressed_data(VP9_COMP *cpi, unsigned int *frame_flags,
     }
 
     // Read in the source frame.
-#if CONFIG_SPATIAL_SVC
-    if (is_two_pass_svc(cpi))
+    if (cpi->use_svc)
       source = vp9_svc_lookahead_pop(cpi, cpi->lookahead, flush);
     else
-#endif
       source = vp9_lookahead_pop(cpi->lookahead, flush);
+
     if (source != NULL) {
       cm->show_frame = 1;
       cm->intra_only = 0;
@@ -3866,7 +4286,8 @@ int vp9_get_compressed_data(VP9_COMP *cpi, unsigned int *frame_flags,
       // non-zero spatial layer, it should not be an intra picture.
       // TODO(Won Kap): this needs to change if per-layer intra frame is
       // allowed.
-      if ((source->flags & VPX_EFLAG_FORCE_KF) && cpi->svc.spatial_layer_id) {
+      if ((source->flags & VPX_EFLAG_FORCE_KF) &&
+          cpi->svc.spatial_layer_id > cpi->svc.first_spatial_layer_to_encode) {
         source->flags &= ~(unsigned int)(VPX_EFLAG_FORCE_KF);
       }
 
@@ -3900,15 +4321,14 @@ int vp9_get_compressed_data(VP9_COMP *cpi, unsigned int *frame_flags,
   }
 
   // Clear down mmx registers
-  vp9_clear_system_state();
+  vpx_clear_system_state();
 
   // adjust frame rates based on timestamps given
   if (cm->show_frame) {
     adjust_frame_rate(cpi, source);
   }
 
-  if (cpi->svc.number_temporal_layers > 1 &&
-      oxcf->rc_mode == VPX_CBR) {
+  if (is_one_pass_cbr_svc(cpi)) {
     vp9_update_temporal_layer_framerate(cpi);
     vp9_restore_layer_context(cpi);
   }
@@ -3944,12 +4364,16 @@ int vp9_get_compressed_data(VP9_COMP *cpi, unsigned int *frame_flags,
           (is_two_pass_svc(cpi) &&
               cpi->svc.encode_empty_frame_state != ENCODING))) {
     vp9_rc_get_second_pass_params(cpi);
-  } else {
+  } else if (oxcf->pass == 1) {
     set_frame_size(cpi);
   }
 
-  for (i = 0; i < MAX_REF_FRAMES; ++i)
-    cpi->scaled_ref_idx[i] = INVALID_IDX;
+  if (cpi->oxcf.pass != 0 ||
+      cpi->use_svc ||
+      frame_is_intra_only(cm) == 1) {
+    for (i = 0; i < MAX_REF_FRAMES; ++i)
+      cpi->scaled_ref_idx[i] = INVALID_IDX;
+  }
 
   if (oxcf->pass == 1 &&
       (!cpi->use_svc || is_two_pass_svc(cpi))) {
@@ -3957,13 +4381,13 @@ int vp9_get_compressed_data(VP9_COMP *cpi, unsigned int *frame_flags,
 #if CONFIG_VP9_HIGHBITDEPTH
     if (cpi->oxcf.use_highbitdepth)
       cpi->td.mb.fwd_txm4x4 = lossless ?
-          vp9_highbd_fwht4x4 : vp9_highbd_fdct4x4;
+          vp9_highbd_fwht4x4 : vpx_highbd_fdct4x4;
     else
-      cpi->td.mb.fwd_txm4x4 = lossless ? vp9_fwht4x4 : vp9_fdct4x4;
+      cpi->td.mb.fwd_txm4x4 = lossless ? vp9_fwht4x4 : vpx_fdct4x4;
     cpi->td.mb.highbd_itxm_add = lossless ? vp9_highbd_iwht4x4_add :
                                          vp9_highbd_idct4x4_add;
 #else
-    cpi->td.mb.fwd_txm4x4 = lossless ? vp9_fwht4x4 : vp9_fdct4x4;
+    cpi->td.mb.fwd_txm4x4 = lossless ? vp9_fwht4x4 : vpx_fdct4x4;
 #endif  // CONFIG_VP9_HIGHBITDEPTH
     cpi->td.mb.itxm_add = lossless ? vp9_iwht4x4_add : vp9_idct4x4_add;
     vp9_first_pass(cpi, source);
@@ -3990,11 +4414,10 @@ int vp9_get_compressed_data(VP9_COMP *cpi, unsigned int *frame_flags,
   }
 
   // Save layer specific state.
-  if ((cpi->svc.number_temporal_layers > 1 &&
-       oxcf->rc_mode == VPX_CBR) ||
-      ((cpi->svc.number_temporal_layers > 1 ||
-        cpi->svc.number_spatial_layers > 1) &&
-       oxcf->pass == 2)) {
+  if (is_one_pass_cbr_svc(cpi) ||
+        ((cpi->svc.number_temporal_layers > 1 ||
+          cpi->svc.number_spatial_layers > 1) &&
+         oxcf->pass == 2)) {
     vp9_save_layer_context(cpi);
   }
 
@@ -4007,6 +4430,7 @@ int vp9_get_compressed_data(VP9_COMP *cpi, unsigned int *frame_flags,
 #if CONFIG_INTERNAL_STATS
 
   if (oxcf->pass != 1) {
+    double samples = 0.0;
     cpi->bytes += (int)(*size);
 
     if (cm->show_frame) {
@@ -4024,18 +4448,17 @@ int vp9_get_compressed_data(VP9_COMP *cpi, unsigned int *frame_flags,
         calc_psnr(orig, recon, &psnr);
 #endif  // CONFIG_VP9_HIGHBITDEPTH
 
-        cpi->total += psnr.psnr[0];
-        cpi->total_y += psnr.psnr[1];
-        cpi->total_u += psnr.psnr[2];
-        cpi->total_v += psnr.psnr[3];
+        adjust_image_stat(psnr.psnr[1], psnr.psnr[2], psnr.psnr[3],
+                          psnr.psnr[0], &cpi->psnr);
         cpi->total_sq_error += psnr.sse[0];
         cpi->total_samples += psnr.samples[0];
+        samples = psnr.samples[0];
 
         {
           PSNR_STATS psnr2;
           double frame_ssim2 = 0, weight = 0;
 #if CONFIG_VP9_POSTPROC
-          if (vp9_alloc_frame_buffer(&cm->post_proc_buffer,
+          if (vpx_alloc_frame_buffer(&cm->post_proc_buffer,
                                      recon->y_crop_width, recon->y_crop_height,
                                      cm->subsampling_x, cm->subsampling_y,
 #if CONFIG_VP9_HIGHBITDEPTH
@@ -4050,45 +4473,44 @@ int vp9_get_compressed_data(VP9_COMP *cpi, unsigned int *frame_flags,
           vp9_deblock(cm->frame_to_show, &cm->post_proc_buffer,
                       cm->lf.filter_level * 10 / 6);
 #endif
-          vp9_clear_system_state();
+          vpx_clear_system_state();
 
 #if CONFIG_VP9_HIGHBITDEPTH
-          calc_highbd_psnr(orig, pp, &psnr, cpi->td.mb.e_mbd.bd,
+          calc_highbd_psnr(orig, pp, &psnr2, cpi->td.mb.e_mbd.bd,
                            cpi->oxcf.input_bit_depth);
 #else
           calc_psnr(orig, pp, &psnr2);
 #endif  // CONFIG_VP9_HIGHBITDEPTH
 
-          cpi->totalp += psnr2.psnr[0];
-          cpi->totalp_y += psnr2.psnr[1];
-          cpi->totalp_u += psnr2.psnr[2];
-          cpi->totalp_v += psnr2.psnr[3];
           cpi->totalp_sq_error += psnr2.sse[0];
           cpi->totalp_samples += psnr2.samples[0];
+          adjust_image_stat(psnr2.psnr[1], psnr2.psnr[2], psnr2.psnr[3],
+                            psnr2.psnr[0], &cpi->psnrp);
 
 #if CONFIG_VP9_HIGHBITDEPTH
           if (cm->use_highbitdepth) {
-            frame_ssim2 = vp9_highbd_calc_ssim(orig, recon, &weight,
+            frame_ssim2 = vpx_highbd_calc_ssim(orig, recon, &weight,
                                                (int)cm->bit_depth);
           } else {
-            frame_ssim2 = vp9_calc_ssim(orig, recon, &weight);
+            frame_ssim2 = vpx_calc_ssim(orig, recon, &weight);
           }
 #else
-          frame_ssim2 = vp9_calc_ssim(orig, recon, &weight);
+          frame_ssim2 = vpx_calc_ssim(orig, recon, &weight);
 #endif  // CONFIG_VP9_HIGHBITDEPTH
 
+          cpi->worst_ssim = VPXMIN(cpi->worst_ssim, frame_ssim2);
           cpi->summed_quality += frame_ssim2 * weight;
           cpi->summed_weights += weight;
 
 #if CONFIG_VP9_HIGHBITDEPTH
           if (cm->use_highbitdepth) {
-            frame_ssim2 = vp9_highbd_calc_ssim(
+            frame_ssim2 = vpx_highbd_calc_ssim(
                 orig, &cm->post_proc_buffer, &weight, (int)cm->bit_depth);
           } else {
-            frame_ssim2 = vp9_calc_ssim(orig, &cm->post_proc_buffer, &weight);
+            frame_ssim2 = vpx_calc_ssim(orig, &cm->post_proc_buffer, &weight);
           }
 #else
-          frame_ssim2 = vp9_calc_ssim(orig, &cm->post_proc_buffer, &weight);
+          frame_ssim2 = vpx_calc_ssim(orig, &cm->post_proc_buffer, &weight);
 #endif  // CONFIG_VP9_HIGHBITDEPTH
 
           cpi->summedp_quality += frame_ssim2 * weight;
@@ -4104,25 +4526,74 @@ int vp9_get_compressed_data(VP9_COMP *cpi, unsigned int *frame_flags,
 #endif
         }
       }
+      if (cpi->b_calculate_blockiness) {
+#if CONFIG_VP9_HIGHBITDEPTH
+        if (!cm->use_highbitdepth)
+#endif
+        {
+          double frame_blockiness = vp9_get_blockiness(
+              cpi->Source->y_buffer, cpi->Source->y_stride,
+              cm->frame_to_show->y_buffer, cm->frame_to_show->y_stride,
+              cpi->Source->y_width, cpi->Source->y_height);
+          cpi->worst_blockiness =
+              VPXMAX(cpi->worst_blockiness, frame_blockiness);
+          cpi->total_blockiness += frame_blockiness;
+        }
+      }
 
+      if (cpi->b_calculate_consistency) {
+#if CONFIG_VP9_HIGHBITDEPTH
+        if (!cm->use_highbitdepth)
+#endif
+        {
+          double this_inconsistency = vpx_get_ssim_metrics(
+              cpi->Source->y_buffer, cpi->Source->y_stride,
+              cm->frame_to_show->y_buffer, cm->frame_to_show->y_stride,
+              cpi->Source->y_width, cpi->Source->y_height, cpi->ssim_vars,
+              &cpi->metrics, 1);
+
+          const double peak = (double)((1 << cpi->oxcf.input_bit_depth) - 1);
+          double consistency = vpx_sse_to_psnr(samples, peak,
+                                             (double)cpi->total_inconsistency);
+          if (consistency > 0.0)
+            cpi->worst_consistency =
+                VPXMIN(cpi->worst_consistency, consistency);
+          cpi->total_inconsistency += this_inconsistency;
+        }
+      }
 
       if (cpi->b_calculate_ssimg) {
         double y, u, v, frame_all;
 #if CONFIG_VP9_HIGHBITDEPTH
         if (cm->use_highbitdepth) {
-          frame_all = vp9_highbd_calc_ssimg(cpi->Source, cm->frame_to_show, &y,
+          frame_all = vpx_highbd_calc_ssimg(cpi->Source, cm->frame_to_show, &y,
                                             &u, &v, (int)cm->bit_depth);
         } else {
-          frame_all = vp9_calc_ssimg(cpi->Source, cm->frame_to_show, &y, &u,
+          frame_all = vpx_calc_ssimg(cpi->Source, cm->frame_to_show, &y, &u,
                                      &v);
         }
 #else
-        frame_all = vp9_calc_ssimg(cpi->Source, cm->frame_to_show, &y, &u, &v);
+        frame_all = vpx_calc_ssimg(cpi->Source, cm->frame_to_show, &y, &u, &v);
 #endif  // CONFIG_VP9_HIGHBITDEPTH
-        cpi->total_ssimg_y += y;
-        cpi->total_ssimg_u += u;
-        cpi->total_ssimg_v += v;
-        cpi->total_ssimg_all += frame_all;
+        adjust_image_stat(y, u, v, frame_all, &cpi->ssimg);
+      }
+#if CONFIG_VP9_HIGHBITDEPTH
+      if (!cm->use_highbitdepth)
+#endif
+      {
+        double y, u, v, frame_all;
+        frame_all = vpx_calc_fastssim(cpi->Source, cm->frame_to_show, &y, &u,
+                                      &v);
+        adjust_image_stat(y, u, v, frame_all, &cpi->fastssim);
+        /* TODO(JBB): add 10/12 bit support */
+      }
+#if CONFIG_VP9_HIGHBITDEPTH
+      if (!cm->use_highbitdepth)
+#endif
+      {
+        double y, u, v, frame_all;
+        frame_all = vpx_psnrhvs(cpi->Source, cm->frame_to_show, &y, &u, &v);
+        adjust_image_stat(y, u, v, frame_all, &cpi->psnrhvs);
       }
     }
   }
@@ -4130,8 +4601,10 @@ int vp9_get_compressed_data(VP9_COMP *cpi, unsigned int *frame_flags,
 #endif
 
   if (is_two_pass_svc(cpi)) {
-    if (cpi->svc.encode_empty_frame_state == ENCODING)
+    if (cpi->svc.encode_empty_frame_state == ENCODING) {
       cpi->svc.encode_empty_frame_state = ENCODED;
+      cpi->svc.encode_intra_empty_frame = 0;
+    }
 
     if (cm->show_frame) {
       ++cpi->svc.spatial_layer_to_encode;
@@ -4141,7 +4614,14 @@ int vp9_get_compressed_data(VP9_COMP *cpi, unsigned int *frame_flags,
       // May need the empty frame after an visible frame.
       cpi->svc.encode_empty_frame_state = NEED_TO_ENCODE;
     }
+  } else if (is_one_pass_cbr_svc(cpi)) {
+    if (cm->show_frame) {
+      ++cpi->svc.spatial_layer_to_encode;
+      if (cpi->svc.spatial_layer_to_encode >= cpi->svc.number_spatial_layers)
+        cpi->svc.spatial_layer_to_encode = 0;
+    }
   }
+  vpx_clear_system_state();
   return 0;
 }
 
@@ -4170,7 +4650,7 @@ int vp9_get_preview_raw_frame(VP9_COMP *cpi, YV12_BUFFER_CONFIG *dest,
       ret = -1;
     }
 #endif  // !CONFIG_VP9_POSTPROC
-    vp9_clear_system_state();
+    vpx_clear_system_state();
     return ret;
   }
 }
@@ -4189,8 +4669,10 @@ int vp9_set_internal_size(VP9_COMP *cpi,
   // always go to the next whole number
   cm->width = (hs - 1 + cpi->oxcf.width * hr) / hs;
   cm->height = (vs - 1 + cpi->oxcf.height * vr) / vs;
-  assert(cm->width <= cpi->initial_width);
-  assert(cm->height <= cpi->initial_height);
+  if (cm->current_video_frame) {
+    assert(cm->width <= cpi->initial_width);
+    assert(cm->height <= cpi->initial_height);
+  }
 
   update_frame_size(cpi);
 

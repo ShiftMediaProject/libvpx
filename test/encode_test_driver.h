@@ -13,12 +13,13 @@
 #include <string>
 #include <vector>
 
-#include "./vpx_config.h"
 #include "third_party/googletest/src/include/gtest/gtest.h"
-#include "vpx/vpx_encoder.h"
-#if CONFIG_VP8_ENCODER || CONFIG_VP9_ENCODER
+
+#include "./vpx_config.h"
+#if CONFIG_VP8_ENCODER || CONFIG_VP9_ENCODER || CONFIG_VP10_ENCODER
 #include "vpx/vp8cx.h"
 #endif
+#include "vpx/vpx_encoder.h"
 
 namespace libvpx_test {
 
@@ -123,6 +124,11 @@ class Encoder {
     ASSERT_EQ(VPX_CODEC_OK, res) << EncoderError();
   }
 
+  void Control(int ctrl_id, int *arg) {
+    const vpx_codec_err_t res = vpx_codec_control_(&encoder_, ctrl_id, arg);
+    ASSERT_EQ(VPX_CODEC_OK, res) << EncoderError();
+  }
+
   void Control(int ctrl_id, struct vpx_scaling_mode *arg) {
     const vpx_codec_err_t res = vpx_codec_control_(&encoder_, ctrl_id, arg);
     ASSERT_EQ(VPX_CODEC_OK, res) << EncoderError();
@@ -133,7 +139,11 @@ class Encoder {
     ASSERT_EQ(VPX_CODEC_OK, res) << EncoderError();
   }
 
-#if CONFIG_VP8_ENCODER || CONFIG_VP9_ENCODER
+  void Control(int ctrl_id, struct vpx_svc_parameters *arg) {
+    const vpx_codec_err_t res = vpx_codec_control_(&encoder_, ctrl_id, arg);
+    ASSERT_EQ(VPX_CODEC_OK, res) << EncoderError();
+  }
+#if CONFIG_VP8_ENCODER || CONFIG_VP9_ENCODER || CONFIG_VP10_ENCODER
   void Control(int ctrl_id, vpx_active_map_t *arg) {
     const vpx_codec_err_t res = vpx_codec_control_(&encoder_, ctrl_id, arg);
     ASSERT_EQ(VPX_CODEC_OK, res) << EncoderError();
@@ -183,7 +193,10 @@ class EncoderTest {
  protected:
   explicit EncoderTest(const CodecFactory *codec)
       : codec_(codec), abort_(false), init_flags_(0), frame_flags_(0),
-        last_pts_(0) {}
+        last_pts_(0) {
+    // Default to 1 thread.
+    cfg_.g_threads = 1;
+  }
 
   virtual ~EncoderTest() {}
 

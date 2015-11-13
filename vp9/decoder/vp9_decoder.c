@@ -12,12 +12,16 @@
 #include <limits.h>
 #include <stdio.h>
 
+#include "./vp9_rtcd.h"
+#include "./vpx_dsp_rtcd.h"
 #include "./vpx_scale_rtcd.h"
 
 #include "vpx_mem/vpx_mem.h"
+#include "vpx_ports/system_state.h"
 #include "vpx_ports/vpx_once.h"
 #include "vpx_ports/vpx_timer.h"
 #include "vpx_scale/vpx_scale.h"
+#include "vpx_util/vpx_thread.h"
 
 #include "vp9/common/vp9_alloccommon.h"
 #include "vp9/common/vp9_loopfilter.h"
@@ -27,8 +31,6 @@
 #endif
 #include "vp9/common/vp9_quant_common.h"
 #include "vp9/common/vp9_reconintra.h"
-#include "vp9/common/vp9_systemdependent.h"
-#include "vp9/common/vp9_thread.h"
 
 #include "vp9/decoder/vp9_decodeframe.h"
 #include "vp9/decoder/vp9_decoder.h"
@@ -39,6 +41,8 @@ static void initialize_dec(void) {
 
   if (!init_done) {
     vp9_rtcd();
+    vpx_dsp_rtcd();
+    vpx_scale_rtcd();
     vp9_init_intra_predictors();
     init_done = 1;
   }
@@ -46,7 +50,9 @@ static void initialize_dec(void) {
 
 static void vp9_dec_setup_mi(VP9_COMMON *cm) {
   cm->mi = cm->mip + cm->mi_stride + 1;
-  vpx_memset(cm->mip, 0, cm->mi_stride * (cm->mi_rows + 1) * sizeof(*cm->mip));
+  cm->mi_grid_visible = cm->mi_grid_base + cm->mi_stride + 1;
+  memset(cm->mi_grid_base, 0,
+         cm->mi_stride * (cm->mi_rows + 1) * sizeof(*cm->mi_grid_base));
 }
 
 static int vp9_dec_alloc_mi(VP9_COMMON *cm, int mi_size) {
@@ -54,12 +60,17 @@ static int vp9_dec_alloc_mi(VP9_COMMON *cm, int mi_size) {
   if (!cm->mip)
     return 1;
   cm->mi_alloc_size = mi_size;
+  cm->mi_grid_base = (MODE_INFO **)vpx_calloc(mi_size, sizeof(MODE_INFO*));
+  if (!cm->mi_grid_base)
+    return 1;
   return 0;
 }
 
 static void vp9_dec_free_mi(VP9_COMMON *cm) {
   vpx_free(cm->mip);
   cm->mip = NULL;
+  vpx_free(cm->mi_grid_base);
+  cm->mi_grid_base = NULL;
 }
 
 VP9Decoder *vp9_decoder_create(BufferPool *const pool) {
@@ -89,8 +100,8 @@ VP9Decoder *vp9_decoder_create(BufferPool *const pool) {
   once(initialize_dec);
 
   // Initialize the references to not point to any frame buffers.
-  vpx_memset(&cm->ref_frame_map, -1, sizeof(cm->ref_frame_map));
-  vpx_memset(&cm->next_ref_frame_map, -1, sizeof(cm->next_ref_frame_map));
+  memset(&cm->ref_frame_map, -1, sizeof(cm->ref_frame_map));
+  memset(&cm->next_ref_frame_map, -1, sizeof(cm->next_ref_frame_map));
 
   cm->current_video_frame = 0;
   pbi->ready_for_new_data = 1;
@@ -107,7 +118,7 @@ VP9Decoder *vp9_decoder_create(BufferPool *const pool) {
 
   cm->error.setjmp = 0;
 
-  vp9_get_worker_interface()->init(&pbi->lf_worker);
+  vpx_get_worker_interface()->init(&pbi->lf_worker);
 
   return pbi;
 }
@@ -115,15 +126,17 @@ VP9Decoder *vp9_decoder_create(BufferPool *const pool) {
 void vp9_decoder_remove(VP9Decoder *pbi) {
   int i;
 
-  vp9_get_worker_interface()->end(&pbi->lf_worker);
+  if (!pbi)
+    return;
+
+  vpx_get_worker_interface()->end(&pbi->lf_worker);
   vpx_free(pbi->lf_worker.data1);
   vpx_free(pbi->tile_data);
   for (i = 0; i < pbi->num_tile_workers; ++i) {
-    VP9Worker *const worker = &pbi->tile_workers[i];
-    vp9_get_worker_interface()->end(worker);
+    VPxWorker *const worker = &pbi->tile_workers[i];
+    vpx_get_worker_interface()->end(worker);
   }
   vpx_free(pbi->tile_worker_data);
-  vpx_free(pbi->tile_worker_info);
   vpx_free(pbi->tile_workers);
 
   if (pbi->num_tile_workers > 0) {
@@ -200,6 +213,9 @@ vpx_codec_err_t vp9_set_reference_dec(VP9_COMMON *cm,
 
     // Find an empty frame buffer.
     const int free_fb = get_free_fb(cm);
+    if (cm->new_fb_idx == INVALID_IDX)
+      return VPX_CODEC_MEM_ERROR;
+
     // Decrease ref_count since it will be increased again in
     // ref_cnt_fb() below.
     --frame_bufs[free_fb].ref_count;
@@ -287,14 +303,17 @@ int vp9_receive_compressed_data(VP9Decoder *pbi,
       && frame_bufs[cm->new_fb_idx].ref_count == 0)
     pool->release_fb_cb(pool->cb_priv,
                         &frame_bufs[cm->new_fb_idx].raw_frame_buffer);
+  // Find a free frame buffer. Return error if can not find any.
   cm->new_fb_idx = get_free_fb(cm);
+  if (cm->new_fb_idx == INVALID_IDX)
+    return VPX_CODEC_MEM_ERROR;
 
   // Assign a MV array to the frame buffer.
   cm->cur_frame = &pool->frame_bufs[cm->new_fb_idx];
 
   pbi->hold_ref_buf = 0;
   if (pbi->frame_parallel_decode) {
-    VP9Worker *const worker = pbi->frame_worker_owner;
+    VPxWorker *const worker = pbi->frame_worker_owner;
     vp9_frameworker_lock_stats(worker);
     frame_bufs[cm->new_fb_idx].frame_worker_owner = worker;
     // Reset decoding progress.
@@ -308,7 +327,7 @@ int vp9_receive_compressed_data(VP9Decoder *pbi,
 
 
   if (setjmp(cm->error.jmp)) {
-    const VP9WorkerInterface *const winterface = vp9_get_worker_interface();
+    const VPxWorkerInterface *const winterface = vpx_get_worker_interface();
     int i;
 
     cm->error.setjmp = 0;
@@ -348,7 +367,7 @@ int vp9_receive_compressed_data(VP9Decoder *pbi,
     decrease_ref_count(cm->new_fb_idx, frame_bufs, pool);
     unlock_buffer_pool(pool);
 
-    vp9_clear_system_state();
+    vpx_clear_system_state();
     return -1;
   }
 
@@ -357,7 +376,7 @@ int vp9_receive_compressed_data(VP9Decoder *pbi,
 
   swap_frame_buffers(pbi);
 
-  vp9_clear_system_state();
+  vpx_clear_system_state();
 
   if (!cm->show_existing_frame) {
     cm->last_show_frame = cm->show_frame;
@@ -370,7 +389,7 @@ int vp9_receive_compressed_data(VP9Decoder *pbi,
   if (pbi->frame_parallel_decode) {
     // Need to lock the mutex here as another thread may
     // be accessing this buffer.
-    VP9Worker *const worker = pbi->frame_worker_owner;
+    VPxWorker *const worker = pbi->frame_worker_owner;
     FrameWorkerData *const frame_worker_data = worker->data1;
     vp9_frameworker_lock_stats(worker);
 
@@ -423,7 +442,7 @@ int vp9_get_raw_frame(VP9Decoder *pbi, YV12_BUFFER_CONFIG *sd,
   *sd = *cm->frame_to_show;
   ret = 0;
 #endif /*!CONFIG_POSTPROC*/
-  vp9_clear_system_state();
+  vpx_clear_system_state();
   return ret;
 }
 

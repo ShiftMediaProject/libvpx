@@ -11,6 +11,7 @@
 
 #include <limits.h>
 #include "vpx_config.h"
+#include "./vpx_dsp_rtcd.h"
 #include "onyx_int.h"
 #include "modecosts.h"
 #include "encodeintra.h"
@@ -20,16 +21,16 @@
 #include "vp8/common/findnearmv.h"
 #include "encodemb.h"
 #include "vp8/common/reconinter.h"
+#include "vp8/common/reconintra.h"
 #include "vp8/common/reconintra4x4.h"
-#include "vp8/common/variance.h"
+#include "vpx_dsp/variance.h"
 #include "mcomp.h"
 #include "rdopt.h"
+#include "vpx_dsp/vpx_dsp_common.h"
 #include "vpx_mem/vpx_mem.h"
 #if CONFIG_TEMPORAL_DENOISING
 #include "denoising.h"
 #endif
-
-extern int VP8_UVSSE(MACROBLOCK *x);
 
 #ifdef SPEEDSTATS
 extern unsigned int cnt_pm;
@@ -37,8 +38,6 @@ extern unsigned int cnt_pm;
 
 extern const int vp8_ref_frame_order[MAX_MODES];
 extern const MB_PREDICTION_MODE vp8_mode_order[MAX_MODES];
-
-extern int vp8_cost_mv_ref(MB_PREDICTION_MODE m, const int near_mv_ref_ct[4]);
 
 // Fixed point implementation of a skin color classifier. Skin color
 // is model by a Gaussian distribution in the CbCr color space.
@@ -75,7 +74,7 @@ static int macroblock_corner_grad(unsigned char* signal, int stride,
   int y2 = signal[offsetx * stride + offsety + sgny];
   int y3 = signal[(offsetx + sgnx) * stride + offsety];
   int y4 = signal[(offsetx + sgnx) * stride + offsety + sgny];
-  return MAX(MAX(abs(y1 - y2), abs(y1 - y3)), abs(y1 - y4));
+  return VPXMAX(VPXMAX(abs(y1 - y2), abs(y1 - y3)), abs(y1 - y4));
 }
 
 static int check_dot_artifact_candidate(VP8_COMP *cpi,
@@ -219,33 +218,6 @@ int vp8_get_inter_mbpred_error(MACROBLOCK *mb,
 
 }
 
-
-unsigned int vp8_get4x4sse_cs_c
-(
-    const unsigned char *src_ptr,
-    int  source_stride,
-    const unsigned char *ref_ptr,
-    int  recon_stride
-)
-{
-    int distortion = 0;
-    int r, c;
-
-    for (r = 0; r < 4; r++)
-    {
-        for (c = 0; c < 4; c++)
-        {
-            int diff = src_ptr[c] - ref_ptr[c];
-            distortion += diff * diff;
-        }
-
-        src_ptr += source_stride;
-        ref_ptr += recon_stride;
-    }
-
-    return distortion;
-}
-
 static int get_prediction_error(BLOCK *be, BLOCKD *b)
 {
     unsigned char *sptr;
@@ -253,7 +225,7 @@ static int get_prediction_error(BLOCK *be, BLOCKD *b)
     sptr = (*(be->base_src) + be->src);
     dptr = b->predictor;
 
-    return vp8_get4x4sse_cs(sptr, be->src_stride, dptr, 16);
+    return vpx_get4x4sse_cs(sptr, be->src_stride, dptr, 16);
 
 }
 
@@ -843,9 +815,18 @@ void vp8_pick_inter_mode(VP8_COMP *cpi, MACROBLOCK *x, int recon_yoffset,
 
     // Check if current macroblock is in skin area.
     {
-    const int y = x->src.y_buffer[7 * x->src.y_stride + 7];
-    const int cb = x->src.u_buffer[3 * x->src.uv_stride + 3];
-    const int cr = x->src.v_buffer[3 * x->src.uv_stride + 3];
+    const int y = (x->src.y_buffer[7 * x->src.y_stride + 7] +
+        x->src.y_buffer[7 * x->src.y_stride + 8] +
+        x->src.y_buffer[8 * x->src.y_stride + 7] +
+        x->src.y_buffer[8 * x->src.y_stride + 8]) >> 2;
+    const int cb = (x->src.u_buffer[3 * x->src.uv_stride + 3] +
+        x->src.u_buffer[3 * x->src.uv_stride + 4] +
+        x->src.u_buffer[4 * x->src.uv_stride + 3] +
+        x->src.u_buffer[4 * x->src.uv_stride + 4]) >> 2;
+    const int cr = (x->src.v_buffer[3 * x->src.uv_stride + 3] +
+        x->src.v_buffer[3 * x->src.uv_stride + 4] +
+        x->src.v_buffer[4 * x->src.uv_stride + 3] +
+        x->src.v_buffer[4 * x->src.uv_stride + 4]) >> 2;
     x->is_skin = 0;
     if (!cpi->oxcf.screen_content_mode)
       x->is_skin = is_skin_color(y, cb, cr);
@@ -854,7 +835,7 @@ void vp8_pick_inter_mode(VP8_COMP *cpi, MACROBLOCK *x, int recon_yoffset,
     if (cpi->oxcf.noise_sensitivity) {
       // Under aggressive denoising mode, should we use skin map to reduce denoiser
       // and ZEROMV bias? Will need to revisit the accuracy of this detection for
-      // very noisy input. For now keep this as is (i.e., don't turn it off). 
+      // very noisy input. For now keep this as is (i.e., don't turn it off).
       // if (cpi->denoiser.denoiser_mode == kDenoiserOnYUVAggressive)
       //   x->is_skin = 0;
     }
@@ -862,8 +843,8 @@ void vp8_pick_inter_mode(VP8_COMP *cpi, MACROBLOCK *x, int recon_yoffset,
 
     mode_mv = mode_mv_sb[sign_bias];
     best_ref_mv.as_int = 0;
-    vpx_memset(mode_mv_sb, 0, sizeof(mode_mv_sb));
-    vpx_memset(&best_mbmode, 0, sizeof(best_mbmode));
+    memset(mode_mv_sb, 0, sizeof(mode_mv_sb));
+    memset(&best_mbmode, 0, sizeof(best_mbmode));
 
     /* Setup search priorities */
 #if CONFIG_MULTI_RES_ENCODING
@@ -904,7 +885,7 @@ void vp8_pick_inter_mode(VP8_COMP *cpi, MACROBLOCK *x, int recon_yoffset,
 
     /* If the frame has big static background and current MB is in low
     *  motion area, its mode decision is biased to ZEROMV mode.
-    *  No adjustment if cpu_used is <= -12 (i.e., cpi->Speed >= 12). 
+    *  No adjustment if cpu_used is <= -12 (i.e., cpi->Speed >= 12).
     *  At such speed settings, ZEROMV is already heavily favored.
     */
     if (cpi->Speed < 12) {
@@ -1041,7 +1022,7 @@ void vp8_pick_inter_mode(VP8_COMP *cpi, MACROBLOCK *x, int recon_yoffset,
             else
             {
                 rate2 += rate;
-                distortion2 = vp8_variance16x16(
+                distortion2 = vpx_variance16x16(
                                     *(b->base_src), b->src_stride,
                                     x->e_mbd.predictor, 16, &sse);
                 this_rd = RDCOST(x->rdmult, x->rddiv, rate2, distortion2);
@@ -1070,7 +1051,7 @@ void vp8_pick_inter_mode(VP8_COMP *cpi, MACROBLOCK *x, int recon_yoffset,
                                              xd->dst.y_stride,
                                              xd->predictor,
                                              16);
-            distortion2 = vp8_variance16x16
+            distortion2 = vpx_variance16x16
                                           (*(b->base_src), b->src_stride,
                                           x->e_mbd.predictor, 16, &sse);
             rate2 += x->mbmode_cost[x->e_mbd.frame_type][x->e_mbd.mode_info_context->mbmi.mode];
@@ -1166,8 +1147,9 @@ void vp8_pick_inter_mode(VP8_COMP *cpi, MACROBLOCK *x, int recon_yoffset,
 #if CONFIG_MULTI_RES_ENCODING
             if (parent_ref_valid && (parent_ref_frame == this_ref_frame) &&
                 dissim <= 2 &&
-                MAX(abs(best_ref_mv.as_mv.row - parent_ref_mv.as_mv.row),
-                    abs(best_ref_mv.as_mv.col - parent_ref_mv.as_mv.col)) <= 4)
+                VPXMAX(abs(best_ref_mv.as_mv.row - parent_ref_mv.as_mv.row),
+                       abs(best_ref_mv.as_mv.col - parent_ref_mv.as_mv.col)) <=
+                    4)
             {
                 d->bmi.mv.as_int = mvp_full.as_int;
                 mode_mv[NEWMV].as_int = mvp_full.as_int;
@@ -1270,7 +1252,10 @@ void vp8_pick_inter_mode(VP8_COMP *cpi, MACROBLOCK *x, int recon_yoffset,
             }
 
             mode_mv[NEWMV].as_int = d->bmi.mv.as_int;
-
+            // The clamp below is not necessary from the perspective
+            // of VP8 bitstream, but is added to improve ChromeCast
+            // mirroring's robustness. Please do not remove.
+            vp8_clamp_mv2(&mode_mv[this_mode], xd);
             /* mv cost; */
             rate2 += vp8_mv_bit_cost(&mode_mv[NEWMV], &best_ref_mv,
                                      cpi->mb.mvcost, 128);
@@ -1278,7 +1263,6 @@ void vp8_pick_inter_mode(VP8_COMP *cpi, MACROBLOCK *x, int recon_yoffset,
 
         case NEARESTMV:
         case NEARMV:
-
             if (mode_mv[this_mode].as_int == 0)
                 continue;
 
@@ -1348,8 +1332,8 @@ void vp8_pick_inter_mode(VP8_COMP *cpi, MACROBLOCK *x, int recon_yoffset,
             *returndistortion = distortion2;
             best_rd_sse = sse;
             best_rd = this_rd;
-            vpx_memcpy(&best_mbmode, &x->e_mbd.mode_info_context->mbmi,
-                       sizeof(MB_MODE_INFO));
+            memcpy(&best_mbmode, &x->e_mbd.mode_info_context->mbmi,
+                   sizeof(MB_MODE_INFO));
 
             /* Testing this mode gave rise to an improvement in best error
              * score. Lower threshold a bit for next time
@@ -1487,8 +1471,8 @@ void vp8_pick_inter_mode(VP8_COMP *cpi, MACROBLOCK *x, int recon_yoffset,
 
             if (this_rd < best_rd)
             {
-                vpx_memcpy(&best_mbmode, &x->e_mbd.mode_info_context->mbmi,
-                           sizeof(MB_MODE_INFO));
+                memcpy(&best_mbmode, &x->e_mbd.mode_info_context->mbmi,
+                       sizeof(MB_MODE_INFO));
             }
         }
 
@@ -1512,8 +1496,8 @@ void vp8_pick_inter_mode(VP8_COMP *cpi, MACROBLOCK *x, int recon_yoffset,
     /* set to the best mb mode, this copy can be skip if x->skip since it
      * already has the right content */
     if (!x->skip)
-        vpx_memcpy(&x->e_mbd.mode_info_context->mbmi, &best_mbmode,
-                   sizeof(MB_MODE_INFO));
+        memcpy(&x->e_mbd.mode_info_context->mbmi, &best_mbmode,
+               sizeof(MB_MODE_INFO));
 
     if (best_mbmode.mode <= B_PRED)
     {
@@ -1551,7 +1535,7 @@ void vp8_pick_intra_mode(MACROBLOCK *x, int *rate_)
                                          xd->dst.y_stride,
                                          xd->predictor,
                                          16);
-        distortion = vp8_variance16x16
+        distortion = vpx_variance16x16
             (*(b->base_src), b->src_stride, xd->predictor, 16, &sse);
         rate = x->mbmode_cost[xd->frame_type][mode];
         this_rd = RDCOST(x->rdmult, x->rddiv, rate, distortion);

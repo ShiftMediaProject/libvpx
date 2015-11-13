@@ -11,7 +11,9 @@
 
 #include <stdlib.h>
 #include <string.h>
-#include "vp8_rtcd.h"
+#include "./vp8_rtcd.h"
+#include "./vpx_dsp_rtcd.h"
+#include "./vpx_scale_rtcd.h"
 #include "vpx/vpx_decoder.h"
 #include "vpx/vp8dx.h"
 #include "vpx/internal/vpx_codec_internal.h"
@@ -20,6 +22,7 @@
 #include "common/common.h"
 #include "common/onyxd.h"
 #include "decoder/onyxd_int.h"
+#include "vpx_dsp/vpx_dsp_common.h"
 #include "vpx_mem/vpx_mem.h"
 #if CONFIG_ERROR_CONCEALMENT
 #include "decoder/error_concealment.h"
@@ -39,8 +42,6 @@ typedef enum
     VP8_SEG_MAX
 } mem_seg_id_t;
 #define NELEMENTS(x) ((int)(sizeof(x)/sizeof(x[0])))
-
-static unsigned long vp8_priv_sz(const vpx_codec_dec_cfg_t *si, vpx_codec_flags_t);
 
 struct vpx_codec_alg_priv
 {
@@ -65,18 +66,6 @@ struct vpx_codec_alg_priv
     void                    *user_priv;
     FRAGMENT_DATA           fragments;
 };
-
-static unsigned long vp8_priv_sz(const vpx_codec_dec_cfg_t *si, vpx_codec_flags_t flags)
-{
-    /* Although this declaration is constant, we can't use it in the requested
-     * segments list because we want to define the requested segments list
-     * before defining the private type (so that the number of memory maps is
-     * known)
-     */
-    (void)si;
-    (void)flags;
-    return sizeof(vpx_codec_alg_priv_t);
-}
 
 static void vp8_init_ctx(vpx_codec_ctx_t *ctx)
 {
@@ -106,6 +95,8 @@ static vpx_codec_err_t vp8_init(vpx_codec_ctx_t *ctx,
     (void) data;
 
     vp8_rtcd();
+    vpx_dsp_rtcd();
+    vpx_scale_rtcd();
 
     /* This function only allocates space for the vpx_codec_alg_priv_t
      * structure. More memory may be required at the time the stream
@@ -176,7 +167,7 @@ static vpx_codec_err_t vp8_peek_si_internal(const uint8_t *data,
         const uint8_t *clear = data;
         if (decrypt_cb)
         {
-            int n = MIN(sizeof(clear_buffer), data_sz);
+            int n = VPXMIN(sizeof(clear_buffer), data_sz);
             decrypt_cb(decrypt_state, data, clear_buffer, n);
             clear = clear_buffer;
         }
@@ -255,8 +246,8 @@ static void yuvconfig2image(vpx_image_t               *img,
     img->fmt = VPX_IMG_FMT_I420;
     img->w = yv12->y_stride;
     img->h = (yv12->y_height + 2 * VP8BORDERINPIXELS + 15) & ~15;
-    img->d_w = yv12->y_width;
-    img->d_h = yv12->y_height;
+    img->d_w = img->r_w = yv12->y_width;
+    img->d_h = img->r_h = yv12->y_height;
     img->x_chroma_shift = 1;
     img->y_chroma_shift = 1;
     img->planes[VPX_PLANE_Y] = yv12->y_buffer;
@@ -286,8 +277,8 @@ update_fragments(vpx_codec_alg_priv_t  *ctx,
     if (ctx->fragments.count == 0)
     {
         /* New frame, reset fragment pointers and sizes */
-        vpx_memset((void*)ctx->fragments.ptrs, 0, sizeof(ctx->fragments.ptrs));
-        vpx_memset(ctx->fragments.sizes, 0, sizeof(ctx->fragments.sizes));
+        memset((void*)ctx->fragments.ptrs, 0, sizeof(ctx->fragments.ptrs));
+        memset(ctx->fragments.sizes, 0, sizeof(ctx->fragments.sizes));
     }
     if (ctx->fragments.enabled && !(data == NULL && data_sz == 0))
     {

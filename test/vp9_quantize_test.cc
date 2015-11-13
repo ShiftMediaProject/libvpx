@@ -14,13 +14,15 @@
 
 #include "third_party/googletest/src/include/gtest/gtest.h"
 
+#include "./vpx_config.h"
+#include "./vpx_dsp_rtcd.h"
 #include "test/acm_random.h"
 #include "test/clear_system_state.h"
 #include "test/register_state_check.h"
 #include "test/util.h"
-#include "./vpx_config.h"
-#include "./vp9_rtcd.h"
 #include "vp9/common/vp9_entropy.h"
+#include "vp9/common/vp9_scan.h"
+#include "vpx/vpx_codec.h"
 #include "vpx/vpx_integer.h"
 
 using libvpx_test::ACMRandom;
@@ -80,18 +82,18 @@ class VP9Quantize32Test : public ::testing::TestWithParam<QuantizeParam> {
 
 TEST_P(VP9QuantizeTest, OperationCheck) {
   ACMRandom rnd(ACMRandom::DeterministicSeed());
-  DECLARE_ALIGNED_ARRAY(16, tran_low_t, coeff_ptr, 256);
-  DECLARE_ALIGNED_ARRAY(16, int16_t, zbin_ptr, 2);
-  DECLARE_ALIGNED_ARRAY(16, int16_t, round_ptr, 2);
-  DECLARE_ALIGNED_ARRAY(16, int16_t, quant_ptr, 2);
-  DECLARE_ALIGNED_ARRAY(16, int16_t, quant_shift_ptr, 2);
-  DECLARE_ALIGNED_ARRAY(16, tran_low_t, qcoeff_ptr, 256);
-  DECLARE_ALIGNED_ARRAY(16, tran_low_t, dqcoeff_ptr, 256);
-  DECLARE_ALIGNED_ARRAY(16, tran_low_t, ref_qcoeff_ptr, 256);
-  DECLARE_ALIGNED_ARRAY(16, tran_low_t, ref_dqcoeff_ptr, 256);
-  DECLARE_ALIGNED_ARRAY(16, int16_t, dequant_ptr, 2);
-  DECLARE_ALIGNED_ARRAY(16, uint16_t, eob_ptr, 1);
-  DECLARE_ALIGNED_ARRAY(16, uint16_t, ref_eob_ptr, 1);
+  DECLARE_ALIGNED(16, tran_low_t, coeff_ptr[256]);
+  DECLARE_ALIGNED(16, int16_t, zbin_ptr[2]);
+  DECLARE_ALIGNED(16, int16_t, round_ptr[2]);
+  DECLARE_ALIGNED(16, int16_t, quant_ptr[2]);
+  DECLARE_ALIGNED(16, int16_t, quant_shift_ptr[2]);
+  DECLARE_ALIGNED(16, tran_low_t, qcoeff_ptr[256]);
+  DECLARE_ALIGNED(16, tran_low_t, dqcoeff_ptr[256]);
+  DECLARE_ALIGNED(16, tran_low_t, ref_qcoeff_ptr[256]);
+  DECLARE_ALIGNED(16, tran_low_t, ref_dqcoeff_ptr[256]);
+  DECLARE_ALIGNED(16, int16_t, dequant_ptr[2]);
+  DECLARE_ALIGNED(16, uint16_t, eob_ptr[1]);
+  DECLARE_ALIGNED(16, uint16_t, ref_eob_ptr[1]);
   int err_count_total = 0;
   int first_failure = -1;
   for (int i = 0; i < number_of_iterations; ++i) {
@@ -139,18 +141,18 @@ TEST_P(VP9QuantizeTest, OperationCheck) {
 
 TEST_P(VP9Quantize32Test, OperationCheck) {
   ACMRandom rnd(ACMRandom::DeterministicSeed());
-  DECLARE_ALIGNED_ARRAY(16, tran_low_t, coeff_ptr, 1024);
-  DECLARE_ALIGNED_ARRAY(16, int16_t, zbin_ptr, 2);
-  DECLARE_ALIGNED_ARRAY(16, int16_t, round_ptr, 2);
-  DECLARE_ALIGNED_ARRAY(16, int16_t, quant_ptr, 2);
-  DECLARE_ALIGNED_ARRAY(16, int16_t, quant_shift_ptr, 2);
-  DECLARE_ALIGNED_ARRAY(16, tran_low_t, qcoeff_ptr, 1024);
-  DECLARE_ALIGNED_ARRAY(16, tran_low_t, dqcoeff_ptr, 1024);
-  DECLARE_ALIGNED_ARRAY(16, tran_low_t, ref_qcoeff_ptr, 1024);
-  DECLARE_ALIGNED_ARRAY(16, tran_low_t, ref_dqcoeff_ptr, 1024);
-  DECLARE_ALIGNED_ARRAY(16, int16_t, dequant_ptr, 2);
-  DECLARE_ALIGNED_ARRAY(16, uint16_t, eob_ptr, 1);
-  DECLARE_ALIGNED_ARRAY(16, uint16_t, ref_eob_ptr, 1);
+  DECLARE_ALIGNED(16, tran_low_t, coeff_ptr[1024]);
+  DECLARE_ALIGNED(16, int16_t, zbin_ptr[2]);
+  DECLARE_ALIGNED(16, int16_t, round_ptr[2]);
+  DECLARE_ALIGNED(16, int16_t, quant_ptr[2]);
+  DECLARE_ALIGNED(16, int16_t, quant_shift_ptr[2]);
+  DECLARE_ALIGNED(16, tran_low_t, qcoeff_ptr[1024]);
+  DECLARE_ALIGNED(16, tran_low_t, dqcoeff_ptr[1024]);
+  DECLARE_ALIGNED(16, tran_low_t, ref_qcoeff_ptr[1024]);
+  DECLARE_ALIGNED(16, tran_low_t, ref_dqcoeff_ptr[1024]);
+  DECLARE_ALIGNED(16, int16_t, dequant_ptr[2]);
+  DECLARE_ALIGNED(16, uint16_t, eob_ptr[1]);
+  DECLARE_ALIGNED(16, uint16_t, ref_eob_ptr[1]);
   int err_count_total = 0;
   int first_failure = -1;
   for (int i = 0; i < number_of_iterations; ++i) {
@@ -198,18 +200,18 @@ TEST_P(VP9Quantize32Test, OperationCheck) {
 
 TEST_P(VP9QuantizeTest, EOBCheck) {
   ACMRandom rnd(ACMRandom::DeterministicSeed());
-  DECLARE_ALIGNED_ARRAY(16, tran_low_t, coeff_ptr, 256);
-  DECLARE_ALIGNED_ARRAY(16, int16_t, zbin_ptr, 2);
-  DECLARE_ALIGNED_ARRAY(16, int16_t, round_ptr, 2);
-  DECLARE_ALIGNED_ARRAY(16, int16_t, quant_ptr, 2);
-  DECLARE_ALIGNED_ARRAY(16, int16_t, quant_shift_ptr, 2);
-  DECLARE_ALIGNED_ARRAY(16, tran_low_t, qcoeff_ptr, 256);
-  DECLARE_ALIGNED_ARRAY(16, tran_low_t, dqcoeff_ptr, 256);
-  DECLARE_ALIGNED_ARRAY(16, tran_low_t, ref_qcoeff_ptr, 256);
-  DECLARE_ALIGNED_ARRAY(16, tran_low_t, ref_dqcoeff_ptr, 256);
-  DECLARE_ALIGNED_ARRAY(16, int16_t, dequant_ptr, 2);
-  DECLARE_ALIGNED_ARRAY(16, uint16_t, eob_ptr, 1);
-  DECLARE_ALIGNED_ARRAY(16, uint16_t, ref_eob_ptr, 1);
+  DECLARE_ALIGNED(16, tran_low_t, coeff_ptr[256]);
+  DECLARE_ALIGNED(16, int16_t, zbin_ptr[2]);
+  DECLARE_ALIGNED(16, int16_t, round_ptr[2]);
+  DECLARE_ALIGNED(16, int16_t, quant_ptr[2]);
+  DECLARE_ALIGNED(16, int16_t, quant_shift_ptr[2]);
+  DECLARE_ALIGNED(16, tran_low_t, qcoeff_ptr[256]);
+  DECLARE_ALIGNED(16, tran_low_t, dqcoeff_ptr[256]);
+  DECLARE_ALIGNED(16, tran_low_t, ref_qcoeff_ptr[256]);
+  DECLARE_ALIGNED(16, tran_low_t, ref_dqcoeff_ptr[256]);
+  DECLARE_ALIGNED(16, int16_t, dequant_ptr[2]);
+  DECLARE_ALIGNED(16, uint16_t, eob_ptr[1]);
+  DECLARE_ALIGNED(16, uint16_t, ref_eob_ptr[1]);
   int err_count_total = 0;
   int first_failure = -1;
   for (int i = 0; i < number_of_iterations; ++i) {
@@ -262,18 +264,18 @@ TEST_P(VP9QuantizeTest, EOBCheck) {
 
 TEST_P(VP9Quantize32Test, EOBCheck) {
   ACMRandom rnd(ACMRandom::DeterministicSeed());
-  DECLARE_ALIGNED_ARRAY(16, tran_low_t, coeff_ptr, 1024);
-  DECLARE_ALIGNED_ARRAY(16, int16_t, zbin_ptr, 2);
-  DECLARE_ALIGNED_ARRAY(16, int16_t, round_ptr, 2);
-  DECLARE_ALIGNED_ARRAY(16, int16_t, quant_ptr, 2);
-  DECLARE_ALIGNED_ARRAY(16, int16_t, quant_shift_ptr, 2);
-  DECLARE_ALIGNED_ARRAY(16, tran_low_t, qcoeff_ptr, 1024);
-  DECLARE_ALIGNED_ARRAY(16, tran_low_t, dqcoeff_ptr, 1024);
-  DECLARE_ALIGNED_ARRAY(16, tran_low_t, ref_qcoeff_ptr, 1024);
-  DECLARE_ALIGNED_ARRAY(16, tran_low_t, ref_dqcoeff_ptr, 1024);
-  DECLARE_ALIGNED_ARRAY(16, int16_t, dequant_ptr, 2);
-  DECLARE_ALIGNED_ARRAY(16, uint16_t, eob_ptr, 1);
-  DECLARE_ALIGNED_ARRAY(16, uint16_t, ref_eob_ptr, 1);
+  DECLARE_ALIGNED(16, tran_low_t, coeff_ptr[1024]);
+  DECLARE_ALIGNED(16, int16_t, zbin_ptr[2]);
+  DECLARE_ALIGNED(16, int16_t, round_ptr[2]);
+  DECLARE_ALIGNED(16, int16_t, quant_ptr[2]);
+  DECLARE_ALIGNED(16, int16_t, quant_shift_ptr[2]);
+  DECLARE_ALIGNED(16, tran_low_t, qcoeff_ptr[1024]);
+  DECLARE_ALIGNED(16, tran_low_t, dqcoeff_ptr[1024]);
+  DECLARE_ALIGNED(16, tran_low_t, ref_qcoeff_ptr[1024]);
+  DECLARE_ALIGNED(16, tran_low_t, ref_dqcoeff_ptr[1024]);
+  DECLARE_ALIGNED(16, int16_t, dequant_ptr[2]);
+  DECLARE_ALIGNED(16, uint16_t, eob_ptr[1]);
+  DECLARE_ALIGNED(16, uint16_t, ref_eob_ptr[1]);
   int err_count_total = 0;
   int first_failure = -1;
   for (int i = 0; i < number_of_iterations; ++i) {
@@ -329,21 +331,21 @@ using std::tr1::make_tuple;
 INSTANTIATE_TEST_CASE_P(
     SSE2, VP9QuantizeTest,
     ::testing::Values(
-        make_tuple(&vp9_highbd_quantize_b_sse2,
-                   &vp9_highbd_quantize_b_c, VPX_BITS_8),
-        make_tuple(&vp9_highbd_quantize_b_sse2,
-                   &vp9_highbd_quantize_b_c, VPX_BITS_10),
-        make_tuple(&vp9_highbd_quantize_b_sse2,
-                   &vp9_highbd_quantize_b_c, VPX_BITS_12)));
+        make_tuple(&vpx_highbd_quantize_b_sse2,
+                   &vpx_highbd_quantize_b_c, VPX_BITS_8),
+        make_tuple(&vpx_highbd_quantize_b_sse2,
+                   &vpx_highbd_quantize_b_c, VPX_BITS_10),
+        make_tuple(&vpx_highbd_quantize_b_sse2,
+                   &vpx_highbd_quantize_b_c, VPX_BITS_12)));
 INSTANTIATE_TEST_CASE_P(
     SSE2, VP9Quantize32Test,
     ::testing::Values(
-        make_tuple(&vp9_highbd_quantize_b_32x32_sse2,
-                   &vp9_highbd_quantize_b_32x32_c, VPX_BITS_8),
-        make_tuple(&vp9_highbd_quantize_b_32x32_sse2,
-                   &vp9_highbd_quantize_b_32x32_c, VPX_BITS_10),
-        make_tuple(&vp9_highbd_quantize_b_32x32_sse2,
-                   &vp9_highbd_quantize_b_32x32_c, VPX_BITS_12)));
+        make_tuple(&vpx_highbd_quantize_b_32x32_sse2,
+                   &vpx_highbd_quantize_b_32x32_c, VPX_BITS_8),
+        make_tuple(&vpx_highbd_quantize_b_32x32_sse2,
+                   &vpx_highbd_quantize_b_32x32_c, VPX_BITS_10),
+        make_tuple(&vpx_highbd_quantize_b_32x32_sse2,
+                   &vpx_highbd_quantize_b_32x32_c, VPX_BITS_12)));
 #endif  // HAVE_SSE2
 #endif  // CONFIG_VP9_HIGHBITDEPTH
 }  // namespace

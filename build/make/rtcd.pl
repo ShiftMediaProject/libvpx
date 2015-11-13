@@ -319,13 +319,14 @@ EOF
 
   print <<EOF;
 #if HAVE_DSPR2
+void vpx_dsputil_static_init();
 #if CONFIG_VP8
 void dsputil_static_init();
-dsputil_static_init();
 #endif
-#if CONFIG_VP9
-void vp9_dsputil_static_init();
-vp9_dsputil_static_init();
+
+vpx_dsputil_static_init();
+#if CONFIG_VP8
+dsputil_static_init();
 #endif
 #endif
 }
@@ -374,6 +375,10 @@ if ($opts{arch} eq 'x86') {
   while (<CONFIG_FILE>) {
     if (/HAVE_DSPR2=yes/) {
       @ALL_ARCHS = filter("$opts{arch}", qw/dspr2/);
+      last;
+    }
+    if (/HAVE_MSA=yes/) {
+      @ALL_ARCHS = filter("$opts{arch}", qw/msa/);
       last;
     }
   }

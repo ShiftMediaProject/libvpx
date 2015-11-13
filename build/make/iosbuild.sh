@@ -25,7 +25,6 @@ CONFIGURE_ARGS="--disable-docs
 DIST_DIR="_dist"
 FRAMEWORK_DIR="VPX.framework"
 HEADER_DIR="${FRAMEWORK_DIR}/Headers/vpx"
-MAKE_JOBS=1
 SCRIPT_DIR=$(dirname "$0")
 LIBVPX_SOURCE_DIR=$(cd ${SCRIPT_DIR}/../..; pwd)
 LIPO=$(xcrun -sdk iphoneos${SDK} -find lipo)
@@ -41,15 +40,24 @@ TARGETS="arm64-darwin-gcc
 build_target() {
   local target="$1"
   local old_pwd="$(pwd)"
+  local target_specific_flags=""
 
   vlog "***Building target: ${target}***"
+
+  case "${target}" in
+    x86-*)
+      target_specific_flags="--enable-pic"
+      vlog "Enabled PIC for ${target}"
+      ;;
+  esac
 
   mkdir "${target}"
   cd "${target}"
   eval "${LIBVPX_SOURCE_DIR}/configure" --target="${target}" \
-    ${CONFIGURE_ARGS} ${EXTRA_CONFIGURE_ARGS} ${devnull}
+    ${CONFIGURE_ARGS} ${EXTRA_CONFIGURE_ARGS} ${target_specific_flags} \
+    ${devnull}
   export DIST_DIR
-  eval make -j ${MAKE_JOBS} dist ${devnull}
+  eval make dist ${devnull}
   cd "${old_pwd}"
 
   vlog "***Done building target: ${target}***"
@@ -194,11 +202,12 @@ cat << EOF
   Usage: ${0##*/} [arguments]
     --help: Display this message and exit.
     --extra-configure-args <args>: Extra args to pass when configuring libvpx.
-    --jobs: Number of make jobs.
     --preserve-build-output: Do not delete the build directory.
     --show-build-output: Show output from each library build.
     --targets <targets>: Override default target list. Defaults:
          ${TARGETS}
+    --test-link: Confirms all targets can be linked. Functionally identical to
+                 passing --enable-examples via --extra-configure-args.
     --verbose: Output information about the environment and each stage of the
                build.
 EOF
@@ -227,15 +236,14 @@ while [ -n "$1" ]; do
       iosbuild_usage
       exit
       ;;
-    --jobs)
-      MAKE_JOBS="$2"
-      shift
-      ;;
     --preserve-build-output)
       PRESERVE_BUILD_OUTPUT=yes
       ;;
     --show-build-output)
       devnull=
+      ;;
+    --test-link)
+      EXTRA_CONFIGURE_ARGS="${EXTRA_CONFIGURE_ARGS} --enable-examples"
       ;;
     --targets)
       TARGETS="$2"
@@ -260,11 +268,11 @@ cat << EOF
   EXTRA_CONFIGURE_ARGS=${EXTRA_CONFIGURE_ARGS}
   FRAMEWORK_DIR=${FRAMEWORK_DIR}
   HEADER_DIR=${HEADER_DIR}
-  MAKE_JOBS=${MAKE_JOBS}
-  PRESERVE_BUILD_OUTPUT=${PRESERVE_BUILD_OUTPUT}
   LIBVPX_SOURCE_DIR=${LIBVPX_SOURCE_DIR}
   LIPO=${LIPO}
+  MAKEFLAGS=${MAKEFLAGS}
   ORIG_PWD=${ORIG_PWD}
+  PRESERVE_BUILD_OUTPUT=${PRESERVE_BUILD_OUTPUT}
   TARGETS="${TARGETS}"
 EOF
 fi

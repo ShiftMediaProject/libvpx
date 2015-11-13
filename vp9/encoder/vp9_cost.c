@@ -7,6 +7,7 @@
  *  in the file PATENTS.  All contributing project authors may
  *  be found in the AUTHORS file in the root of the source tree.
  */
+#include <assert.h>
 
 #include "vp9/encoder/vp9_cost.h"
 
@@ -34,14 +35,14 @@ const unsigned int vp9_prob_cost[256] = {
   22,   21,   19,   18,   16,   15,   13,   12,   10,   9,    7,    6,
   4,    3,    1,    1};
 
-static void cost(int *costs, vp9_tree tree, const vp9_prob *probs,
+static void cost(int *costs, vpx_tree tree, const vpx_prob *probs,
                  int i, int c) {
-  const vp9_prob prob = probs[i / 2];
+  const vpx_prob prob = probs[i / 2];
   int b;
 
   for (b = 0; b <= 1; ++b) {
     const int cc = c + vp9_cost_bit(prob, b);
-    const vp9_tree_index ii = tree[i + b];
+    const vpx_tree_index ii = tree[i + b];
 
     if (ii <= 0)
       costs[-ii] = cc;
@@ -50,11 +51,11 @@ static void cost(int *costs, vp9_tree tree, const vp9_prob *probs,
   }
 }
 
-void vp9_cost_tokens(int *costs, const vp9_prob *probs, vp9_tree tree) {
+void vp9_cost_tokens(int *costs, const vpx_prob *probs, vpx_tree tree) {
   cost(costs, tree, probs, 0, 0);
 }
 
-void vp9_cost_tokens_skip(int *costs, const vp9_prob *probs, vp9_tree tree) {
+void vp9_cost_tokens_skip(int *costs, const vpx_prob *probs, vpx_tree tree) {
   assert(tree[0] <= 0 && tree[1] > 0);
 
   costs[-tree[0]] = vp9_cost_bit(probs[0], 0);

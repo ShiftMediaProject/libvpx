@@ -23,6 +23,7 @@
 #include "vp8/common/entropymode.h"
 #include "vp8/common/quant_common.h"
 #include "vpx_scale/vpx_scale.h"
+#include "vp8/common/reconintra.h"
 #include "vp8/common/setupintrarecon.h"
 
 #include "decodemv.h"
@@ -34,6 +35,7 @@
 #include "vp8/common/threading.h"
 #include "decoderthreading.h"
 #include "dboolhuff.h"
+#include "vpx_dsp/vpx_dsp_common.h"
 
 #include <assert.h>
 #include <stdio.h>
@@ -142,7 +144,7 @@ static void decode_macroblock(VP8D_COMP *pbi, MACROBLOCKD *xd,
              * Better to use the predictor as reconstruction.
              */
             pbi->frame_corrupt_residual = 1;
-            vpx_memset(xd->qcoeff, 0, sizeof(xd->qcoeff));
+            memset(xd->qcoeff, 0, sizeof(xd->qcoeff));
             vp8_conceal_corrupt_mb(xd);
 
 
@@ -151,7 +153,7 @@ static void decode_macroblock(VP8D_COMP *pbi, MACROBLOCKD *xd,
             /* force idct to be skipped for B_PRED and use the
              * prediction only for reconstruction
              * */
-            vpx_memset(xd->eobs, 0, 25);
+            memset(xd->eobs, 0, 25);
         }
     }
 #endif
@@ -184,7 +186,7 @@ static void decode_macroblock(VP8D_COMP *pbi, MACROBLOCKD *xd,
 
             /* clear out residual eob info */
             if(xd->mode_info_context->mbmi.mb_skip_coeff)
-                vpx_memset(xd->eobs, 0, 25);
+                memset(xd->eobs, 0, 25);
 
             intra_prediction_down_copy(xd, xd->recon_above[0] + 16);
 
@@ -214,7 +216,7 @@ static void decode_macroblock(VP8D_COMP *pbi, MACROBLOCKD *xd,
                             (b->qcoeff[0] * DQC[0],
                                 dst, dst_stride,
                                 dst, dst_stride);
-                        vpx_memset(b->qcoeff, 0, 2 * sizeof(b->qcoeff[0]));
+                        memset(b->qcoeff, 0, 2 * sizeof(b->qcoeff[0]));
                     }
                 }
             }
@@ -251,14 +253,14 @@ static void decode_macroblock(VP8D_COMP *pbi, MACROBLOCKD *xd,
 
                     vp8_short_inv_walsh4x4(&b->dqcoeff[0],
                         xd->qcoeff);
-                    vpx_memset(b->qcoeff, 0, 16 * sizeof(b->qcoeff[0]));
+                    memset(b->qcoeff, 0, 16 * sizeof(b->qcoeff[0]));
                 }
                 else
                 {
                     b->dqcoeff[0] = b->qcoeff[0] * xd->dequant_y2[0];
                     vp8_short_inv_walsh4x4_1(&b->dqcoeff[0],
                         xd->qcoeff);
-                    vpx_memset(b->qcoeff, 0, 2 * sizeof(b->qcoeff[0]));
+                    memset(b->qcoeff, 0, 2 * sizeof(b->qcoeff[0]));
                 }
 
                 /* override the dc dequant constant in order to preserve the
@@ -323,7 +325,7 @@ static void yv12_extend_frame_top_c(YV12_BUFFER_CONFIG *ybf)
 
     for (i = 0; i < (int)Border; i++)
     {
-        vpx_memcpy(dest_ptr1, src_ptr1, plane_stride);
+        memcpy(dest_ptr1, src_ptr1, plane_stride);
         dest_ptr1 += plane_stride;
     }
 
@@ -338,7 +340,7 @@ static void yv12_extend_frame_top_c(YV12_BUFFER_CONFIG *ybf)
 
     for (i = 0; i < (int)(Border); i++)
     {
-        vpx_memcpy(dest_ptr1, src_ptr1, plane_stride);
+        memcpy(dest_ptr1, src_ptr1, plane_stride);
         dest_ptr1 += plane_stride;
     }
 
@@ -351,7 +353,7 @@ static void yv12_extend_frame_top_c(YV12_BUFFER_CONFIG *ybf)
 
     for (i = 0; i < (int)(Border); i++)
     {
-        vpx_memcpy(dest_ptr1, src_ptr1, plane_stride);
+        memcpy(dest_ptr1, src_ptr1, plane_stride);
         dest_ptr1 += plane_stride;
     }
 }
@@ -379,7 +381,7 @@ static void yv12_extend_frame_bottom_c(YV12_BUFFER_CONFIG *ybf)
 
     for (i = 0; i < (int)Border; i++)
     {
-        vpx_memcpy(dest_ptr2, src_ptr2, plane_stride);
+        memcpy(dest_ptr2, src_ptr2, plane_stride);
         dest_ptr2 += plane_stride;
     }
 
@@ -397,7 +399,7 @@ static void yv12_extend_frame_bottom_c(YV12_BUFFER_CONFIG *ybf)
 
     for (i = 0; i < (int)(Border); i++)
     {
-        vpx_memcpy(dest_ptr2, src_ptr2, plane_stride);
+        memcpy(dest_ptr2, src_ptr2, plane_stride);
         dest_ptr2 += plane_stride;
     }
 
@@ -411,7 +413,7 @@ static void yv12_extend_frame_bottom_c(YV12_BUFFER_CONFIG *ybf)
 
     for (i = 0; i < (int)(Border); i++)
     {
-        vpx_memcpy(dest_ptr2, src_ptr2, plane_stride);
+        memcpy(dest_ptr2, src_ptr2, plane_stride);
         dest_ptr2 += plane_stride;
     }
 }
@@ -446,8 +448,8 @@ static void yv12_extend_frame_left_right_c(YV12_BUFFER_CONFIG *ybf,
 
     for (i = 0; i < plane_height; i++)
     {
-        vpx_memset(dest_ptr1, src_ptr1[0], Border);
-        vpx_memset(dest_ptr2, src_ptr2[0], Border);
+        memset(dest_ptr1, src_ptr1[0], Border);
+        memset(dest_ptr2, src_ptr2[0], Border);
         src_ptr1  += plane_stride;
         src_ptr2  += plane_stride;
         dest_ptr1 += plane_stride;
@@ -470,8 +472,8 @@ static void yv12_extend_frame_left_right_c(YV12_BUFFER_CONFIG *ybf,
 
     for (i = 0; i < plane_height; i++)
     {
-        vpx_memset(dest_ptr1, src_ptr1[0], Border);
-        vpx_memset(dest_ptr2, src_ptr2[0], Border);
+        memset(dest_ptr1, src_ptr1[0], Border);
+        memset(dest_ptr2, src_ptr2[0], Border);
         src_ptr1  += plane_stride;
         src_ptr2  += plane_stride;
         dest_ptr1 += plane_stride;
@@ -490,8 +492,8 @@ static void yv12_extend_frame_left_right_c(YV12_BUFFER_CONFIG *ybf,
 
     for (i = 0; i < plane_height; i++)
     {
-        vpx_memset(dest_ptr1, src_ptr1[0], Border);
-        vpx_memset(dest_ptr2, src_ptr2[0], Border);
+        memset(dest_ptr1, src_ptr1[0], Border);
+        memset(dest_ptr2, src_ptr2[0], Border);
         src_ptr1  += plane_stride;
         src_ptr2  += plane_stride;
         dest_ptr1 += plane_stride;
@@ -568,7 +570,7 @@ static void decode_mb_rows(VP8D_COMP *pbi)
 
         /* reset contexts */
         xd->above_context = pc->above_context;
-        vpx_memset(xd->left_context, 0, sizeof(ENTROPY_CONTEXT_PLANES));
+        memset(xd->left_context, 0, sizeof(ENTROPY_CONTEXT_PLANES));
 
         xd->left_available = 0;
 
@@ -635,7 +637,7 @@ static void decode_mb_rows(VP8D_COMP *pbi)
             xd->dst.v_buffer = dst_buffer[2] + recon_uvoffset;
 
             if (xd->mode_info_context->mbmi.ref_frame >= LAST_FRAME) {
-              MV_REFERENCE_FRAME ref = xd->mode_info_context->mbmi.ref_frame;
+              const MV_REFERENCE_FRAME ref = xd->mode_info_context->mbmi.ref_frame;
               xd->pre.y_buffer = ref_buffer[ref][0] + recon_yoffset;
               xd->pre.u_buffer = ref_buffer[ref][1] + recon_uvoffset;
               xd->pre.v_buffer = ref_buffer[ref][2] + recon_uvoffset;
@@ -918,19 +920,19 @@ static void init_frame(VP8D_COMP *pbi)
     if (pc->frame_type == KEY_FRAME)
     {
         /* Various keyframe initializations */
-        vpx_memcpy(pc->fc.mvc, vp8_default_mv_context, sizeof(vp8_default_mv_context));
+        memcpy(pc->fc.mvc, vp8_default_mv_context, sizeof(vp8_default_mv_context));
 
         vp8_init_mbmode_probs(pc);
 
         vp8_default_coef_probs(pc);
 
         /* reset the segment feature data to 0 with delta coding (Default state). */
-        vpx_memset(xd->segment_feature_data, 0, sizeof(xd->segment_feature_data));
+        memset(xd->segment_feature_data, 0, sizeof(xd->segment_feature_data));
         xd->mb_segement_abs_delta = SEGMENT_DELTADATA;
 
         /* reset the mode ref deltasa for loop filter */
-        vpx_memset(xd->ref_lf_deltas, 0, sizeof(xd->ref_lf_deltas));
-        vpx_memset(xd->mode_lf_deltas, 0, sizeof(xd->mode_lf_deltas));
+        memset(xd->ref_lf_deltas, 0, sizeof(xd->ref_lf_deltas));
+        memset(xd->mode_lf_deltas, 0, sizeof(xd->mode_lf_deltas));
 
         /* All buffers are implicitly updated on key frames. */
         pc->refresh_golden_frame = 1;
@@ -1021,7 +1023,7 @@ int vp8_decode_frame(VP8D_COMP *pbi)
         const unsigned char *clear = data;
         if (pbi->decrypt_cb)
         {
-            int n = (int)MIN(sizeof(clear_buffer), data_end - data);
+            int n = (int)VPXMIN(sizeof(clear_buffer), data_end - data);
             pbi->decrypt_cb(pbi->decrypt_state, data, clear_buffer, n);
             clear = clear_buffer;
         }
@@ -1069,12 +1071,11 @@ int vp8_decode_frame(VP8D_COMP *pbi)
                 pc->vert_scale = clear[6] >> 6;
             }
             data += 7;
-            clear += 7;
         }
         else
         {
-          vpx_memcpy(&xd->pre, yv12_fb_new, sizeof(YV12_BUFFER_CONFIG));
-          vpx_memcpy(&xd->dst, yv12_fb_new, sizeof(YV12_BUFFER_CONFIG));
+          memcpy(&xd->pre, yv12_fb_new, sizeof(YV12_BUFFER_CONFIG));
+          memcpy(&xd->dst, yv12_fb_new, sizeof(YV12_BUFFER_CONFIG));
         }
     }
     if ((!pbi->decoded_key_frame && pc->frame_type != KEY_FRAME))
@@ -1106,7 +1107,7 @@ int vp8_decode_frame(VP8D_COMP *pbi)
         {
             xd->mb_segement_abs_delta = (unsigned char)vp8_read_bit(bc);
 
-            vpx_memset(xd->segment_feature_data, 0, sizeof(xd->segment_feature_data));
+            memset(xd->segment_feature_data, 0, sizeof(xd->segment_feature_data));
 
             /* For each segmentation feature (Quant and loop filter level) */
             for (i = 0; i < MB_LVL_MAX; i++)
@@ -1130,7 +1131,7 @@ int vp8_decode_frame(VP8D_COMP *pbi)
         if (xd->update_mb_segmentation_map)
         {
             /* Which macro block level features are enabled */
-            vpx_memset(xd->mb_segment_tree_probs, 255, sizeof(xd->mb_segment_tree_probs));
+            memset(xd->mb_segment_tree_probs, 255, sizeof(xd->mb_segment_tree_probs));
 
             /* Read the probs used to decode the segment id for each macro block. */
             for (i = 0; i < MB_FEATURE_TREE_PROBS; i++)
@@ -1279,7 +1280,7 @@ int vp8_decode_frame(VP8D_COMP *pbi)
 #endif
     if (pc->refresh_entropy_probs == 0)
     {
-        vpx_memcpy(&pc->lfc, &pc->fc, sizeof(pc->fc));
+        memcpy(&pc->lfc, &pc->fc, sizeof(pc->fc));
     }
 
     pc->refresh_last_frame = pc->frame_type == KEY_FRAME  ||  vp8_read_bit(bc);
@@ -1328,7 +1329,7 @@ int vp8_decode_frame(VP8D_COMP *pbi)
     }
 
     /* clear out the coeff buffer */
-    vpx_memset(xd->qcoeff, 0, sizeof(xd->qcoeff));
+    memset(xd->qcoeff, 0, sizeof(xd->qcoeff));
 
     vp8_decode_mode_mvs(pbi);
 
@@ -1342,7 +1343,7 @@ int vp8_decode_frame(VP8D_COMP *pbi)
     }
 #endif
 
-    vpx_memset(pc->above_context, 0, sizeof(ENTROPY_CONTEXT_PLANES) * pc->mb_cols);
+    memset(pc->above_context, 0, sizeof(ENTROPY_CONTEXT_PLANES) * pc->mb_cols);
     pbi->frame_corrupt_residual = 0;
 
 #if CONFIG_MULTITHREAD
@@ -1381,7 +1382,7 @@ int vp8_decode_frame(VP8D_COMP *pbi)
 
     if (pc->refresh_entropy_probs == 0)
     {
-        vpx_memcpy(&pc->fc, &pc->lfc, sizeof(pc->fc));
+        memcpy(&pc->fc, &pc->lfc, sizeof(pc->fc));
         pbi->independent_partitions = prev_independent_partitions;
     }
 

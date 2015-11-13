@@ -8,12 +8,13 @@
  *  be found in the AUTHORS file in the root of the source tree.
  */
 
+#include "third_party/googletest/src/include/gtest/gtest.h"
+
 #include "test/codec_factory.h"
 #include "test/encode_test_driver.h"
+#include "test/util.h"
 #include "test/y4m_video_source.h"
 #include "test/yuv_video_source.h"
-#include "test/util.h"
-#include "third_party/googletest/src/include/gtest/gtest.h"
 
 namespace {
 
@@ -186,4 +187,23 @@ VP9_INSTANTIATE_TEST_CASE(
     ::testing::ValuesIn(kTestVectors),
     ::testing::ValuesIn(kCpuUsedVectors));
 
+#if CONFIG_VP9_HIGHBITDEPTH
+# if CONFIG_VP10_ENCODER
+// TODO(angiebird): many fail in high bitdepth mode.
+INSTANTIATE_TEST_CASE_P(
+    DISABLED_VP10, EndToEndTestLarge,
+    ::testing::Combine(
+        ::testing::Values(static_cast<const libvpx_test::CodecFactory *>(
+            &libvpx_test::kVP10)),
+        ::testing::ValuesIn(kEncodingModeVectors),
+        ::testing::ValuesIn(kTestVectors),
+        ::testing::ValuesIn(kCpuUsedVectors)));
+# endif  // CONFIG_VP10_ENCODER
+#else
+VP10_INSTANTIATE_TEST_CASE(
+    EndToEndTestLarge,
+    ::testing::ValuesIn(kEncodingModeVectors),
+    ::testing::ValuesIn(kTestVectors),
+    ::testing::ValuesIn(kCpuUsedVectors));
+#endif  // CONFIG_VP9_HIGHBITDEPTH
 }  // namespace

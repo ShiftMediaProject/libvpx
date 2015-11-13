@@ -35,14 +35,14 @@ typedef struct {
 } TOKENVALUE;
 
 typedef struct {
-  const vp9_prob *context_tree;
+  const vpx_prob *context_tree;
   EXTRABIT extra;
   uint8_t token;
   uint8_t skip_eob_node;
 } TOKENEXTRA;
 
-extern const vp9_tree_index vp9_coef_tree[];
-extern const vp9_tree_index vp9_coef_con_tree[];
+extern const vpx_tree_index vp9_coef_tree[];
+extern const vpx_tree_index vp9_coef_con_tree[];
 extern const struct vp9_token vp9_coef_encodings[];
 
 int vp9_is_skippable_in_plane(MACROBLOCK *x, BLOCK_SIZE bsize, int plane);
@@ -53,6 +53,20 @@ struct ThreadData;
 
 void vp9_tokenize_sb(struct VP9_COMP *cpi, struct ThreadData *td,
                      TOKENEXTRA **t, int dry_run, BLOCK_SIZE bsize);
+
+typedef struct {
+  const vpx_prob *prob;
+  int len;
+  int base_val;
+  const int16_t *cost;
+} vp9_extra_bit;
+
+// indexed by token value
+extern const vp9_extra_bit vp9_extra_bits[ENTROPY_TOKENS];
+#if CONFIG_VP9_HIGHBITDEPTH
+extern const vp9_extra_bit vp9_extra_bits_high10[ENTROPY_TOKENS];
+extern const vp9_extra_bit vp9_extra_bits_high12[ENTROPY_TOKENS];
+#endif  // CONFIG_VP9_HIGHBITDEPTH
 
 extern const int16_t *vp9_dct_value_cost_ptr;
 /* TODO: The Token field should be broken out into a separate char array to

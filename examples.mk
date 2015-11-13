@@ -22,18 +22,21 @@ LIBYUV_SRCS +=  third_party/libyuv/include/libyuv/basic_types.h  \
                 third_party/libyuv/source/planar_functions.cc \
                 third_party/libyuv/source/row_any.cc \
                 third_party/libyuv/source/row_common.cc \
+                third_party/libyuv/source/row_gcc.cc \
                 third_party/libyuv/source/row_mips.cc \
                 third_party/libyuv/source/row_neon.cc \
                 third_party/libyuv/source/row_neon64.cc \
-                third_party/libyuv/source/row_posix.cc \
                 third_party/libyuv/source/row_win.cc \
                 third_party/libyuv/source/scale.cc \
+                third_party/libyuv/source/scale_any.cc \
                 third_party/libyuv/source/scale_common.cc \
+                third_party/libyuv/source/scale_gcc.cc \
                 third_party/libyuv/source/scale_mips.cc \
                 third_party/libyuv/source/scale_neon.cc \
                 third_party/libyuv/source/scale_neon64.cc \
-                third_party/libyuv/source/scale_posix.cc \
                 third_party/libyuv/source/scale_win.cc \
+
+LIBWEBM_COMMON_SRCS += third_party/libwebm/webmids.hpp
 
 LIBWEBM_MUXER_SRCS += third_party/libwebm/mkvmuxer.cpp \
                       third_party/libwebm/mkvmuxerutil.cpp \
@@ -42,8 +45,7 @@ LIBWEBM_MUXER_SRCS += third_party/libwebm/mkvmuxer.cpp \
                       third_party/libwebm/mkvmuxertypes.hpp \
                       third_party/libwebm/mkvmuxerutil.hpp \
                       third_party/libwebm/mkvparser.hpp \
-                      third_party/libwebm/mkvwriter.hpp \
-                      third_party/libwebm/webmids.hpp
+                      third_party/libwebm/mkvwriter.hpp
 
 LIBWEBM_PARSER_SRCS = third_party/libwebm/mkvparser.cpp \
                       third_party/libwebm/mkvreader.cpp \
@@ -56,6 +58,7 @@ UTILS-$(CONFIG_DECODERS)    += vpxdec.c
 vpxdec.SRCS                 += md5_utils.c md5_utils.h
 vpxdec.SRCS                 += vpx_ports/mem_ops.h
 vpxdec.SRCS                 += vpx_ports/mem_ops_aligned.h
+vpxdec.SRCS                 += vpx_ports/msvc.h
 vpxdec.SRCS                 += vpx_ports/vpx_timer.h
 vpxdec.SRCS                 += vpx/vpx_integer.h
 vpxdec.SRCS                 += args.c args.h
@@ -66,6 +69,7 @@ ifeq ($(CONFIG_LIBYUV),yes)
   vpxdec.SRCS                 += $(LIBYUV_SRCS)
 endif
 ifeq ($(CONFIG_WEBM_IO),yes)
+  vpxdec.SRCS                 += $(LIBWEBM_COMMON_SRCS)
   vpxdec.SRCS                 += $(LIBWEBM_PARSER_SRCS)
   vpxdec.SRCS                 += webmdec.cc webmdec.h
 endif
@@ -80,12 +84,14 @@ vpxenc.SRCS                 += tools_common.c tools_common.h
 vpxenc.SRCS                 += warnings.c warnings.h
 vpxenc.SRCS                 += vpx_ports/mem_ops.h
 vpxenc.SRCS                 += vpx_ports/mem_ops_aligned.h
+vpxenc.SRCS                 += vpx_ports/msvc.h
 vpxenc.SRCS                 += vpx_ports/vpx_timer.h
 vpxenc.SRCS                 += vpxstats.c vpxstats.h
 ifeq ($(CONFIG_LIBYUV),yes)
   vpxenc.SRCS                 += $(LIBYUV_SRCS)
 endif
 ifeq ($(CONFIG_WEBM_IO),yes)
+  vpxenc.SRCS                 += $(LIBWEBM_COMMON_SRCS)
   vpxenc.SRCS                 += $(LIBWEBM_MUXER_SRCS)
   vpxenc.SRCS                 += webmenc.cc webmenc.h
 endif
@@ -98,6 +104,7 @@ ifeq ($(CONFIG_SPATIAL_SVC),yes)
   vp9_spatial_svc_encoder.SRCS        += tools_common.c tools_common.h
   vp9_spatial_svc_encoder.SRCS        += video_common.h
   vp9_spatial_svc_encoder.SRCS        += video_writer.h video_writer.c
+  vp9_spatial_svc_encoder.SRCS        += vpx_ports/msvc.h
   vp9_spatial_svc_encoder.SRCS        += vpxstats.c vpxstats.h
   vp9_spatial_svc_encoder.GUID        = 4A38598D-627D-4505-9C7B-D4020C84100D
   vp9_spatial_svc_encoder.DESCRIPTION = VP9 Spatial SVC Encoder
@@ -112,6 +119,7 @@ vpx_temporal_svc_encoder.SRCS        += ivfenc.c ivfenc.h
 vpx_temporal_svc_encoder.SRCS        += tools_common.c tools_common.h
 vpx_temporal_svc_encoder.SRCS        += video_common.h
 vpx_temporal_svc_encoder.SRCS        += video_writer.h video_writer.c
+vpx_temporal_svc_encoder.SRCS        += vpx_ports/msvc.h
 vpx_temporal_svc_encoder.GUID        = B18C08F2-A439-4502-A78E-849BE3D60947
 vpx_temporal_svc_encoder.DESCRIPTION = Temporal SVC Encoder
 EXAMPLES-$(CONFIG_DECODERS)        += simple_decoder.c
@@ -122,6 +130,7 @@ simple_decoder.SRCS                += video_common.h
 simple_decoder.SRCS                += video_reader.h video_reader.c
 simple_decoder.SRCS                += vpx_ports/mem_ops.h
 simple_decoder.SRCS                += vpx_ports/mem_ops_aligned.h
+simple_decoder.SRCS                += vpx_ports/msvc.h
 simple_decoder.DESCRIPTION          = Simplified decoder loop
 EXAMPLES-$(CONFIG_DECODERS)        += postproc.c
 postproc.SRCS                      += ivfdec.h ivfdec.c
@@ -130,6 +139,7 @@ postproc.SRCS                      += video_common.h
 postproc.SRCS                      += video_reader.h video_reader.c
 postproc.SRCS                      += vpx_ports/mem_ops.h
 postproc.SRCS                      += vpx_ports/mem_ops_aligned.h
+postproc.SRCS                      += vpx_ports/msvc.h
 postproc.GUID                       = 65E33355-F35E-4088-884D-3FD4905881D7
 postproc.DESCRIPTION                = Decoder postprocessor control
 EXAMPLES-$(CONFIG_DECODERS)        += decode_to_md5.c
@@ -140,6 +150,7 @@ decode_to_md5.SRCS                 += video_common.h
 decode_to_md5.SRCS                 += video_reader.h video_reader.c
 decode_to_md5.SRCS                 += vpx_ports/mem_ops.h
 decode_to_md5.SRCS                 += vpx_ports/mem_ops_aligned.h
+decode_to_md5.SRCS                 += vpx_ports/msvc.h
 decode_to_md5.GUID                  = 59120B9B-2735-4BFE-B022-146CA340FE42
 decode_to_md5.DESCRIPTION           = Frame by frame MD5 checksum
 EXAMPLES-$(CONFIG_ENCODERS)     += simple_encoder.c
@@ -147,6 +158,7 @@ simple_encoder.SRCS             += ivfenc.h ivfenc.c
 simple_encoder.SRCS             += tools_common.h tools_common.c
 simple_encoder.SRCS             += video_common.h
 simple_encoder.SRCS             += video_writer.h video_writer.c
+simple_encoder.SRCS             += vpx_ports/msvc.h
 simple_encoder.GUID              = 4607D299-8A71-4D2C-9B1D-071899B6FBFD
 simple_encoder.DESCRIPTION       = Simplified encoder loop
 EXAMPLES-$(CONFIG_VP9_ENCODER)  += vp9_lossless_encoder.c
@@ -154,6 +166,7 @@ vp9_lossless_encoder.SRCS       += ivfenc.h ivfenc.c
 vp9_lossless_encoder.SRCS       += tools_common.h tools_common.c
 vp9_lossless_encoder.SRCS       += video_common.h
 vp9_lossless_encoder.SRCS       += video_writer.h video_writer.c
+vp9_lossless_encoder.SRCS       += vpx_ports/msvc.h
 vp9_lossless_encoder.GUID        = B63C7C88-5348-46DC-A5A6-CC151EF93366
 vp9_lossless_encoder.DESCRIPTION = Simplified lossless VP9 encoder
 EXAMPLES-$(CONFIG_ENCODERS)     += twopass_encoder.c
@@ -161,6 +174,7 @@ twopass_encoder.SRCS            += ivfenc.h ivfenc.c
 twopass_encoder.SRCS            += tools_common.h tools_common.c
 twopass_encoder.SRCS            += video_common.h
 twopass_encoder.SRCS            += video_writer.h video_writer.c
+twopass_encoder.SRCS            += vpx_ports/msvc.h
 twopass_encoder.GUID             = 73494FA6-4AF9-4763-8FBB-265C92402FD8
 twopass_encoder.DESCRIPTION      = Two-pass encoder loop
 EXAMPLES-$(CONFIG_DECODERS)     += decode_with_drops.c
@@ -170,6 +184,7 @@ decode_with_drops.SRCS          += video_common.h
 decode_with_drops.SRCS          += video_reader.h video_reader.c
 decode_with_drops.SRCS          += vpx_ports/mem_ops.h
 decode_with_drops.SRCS          += vpx_ports/mem_ops_aligned.h
+decode_with_drops.SRCS          += vpx_ports/msvc.h
 decode_with_drops.GUID           = CE5C53C4-8DDA-438A-86ED-0DDD3CDB8D26
 decode_with_drops.DESCRIPTION    = Drops frames while decoding
 EXAMPLES-$(CONFIG_ENCODERS)        += set_maps.c
@@ -177,6 +192,7 @@ set_maps.SRCS                      += ivfenc.h ivfenc.c
 set_maps.SRCS                      += tools_common.h tools_common.c
 set_maps.SRCS                      += video_common.h
 set_maps.SRCS                      += video_writer.h video_writer.c
+set_maps.SRCS                      += vpx_ports/msvc.h
 set_maps.GUID                       = ECB2D24D-98B8-4015-A465-A4AF3DCC145F
 set_maps.DESCRIPTION                = Set active and ROI maps
 EXAMPLES-$(CONFIG_VP8_ENCODER)     += vp8cx_set_ref.c
@@ -184,6 +200,7 @@ vp8cx_set_ref.SRCS                 += ivfenc.h ivfenc.c
 vp8cx_set_ref.SRCS                 += tools_common.h tools_common.c
 vp8cx_set_ref.SRCS                 += video_common.h
 vp8cx_set_ref.SRCS                 += video_writer.h video_writer.c
+vp8cx_set_ref.SRCS                 += vpx_ports/msvc.h
 vp8cx_set_ref.GUID                  = C5E31F7F-96F6-48BD-BD3E-10EBF6E8057A
 vp8cx_set_ref.DESCRIPTION           = VP8 set encoder reference frame
 
@@ -194,6 +211,7 @@ EXAMPLES-$(CONFIG_VP8_ENCODER)          += vp8_multi_resolution_encoder.c
 vp8_multi_resolution_encoder.SRCS       += ivfenc.h ivfenc.c
 vp8_multi_resolution_encoder.SRCS       += tools_common.h tools_common.c
 vp8_multi_resolution_encoder.SRCS       += video_writer.h video_writer.c
+vp8_multi_resolution_encoder.SRCS       += vpx_ports/msvc.h
 vp8_multi_resolution_encoder.SRCS       += $(LIBYUV_SRCS)
 vp8_multi_resolution_encoder.GUID        = 04f8738e-63c8-423b-90fa-7c2703a374de
 vp8_multi_resolution_encoder.DESCRIPTION = VP8 Multiple-resolution Encoding
@@ -254,14 +272,6 @@ CODEC_EXTRA_LIBS=$(sort $(call enabled,CODEC_EXTRA_LIBS))
 $(foreach ex,$(ALL_EXAMPLES),$(eval $(notdir $(ex:.c=)).SRCS += $(ex) examples.mk))
 
 
-# If this is a universal (fat) binary, then all the subarchitectures have
-# already been built and our job is to stitch them together. The
-# BUILD_OBJS variable indicates whether we should be building
-# (compiling, linking) the library. The LIPO_OBJS variable indicates
-# that we're stitching.
-$(eval $(if $(filter universal%,$(TOOLCHAIN)),LIPO_OBJS,BUILD_OBJS):=yes)
-
-
 # Create build/install dependencies for all examples. The common case
 # is handled here. The MSVS case is handled below.
 NOT_MSVS = $(if $(CONFIG_MSVS),,yes)
@@ -269,24 +279,28 @@ DIST-BINS-$(NOT_MSVS)      += $(addprefix bin/,$(ALL_EXAMPLES:.c=$(EXE_SFX)))
 INSTALL-BINS-$(NOT_MSVS)   += $(addprefix bin/,$(UTILS:.c=$(EXE_SFX)))
 DIST-SRCS-yes              += $(ALL_SRCS)
 INSTALL-SRCS-yes           += $(UTIL_SRCS)
-OBJS-$(NOT_MSVS)           += $(if $(BUILD_OBJS),$(call objs,$(ALL_SRCS)))
+OBJS-$(NOT_MSVS)           += $(call objs,$(ALL_SRCS))
 BINS-$(NOT_MSVS)           += $(addprefix $(BUILD_PFX),$(ALL_EXAMPLES:.c=$(EXE_SFX)))
 
 
 # Instantiate linker template for all examples.
 CODEC_LIB=$(if $(CONFIG_DEBUG_LIBS),vpx_g,vpx)
-SHARED_LIB_SUF=$(if $(filter darwin%,$(TGT_OS)),.dylib,.so)
+ifneq ($(filter darwin%,$(TGT_OS)),)
+SHARED_LIB_SUF=.dylib
+else
+ifneq ($(filter os2%,$(TGT_OS)),)
+SHARED_LIB_SUF=_dll.a
+else
+SHARED_LIB_SUF=.so
+endif
+endif
 CODEC_LIB_SUF=$(if $(CONFIG_SHARED),$(SHARED_LIB_SUF),.a)
 $(foreach bin,$(BINS-yes),\
-    $(if $(BUILD_OBJS),$(eval $(bin):\
-        $(LIB_PATH)/lib$(CODEC_LIB)$(CODEC_LIB_SUF)))\
-    $(if $(BUILD_OBJS),$(eval $(call linker_template,$(bin),\
+    $(eval $(bin):$(LIB_PATH)/lib$(CODEC_LIB)$(CODEC_LIB_SUF))\
+    $(eval $(call linker_template,$(bin),\
         $(call objs,$($(notdir $(bin:$(EXE_SFX)=)).SRCS)) \
         -l$(CODEC_LIB) $(addprefix -l,$(CODEC_EXTRA_LIBS))\
-        )))\
-    $(if $(LIPO_OBJS),$(eval $(call lipo_bin_template,$(bin))))\
-    )
-
+        )))
 
 # The following pairs define a mapping of locations in the distribution
 # tree to locations in the source/build trees.
@@ -314,8 +328,8 @@ endif
 # the makefiles). We may want to revisit this.
 define vcproj_template
 $(1): $($(1:.$(VCPROJ_SFX)=).SRCS) vpx.$(VCPROJ_SFX)
-	@echo "    [vcproj] $$@"
-	$$(GEN_VCPROJ)\
+	$(if $(quiet),@echo "    [vcproj] $$@")
+	$(qexec)$$(GEN_VCPROJ)\
             --exe\
             --target=$$(TOOLCHAIN)\
             --name=$$(@:.$(VCPROJ_SFX)=)\

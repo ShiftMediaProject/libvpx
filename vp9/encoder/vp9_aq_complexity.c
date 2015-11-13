@@ -10,7 +10,10 @@
 
 #include <limits.h>
 #include <math.h>
+#include "vpx_dsp/vpx_dsp_common.h"
+#include "vpx_ports/system_state.h"
 
+#include "vp9/encoder/vp9_aq_complexity.h"
 #include "vp9/encoder/vp9_aq_variance.h"
 #include "vp9/encoder/vp9_encodeframe.h"
 #include "vp9/common/vp9_seg_common.h"
@@ -46,7 +49,7 @@ void vp9_setup_in_frame_q_adj(VP9_COMP *cpi) {
   struct segmentation *const seg = &cm->seg;
 
   // Make SURE use of floating point in this function is safe.
-  vp9_clear_system_state();
+  vpx_clear_system_state();
 
   if (cm->frame_type == KEY_FRAME ||
       cpi->refresh_alt_ref_frame ||
@@ -55,8 +58,7 @@ void vp9_setup_in_frame_q_adj(VP9_COMP *cpi) {
     const int aq_strength = get_aq_c_strength(cm->base_qindex, cm->bit_depth);
 
     // Clear down the segment map.
-    vpx_memset(cpi->segmentation_map, DEFAULT_AQ2_SEG,
-               cm->mi_rows * cm->mi_cols);
+    memset(cpi->segmentation_map, DEFAULT_AQ2_SEG, cm->mi_rows * cm->mi_cols);
 
     vp9_clearall_segfeatures(seg);
 
@@ -116,8 +118,8 @@ void vp9_caq_select_segment(VP9_COMP *cpi, MACROBLOCK *mb, BLOCK_SIZE bs,
   const int mi_offset = mi_row * cm->mi_cols + mi_col;
   const int bw = num_8x8_blocks_wide_lookup[BLOCK_64X64];
   const int bh = num_8x8_blocks_high_lookup[BLOCK_64X64];
-  const int xmis = MIN(cm->mi_cols - mi_col, num_8x8_blocks_wide_lookup[bs]);
-  const int ymis = MIN(cm->mi_rows - mi_row, num_8x8_blocks_high_lookup[bs]);
+  const int xmis = VPXMIN(cm->mi_cols - mi_col, num_8x8_blocks_wide_lookup[bs]);
+  const int ymis = VPXMIN(cm->mi_rows - mi_row, num_8x8_blocks_high_lookup[bs]);
   int x, y;
   int i;
   unsigned char segment;
@@ -133,9 +135,9 @@ void vp9_caq_select_segment(VP9_COMP *cpi, MACROBLOCK *mb, BLOCK_SIZE bs,
     double low_var_thresh;
     const int aq_strength = get_aq_c_strength(cm->base_qindex, cm->bit_depth);
 
-    vp9_clear_system_state();
+    vpx_clear_system_state();
     low_var_thresh = (cpi->oxcf.pass == 2)
-      ? MAX(cpi->twopass.mb_av_energy, MIN_DEFAULT_LV_THRESH)
+      ? VPXMAX(cpi->twopass.mb_av_energy, MIN_DEFAULT_LV_THRESH)
       : DEFAULT_LV_THRESH;
 
     vp9_setup_src_planes(mb, cpi->Source, mi_row, mi_col);

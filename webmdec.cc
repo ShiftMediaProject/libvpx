@@ -63,6 +63,7 @@ int file_is_webm(struct WebmInputContext *webm_ctx,
                  struct VpxInputContext *vpx_ctx) {
   mkvparser::MkvReader *const reader = new mkvparser::MkvReader(vpx_ctx->file);
   webm_ctx->reader = reader;
+  webm_ctx->reached_eos = 0;
 
   mkvparser::EBMLHeader header;
   long long pos = 0;
@@ -93,7 +94,7 @@ int file_is_webm(struct WebmInputContext *webm_ctx,
     }
   }
 
-  if (video_track == NULL) {
+  if (video_track == NULL || video_track->GetCodecId() == NULL) {
     rewind_and_reset(webm_ctx, vpx_ctx);
     return 0;
   }
@@ -102,6 +103,8 @@ int file_is_webm(struct WebmInputContext *webm_ctx,
     vpx_ctx->fourcc = VP8_FOURCC;
   } else if (!strncmp(video_track->GetCodecId(), "V_VP9", 5)) {
     vpx_ctx->fourcc = VP9_FOURCC;
+  } else if (!strncmp(video_track->GetCodecId(), "V_VP10", 6)) {
+    vpx_ctx->fourcc = VP10_FOURCC;
   } else {
     rewind_and_reset(webm_ctx, vpx_ctx);
     return 0;
@@ -121,6 +124,11 @@ int webm_read_frame(struct WebmInputContext *webm_ctx,
                     uint8_t **buffer,
                     size_t *bytes_in_buffer,
                     size_t *buffer_size) {
+  // This check is needed for frame parallel decoding, in which case this
+  // function could be called even after it has reached end of input stream.
+  if (webm_ctx->reached_eos) {
+    return 1;
+  }
   mkvparser::Segment *const segment =
       reinterpret_cast<mkvparser::Segment*>(webm_ctx->segment);
   const mkvparser::Cluster* cluster =
@@ -140,6 +148,7 @@ int webm_read_frame(struct WebmInputContext *webm_ctx,
       cluster = segment->GetNext(cluster);
       if (cluster == NULL || cluster->EOS()) {
         *bytes_in_buffer = 0;
+        webm_ctx->reached_eos = 1;
         return 1;
       }
       status = cluster->GetFirst(block_entry);
@@ -212,6 +221,7 @@ int webm_guess_framerate(struct WebmInputContext *webm_ctx,
   webm_ctx->block_entry = NULL;
   webm_ctx->block_frame_index = 0;
   webm_ctx->timestamp_ns = 0;
+  webm_ctx->reached_eos = 0;
 
   return 0;
 }

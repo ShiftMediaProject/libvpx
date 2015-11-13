@@ -7,8 +7,10 @@
  *  in the file PATENTS.  All contributing project authors may
  *  be found in the AUTHORS file in the root of the source tree.
  */
-#include "./vpx_config.h"
+
 #include "third_party/googletest/src/include/gtest/gtest.h"
+
+#include "./vpx_config.h"
 #include "test/codec_factory.h"
 #include "test/encode_test_driver.h"
 #include "test/i420_video_source.h"
@@ -125,4 +127,8 @@ VP9_INSTANTIATE_TEST_CASE(LosslessTest,
                           ::testing::Values(::libvpx_test::kRealTime,
                                             ::libvpx_test::kOnePassGood,
                                             ::libvpx_test::kTwoPassGood));
+
+VP10_INSTANTIATE_TEST_CASE(LosslessTest,
+                           ::testing::Values(::libvpx_test::kOnePassGood,
+                                             ::libvpx_test::kTwoPassGood));
 }  // namespace

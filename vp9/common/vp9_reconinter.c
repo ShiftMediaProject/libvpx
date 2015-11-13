@@ -16,22 +16,8 @@
 #include "vpx/vpx_integer.h"
 
 #include "vp9/common/vp9_blockd.h"
-#include "vp9/common/vp9_filter.h"
 #include "vp9/common/vp9_reconinter.h"
 #include "vp9/common/vp9_reconintra.h"
-
-void inter_predictor(const uint8_t *src, int src_stride,
-                            uint8_t *dst, int dst_stride,
-                            const int subpel_x,
-                            const int subpel_y,
-                            const struct scale_factors *sf,
-                            int w, int h, int ref,
-                            const InterpKernel *kernel,
-                            int xs, int ys) {
-  sf->predict[subpel_x != 0][subpel_y != 0][ref](
-      src, src_stride, dst, dst_stride,
-      kernel[subpel_x], xs, kernel[subpel_y], ys, w, h);
-}
 
 #if CONFIG_VP9_HIGHBITDEPTH
 void high_inter_predictor(const uint8_t *src, int src_stride,
@@ -167,14 +153,14 @@ MV average_split_mvs(const struct macroblockd_plane *pd,
   return res;
 }
 
-void build_inter_predictors(MACROBLOCKD *xd, int plane, int block,
+static void build_inter_predictors(MACROBLOCKD *xd, int plane, int block,
                                    int bw, int bh,
                                    int x, int y, int w, int h,
                                    int mi_x, int mi_y) {
   struct macroblockd_plane *const pd = &xd->plane[plane];
-  const MODE_INFO *mi = xd->mi[0].src_mi;
+  const MODE_INFO *mi = xd->mi[0];
   const int is_compound = has_second_ref(&mi->mbmi);
-  const InterpKernel *kernel = vp9_get_interp_kernel(mi->mbmi.interp_filter);
+  const InterpKernel *kernel = vp9_filter_kernels[mi->mbmi.interp_filter];
   int ref;
 
   for (ref = 0; ref < 1 + is_compound; ++ref) {
@@ -201,7 +187,19 @@ void build_inter_predictors(MACROBLOCKD *xd, int plane, int block,
     const int is_scaled = vp9_is_scaled(sf);
 
     if (is_scaled) {
-      pre = pre_buf->buf + scaled_buffer_offset(x, y, pre_buf->stride, sf);
+      // Co-ordinate of containing block to pixel precision.
+      const int x_start = (-xd->mb_to_left_edge >> (3 + pd->subsampling_x));
+      const int y_start = (-xd->mb_to_top_edge >> (3 + pd->subsampling_y));
+      if (plane == 0)
+        pre_buf->buf = xd->block_refs[ref]->buf->y_buffer;
+      else if (plane == 1)
+        pre_buf->buf = xd->block_refs[ref]->buf->u_buffer;
+      else
+        pre_buf->buf = xd->block_refs[ref]->buf->v_buffer;
+
+      pre_buf->buf += scaled_buffer_offset(x_start + x, y_start + y,
+                                           pre_buf->stride, sf);
+      pre = pre_buf->buf;
       scaled_mv = vp9_scale_mv(&mv_q4, mi_x + x, mi_y + y, sf);
       xs = sf->x_step_q4;
       ys = sf->y_step_q4;
@@ -246,7 +244,7 @@ static void build_inter_predictors_for_planes(MACROBLOCKD *xd, BLOCK_SIZE bsize,
     const int bw = 4 * num_4x4_w;
     const int bh = 4 * num_4x4_h;
 
-    if (xd->mi[0].src_mi->mbmi.sb_type < BLOCK_8X8) {
+    if (xd->mi[0]->mbmi.sb_type < BLOCK_8X8) {
       int i = 0, x, y;
       assert(bsize == BLOCK_8X8);
       for (y = 0; y < num_4x4_h; ++y)
@@ -285,10 +283,10 @@ void vp9_build_inter_predictors_sb(MACROBLOCKD *xd, int mi_row, int mi_col,
 void vp9_setup_dst_planes(struct macroblockd_plane planes[MAX_MB_PLANE],
                           const YV12_BUFFER_CONFIG *src,
                           int mi_row, int mi_col) {
-  uint8_t *const buffers[4] = {src->y_buffer, src->u_buffer, src->v_buffer,
-                               src->alpha_buffer};
-  const int strides[4] = {src->y_stride, src->uv_stride, src->uv_stride,
-                          src->alpha_stride};
+  uint8_t *const buffers[MAX_MB_PLANE] = { src->y_buffer, src->u_buffer,
+      src->v_buffer};
+  const int strides[MAX_MB_PLANE] = { src->y_stride, src->uv_stride,
+      src->uv_stride};
   int i;
 
   for (i = 0; i < MAX_MB_PLANE; ++i) {
@@ -304,11 +302,10 @@ void vp9_setup_pre_planes(MACROBLOCKD *xd, int idx,
                           const struct scale_factors *sf) {
   if (src != NULL) {
     int i;
-    uint8_t *const buffers[4] = {src->y_buffer, src->u_buffer, src->v_buffer,
-                                 src->alpha_buffer};
-    const int strides[4] = {src->y_stride, src->uv_stride, src->uv_stride,
-                            src->alpha_stride};
-
+    uint8_t *const buffers[MAX_MB_PLANE] = { src->y_buffer, src->u_buffer,
+        src->v_buffer};
+    const int strides[MAX_MB_PLANE] = { src->y_stride, src->uv_stride,
+        src->uv_stride};
     for (i = 0; i < MAX_MB_PLANE; ++i) {
       struct macroblockd_plane *const pd = &xd->plane[i];
       setup_pred_plane(&pd->pre[idx], buffers[i], strides[i], mi_row, mi_col,

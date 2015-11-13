@@ -14,6 +14,7 @@
 #include "./vpx_scale_rtcd.h"
 
 #include "vpx_mem/vpx_mem.h"
+#include "vpx_ports/mem.h"
 
 #include "vp9/common/vp9_loopfilter.h"
 #include "vp9/common/vp9_onyxc_int.h"
@@ -38,6 +39,8 @@ static int64_t try_filter_frame(const YV12_BUFFER_CONFIG *sd,
                                 int filt_level, int partial_frame) {
   VP9_COMMON *const cm = &cpi->common;
   int64_t filt_err;
+
+  vp9_build_mask_frame(cm, filt_level, partial_frame);
 
   if (cpi->num_workers > 1)
     vp9_loop_filter_frame_mt(cm->frame_to_show, cm, cpi->td.mb.e_mbd.plane,
@@ -81,7 +84,7 @@ static int search_filter_level(const YV12_BUFFER_CONFIG *sd, VP9_COMP *cpi,
   int64_t ss_err[MAX_LOOP_FILTER + 1];
 
   // Set each entry to -1
-  vpx_memset(ss_err, 0xFF, sizeof(ss_err));
+  memset(ss_err, 0xFF, sizeof(ss_err));
 
   //  Make a copy of the unfiltered / processed recon buffer
   vpx_yv12_copy_y(cm->frame_to_show, &cpi->last_frame_uf);
@@ -91,8 +94,8 @@ static int search_filter_level(const YV12_BUFFER_CONFIG *sd, VP9_COMP *cpi,
   ss_err[filt_mid] = best_err;
 
   while (filter_step > 0) {
-    const int filt_high = MIN(filt_mid + filter_step, max_filter_level);
-    const int filt_low = MAX(filt_mid - filter_step, min_filter_level);
+    const int filt_high = VPXMIN(filt_mid + filter_step, max_filter_level);
+    const int filt_low = VPXMAX(filt_mid - filter_step, min_filter_level);
 
     // Bias against raising loop filter in favor of lowering it.
     int64_t bias = (best_err >> (15 - (filt_mid / 8))) * filter_step;

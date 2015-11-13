@@ -41,6 +41,7 @@ enum MkvId {
   kMkvTimecodeScale = 0x2AD7B1,
   kMkvDuration = 0x4489,
   kMkvDateUTC = 0x4461,
+  kMkvTitle = 0x7BA9,
   kMkvMuxingApp = 0x4D80,
   kMkvWritingApp = 0x5741,
   // Cluster
@@ -107,9 +108,16 @@ enum MkvId {
   kMkvContentEncodingOrder = 0x5031,
   kMkvContentEncodingScope = 0x5032,
   kMkvContentEncodingType = 0x5033,
+  kMkvContentCompression = 0x5034,
+  kMkvContentCompAlgo = 0x4254,
+  kMkvContentCompSettings = 0x4255,
   kMkvContentEncryption = 0x5035,
   kMkvContentEncAlgo = 0x47E1,
   kMkvContentEncKeyID = 0x47E2,
+  kMkvContentSignature = 0x47E3,
+  kMkvContentSigKeyID = 0x47E4,
+  kMkvContentSigAlgo = 0x47E5,
+  kMkvContentSigHashAlgo = 0x47E6,
   kMkvContentEncAESSettings = 0x47E7,
   kMkvAESSettingsCipherMode = 0x47E8,
   kMkvAESSettingsCipherInitData = 0x47E9,
@@ -133,7 +141,13 @@ enum MkvId {
   kMkvChapterDisplay = 0x80,
   kMkvChapString = 0x85,
   kMkvChapLanguage = 0x437C,
-  kMkvChapCountry = 0x437E
+  kMkvChapCountry = 0x437E,
+  // Tags
+  kMkvTags = 0x1254C367,
+  kMkvTag = 0x7373,
+  kMkvSimpleTag = 0x67C8,
+  kMkvTagName = 0x45A3,
+  kMkvTagString = 0x4487
 };
 
 }  // end namespace mkvmuxer

@@ -16,6 +16,7 @@
 #include "vpx/vpx_codec.h"
 #include "vpx/vpx_image.h"
 #include "vpx/vpx_integer.h"
+#include "vpx_ports/msvc.h"
 
 #if CONFIG_ENCODERS
 #include "./y4minput.h"
@@ -34,7 +35,6 @@
 #if CONFIG_OS_SUPPORT
 #if defined(_MSC_VER)
 #include <io.h>  /* NOLINT */
-#define snprintf _snprintf
 #define isatty   _isatty
 #define fileno   _fileno
 #else
@@ -62,6 +62,7 @@
 
 #define VP8_FOURCC 0x30385056
 #define VP9_FOURCC 0x30395056
+#define VP10_FOURCC 0x303a5056
 
 enum VideoFileType {
   FILE_TYPE_RAW,
@@ -89,6 +90,7 @@ struct VpxInputContext {
   enum VideoFileType file_type;
   uint32_t width;
   uint32_t height;
+  struct VpxRational pixel_aspect_ratio;
   vpx_img_fmt_t fmt;
   vpx_bit_depth_t bit_depth;
   int only_i420;
@@ -119,7 +121,7 @@ void warn(const char *fmt, ...);
 void die_codec(vpx_codec_ctx_t *ctx, const char *s) VPX_NO_RETURN;
 
 /* The tool including this file must define usage_exit() */
-void usage_exit() VPX_NO_RETURN;
+void usage_exit(void) VPX_NO_RETURN;
 
 #undef VPX_NO_RETURN
 
@@ -131,11 +133,11 @@ typedef struct VpxInterface {
   vpx_codec_iface_t *(*const codec_interface)();
 } VpxInterface;
 
-int get_vpx_encoder_count();
+int get_vpx_encoder_count(void);
 const VpxInterface *get_vpx_encoder_by_index(int i);
 const VpxInterface *get_vpx_encoder_by_name(const char *name);
 
-int get_vpx_decoder_count();
+int get_vpx_decoder_count(void);
 const VpxInterface *get_vpx_decoder_by_index(int i);
 const VpxInterface *get_vpx_decoder_by_name(const char *name);
 const VpxInterface *get_vpx_decoder_by_fourcc(uint32_t fourcc);
@@ -149,7 +151,7 @@ int vpx_img_read(vpx_image_t *img, FILE *file);
 
 double sse_to_psnr(double samples, double peak, double mse);
 
-#if CONFIG_VP9 && CONFIG_VP9_HIGHBITDEPTH
+#if CONFIG_VP9_HIGHBITDEPTH
 void vpx_img_upshift(vpx_image_t *dst, vpx_image_t *src, int input_shift);
 void vpx_img_downshift(vpx_image_t *dst, vpx_image_t *src, int down_shift);
 void vpx_img_truncate_16_to_8(vpx_image_t *dst, vpx_image_t *src);

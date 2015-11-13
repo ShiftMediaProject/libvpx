@@ -30,7 +30,9 @@
 
 #if defined(_WIN64)
 
-#define _WIN32_LEAN_AND_MEAN
+#undef NOMINMAX
+#define NOMINMAX
+#define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #include <winnt.h>
 
@@ -96,7 +98,7 @@ class RegisterStateCheck {
 
 extern "C" {
 // Save the d8-d15 registers into store.
-void vp9_push_neon(int64_t *store);
+void vpx_push_neon(int64_t *store);
 }
 
 namespace libvpx_test {
@@ -111,7 +113,7 @@ class RegisterStateCheck {
 
  private:
   static bool StoreRegisters(int64_t store[8]) {
-    vp9_push_neon(store);
+    vpx_push_neon(store);
     return true;
   }
 
@@ -119,7 +121,7 @@ class RegisterStateCheck {
   bool Check() const {
     if (!initialized_) return false;
     int64_t post_store[8];
-    vp9_push_neon(post_store);
+    vpx_push_neon(post_store);
     for (int i = 0; i < 8; ++i) {
       EXPECT_EQ(pre_store_[i], post_store[i]) << "d"
           << i + 8 << " has been modified";

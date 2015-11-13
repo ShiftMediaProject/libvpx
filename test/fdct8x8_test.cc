@@ -13,18 +13,40 @@
 #include <string.h>
 
 #include "third_party/googletest/src/include/gtest/gtest.h"
+
+#include "./vp9_rtcd.h"
+#include "./vpx_dsp_rtcd.h"
 #include "test/acm_random.h"
 #include "test/clear_system_state.h"
 #include "test/register_state_check.h"
 #include "test/util.h"
-
-#include "./vp9_rtcd.h"
 #include "vp9/common/vp9_entropy.h"
+#include "vp9/common/vp9_scan.h"
 #include "vpx/vpx_codec.h"
 #include "vpx/vpx_integer.h"
+#include "vpx_ports/mem.h"
+
+using libvpx_test::ACMRandom;
+
+namespace {
 
 const int kNumCoeffs = 64;
 const double kPi = 3.141592653589793238462643383279502884;
+
+const int kSignBiasMaxDiff255 = 1500;
+const int kSignBiasMaxDiff15 = 10000;
+
+typedef void (*FdctFunc)(const int16_t *in, tran_low_t *out, int stride);
+typedef void (*IdctFunc)(const tran_low_t *in, uint8_t *out, int stride);
+typedef void (*FhtFunc)(const int16_t *in, tran_low_t *out, int stride,
+                        int tx_type);
+typedef void (*IhtFunc)(const tran_low_t *in, uint8_t *out, int stride,
+                        int tx_type);
+
+typedef std::tr1::tuple<FdctFunc, IdctFunc, int, vpx_bit_depth_t> Dct8x8Param;
+typedef std::tr1::tuple<FhtFunc, IhtFunc, int, vpx_bit_depth_t> Ht8x8Param;
+typedef std::tr1::tuple<IdctFunc, IdctFunc, int, vpx_bit_depth_t> Idct8x8Param;
+
 void reference_8x8_dct_1d(const double in[8], double out[8], int stride) {
   const double kInvSqrt2 = 0.707106781186547524400844362104;
   for (int k = 0; k < 8; k++) {
@@ -59,26 +81,9 @@ void reference_8x8_dct_2d(const int16_t input[kNumCoeffs],
   }
 }
 
-using libvpx_test::ACMRandom;
-
-namespace {
-
-const int kSignBiasMaxDiff255 = 1500;
-const int kSignBiasMaxDiff15 = 10000;
-
-typedef void (*FdctFunc)(const int16_t *in, tran_low_t *out, int stride);
-typedef void (*IdctFunc)(const tran_low_t *in, uint8_t *out, int stride);
-typedef void (*FhtFunc)(const int16_t *in, tran_low_t *out, int stride,
-                        int tx_type);
-typedef void (*IhtFunc)(const tran_low_t *in, uint8_t *out, int stride,
-                        int tx_type);
-
-typedef std::tr1::tuple<FdctFunc, IdctFunc, int, vpx_bit_depth_t> Dct8x8Param;
-typedef std::tr1::tuple<FhtFunc, IhtFunc, int, vpx_bit_depth_t> Ht8x8Param;
-typedef std::tr1::tuple<IdctFunc, IdctFunc, int, vpx_bit_depth_t> Idct8x8Param;
 
 void fdct8x8_ref(const int16_t *in, tran_low_t *out, int stride, int tx_type) {
-  vp9_fdct8x8_c(in, out, stride);
+  vpx_fdct8x8_c(in, out, stride);
 }
 
 void fht8x8_ref(const int16_t *in, tran_low_t *out, int stride, int tx_type) {
@@ -87,11 +92,11 @@ void fht8x8_ref(const int16_t *in, tran_low_t *out, int stride, int tx_type) {
 
 #if CONFIG_VP9_HIGHBITDEPTH
 void idct8x8_10(const tran_low_t *in, uint8_t *out, int stride) {
-  vp9_highbd_idct8x8_64_add_c(in, out, stride, 10);
+  vpx_highbd_idct8x8_64_add_c(in, out, stride, 10);
 }
 
 void idct8x8_12(const tran_low_t *in, uint8_t *out, int stride) {
-  vp9_highbd_idct8x8_64_add_c(in, out, stride, 12);
+  vpx_highbd_idct8x8_64_add_c(in, out, stride, 12);
 }
 
 void iht8x8_10(const tran_low_t *in, uint8_t *out, int stride, int tx_type) {
@@ -103,28 +108,28 @@ void iht8x8_12(const tran_low_t *in, uint8_t *out, int stride, int tx_type) {
 }
 
 void idct8x8_10_add_10_c(const tran_low_t *in, uint8_t *out, int stride) {
-  vp9_highbd_idct8x8_10_add_c(in, out, stride, 10);
+  vpx_highbd_idct8x8_10_add_c(in, out, stride, 10);
 }
 
 void idct8x8_10_add_12_c(const tran_low_t *in, uint8_t *out, int stride) {
-  vp9_highbd_idct8x8_10_add_c(in, out, stride, 12);
+  vpx_highbd_idct8x8_10_add_c(in, out, stride, 12);
 }
 
 #if HAVE_SSE2
 void idct8x8_10_add_10_sse2(const tran_low_t *in, uint8_t *out, int stride) {
-  vp9_highbd_idct8x8_10_add_sse2(in, out, stride, 10);
+  vpx_highbd_idct8x8_10_add_sse2(in, out, stride, 10);
 }
 
 void idct8x8_10_add_12_sse2(const tran_low_t *in, uint8_t *out, int stride) {
-  vp9_highbd_idct8x8_10_add_sse2(in, out, stride, 12);
+  vpx_highbd_idct8x8_10_add_sse2(in, out, stride, 12);
 }
 
 void idct8x8_64_add_10_sse2(const tran_low_t *in, uint8_t *out, int stride) {
-  vp9_highbd_idct8x8_64_add_sse2(in, out, stride, 10);
+  vpx_highbd_idct8x8_64_add_sse2(in, out, stride, 10);
 }
 
 void idct8x8_64_add_12_sse2(const tran_low_t *in, uint8_t *out, int stride) {
-  vp9_highbd_idct8x8_64_add_sse2(in, out, stride, 12);
+  vpx_highbd_idct8x8_64_add_sse2(in, out, stride, 12);
 }
 #endif  // HAVE_SSE2
 #endif  // CONFIG_VP9_HIGHBITDEPTH
@@ -139,8 +144,8 @@ class FwdTrans8x8TestBase {
 
   void RunSignBiasCheck() {
     ACMRandom rnd(ACMRandom::DeterministicSeed());
-    DECLARE_ALIGNED_ARRAY(16, int16_t, test_input_block, 64);
-    DECLARE_ALIGNED_ARRAY(16, tran_low_t, test_output_block, 64);
+    DECLARE_ALIGNED(16, int16_t, test_input_block[64]);
+    DECLARE_ALIGNED(16, tran_low_t, test_output_block[64]);
     int count_sign_block[64][2];
     const int count_test_block = 100000;
 
@@ -210,13 +215,13 @@ class FwdTrans8x8TestBase {
     int max_error = 0;
     int total_error = 0;
     const int count_test_block = 100000;
-    DECLARE_ALIGNED_ARRAY(16, int16_t, test_input_block, 64);
-    DECLARE_ALIGNED_ARRAY(16, tran_low_t, test_temp_block, 64);
-    DECLARE_ALIGNED_ARRAY(16, uint8_t, dst, 64);
-    DECLARE_ALIGNED_ARRAY(16, uint8_t, src, 64);
+    DECLARE_ALIGNED(16, int16_t, test_input_block[64]);
+    DECLARE_ALIGNED(16, tran_low_t, test_temp_block[64]);
+    DECLARE_ALIGNED(16, uint8_t, dst[64]);
+    DECLARE_ALIGNED(16, uint8_t, src[64]);
 #if CONFIG_VP9_HIGHBITDEPTH
-    DECLARE_ALIGNED_ARRAY(16, uint16_t, dst16, 64);
-    DECLARE_ALIGNED_ARRAY(16, uint16_t, src16, 64);
+    DECLARE_ALIGNED(16, uint16_t, dst16[64]);
+    DECLARE_ALIGNED(16, uint16_t, src16[64]);
 #endif
 
     for (int i = 0; i < count_test_block; ++i) {
@@ -287,14 +292,14 @@ class FwdTrans8x8TestBase {
     int total_error = 0;
     int total_coeff_error = 0;
     const int count_test_block = 100000;
-    DECLARE_ALIGNED_ARRAY(16, int16_t, test_input_block, 64);
-    DECLARE_ALIGNED_ARRAY(16, tran_low_t, test_temp_block, 64);
-    DECLARE_ALIGNED_ARRAY(16, tran_low_t, ref_temp_block, 64);
-    DECLARE_ALIGNED_ARRAY(16, uint8_t, dst, 64);
-    DECLARE_ALIGNED_ARRAY(16, uint8_t, src, 64);
+    DECLARE_ALIGNED(16, int16_t, test_input_block[64]);
+    DECLARE_ALIGNED(16, tran_low_t, test_temp_block[64]);
+    DECLARE_ALIGNED(16, tran_low_t, ref_temp_block[64]);
+    DECLARE_ALIGNED(16, uint8_t, dst[64]);
+    DECLARE_ALIGNED(16, uint8_t, src[64]);
 #if CONFIG_VP9_HIGHBITDEPTH
-    DECLARE_ALIGNED_ARRAY(16, uint16_t, dst16, 64);
-    DECLARE_ALIGNED_ARRAY(16, uint16_t, src16, 64);
+    DECLARE_ALIGNED(16, uint16_t, dst16[64]);
+    DECLARE_ALIGNED(16, uint16_t, src16[64]);
 #endif
 
     for (int i = 0; i < count_test_block; ++i) {
@@ -376,13 +381,13 @@ class FwdTrans8x8TestBase {
   void RunInvAccuracyCheck() {
     ACMRandom rnd(ACMRandom::DeterministicSeed());
     const int count_test_block = 1000;
-    DECLARE_ALIGNED_ARRAY(16, int16_t, in, kNumCoeffs);
-    DECLARE_ALIGNED_ARRAY(16, tran_low_t, coeff, kNumCoeffs);
-    DECLARE_ALIGNED_ARRAY(16, uint8_t, dst, kNumCoeffs);
-    DECLARE_ALIGNED_ARRAY(16, uint8_t, src, kNumCoeffs);
+    DECLARE_ALIGNED(16, int16_t, in[kNumCoeffs]);
+    DECLARE_ALIGNED(16, tran_low_t, coeff[kNumCoeffs]);
+    DECLARE_ALIGNED(16, uint8_t, dst[kNumCoeffs]);
+    DECLARE_ALIGNED(16, uint8_t, src[kNumCoeffs]);
 #if CONFIG_VP9_HIGHBITDEPTH
-    DECLARE_ALIGNED_ARRAY(16, uint16_t, src16, kNumCoeffs);
-    DECLARE_ALIGNED_ARRAY(16, uint16_t, dst16, kNumCoeffs);
+    DECLARE_ALIGNED(16, uint16_t, src16[kNumCoeffs]);
+    DECLARE_ALIGNED(16, uint16_t, dst16[kNumCoeffs]);
 #endif
 
     for (int i = 0; i < count_test_block; ++i) {
@@ -434,9 +439,9 @@ class FwdTrans8x8TestBase {
   void RunFwdAccuracyCheck() {
     ACMRandom rnd(ACMRandom::DeterministicSeed());
     const int count_test_block = 1000;
-    DECLARE_ALIGNED_ARRAY(16, int16_t, in, kNumCoeffs);
-    DECLARE_ALIGNED_ARRAY(16, tran_low_t, coeff_r, kNumCoeffs);
-    DECLARE_ALIGNED_ARRAY(16, tran_low_t, coeff, kNumCoeffs);
+    DECLARE_ALIGNED(16, int16_t, in[kNumCoeffs]);
+    DECLARE_ALIGNED(16, tran_low_t, coeff_r[kNumCoeffs]);
+    DECLARE_ALIGNED(16, tran_low_t, coeff[kNumCoeffs]);
 
     for (int i = 0; i < count_test_block; ++i) {
       double out_r[kNumCoeffs];
@@ -464,12 +469,12 @@ void CompareInvReference(IdctFunc ref_txfm, int thresh) {
     ACMRandom rnd(ACMRandom::DeterministicSeed());
     const int count_test_block = 10000;
     const int eob = 12;
-    DECLARE_ALIGNED_ARRAY(16, tran_low_t, coeff, kNumCoeffs);
-    DECLARE_ALIGNED_ARRAY(16, uint8_t, dst, kNumCoeffs);
-    DECLARE_ALIGNED_ARRAY(16, uint8_t, ref, kNumCoeffs);
+    DECLARE_ALIGNED(16, tran_low_t, coeff[kNumCoeffs]);
+    DECLARE_ALIGNED(16, uint8_t, dst[kNumCoeffs]);
+    DECLARE_ALIGNED(16, uint8_t, ref[kNumCoeffs]);
 #if CONFIG_VP9_HIGHBITDEPTH
-    DECLARE_ALIGNED_ARRAY(16, uint16_t, dst16, kNumCoeffs);
-    DECLARE_ALIGNED_ARRAY(16, uint16_t, ref16, kNumCoeffs);
+    DECLARE_ALIGNED(16, uint16_t, dst16[kNumCoeffs]);
+    DECLARE_ALIGNED(16, uint16_t, ref16[kNumCoeffs]);
 #endif
     const int16_t *scan = vp9_default_scan_orders[TX_8X8].scan;
 
@@ -653,14 +658,14 @@ using std::tr1::make_tuple;
 INSTANTIATE_TEST_CASE_P(
     C, FwdTrans8x8DCT,
     ::testing::Values(
-        make_tuple(&vp9_fdct8x8_c, &vp9_idct8x8_64_add_c, 0, VPX_BITS_8),
-        make_tuple(&vp9_highbd_fdct8x8_c, &idct8x8_10, 0, VPX_BITS_10),
-        make_tuple(&vp9_highbd_fdct8x8_c, &idct8x8_12, 0, VPX_BITS_12)));
+        make_tuple(&vpx_fdct8x8_c, &vpx_idct8x8_64_add_c, 0, VPX_BITS_8),
+        make_tuple(&vpx_highbd_fdct8x8_c, &idct8x8_10, 0, VPX_BITS_10),
+        make_tuple(&vpx_highbd_fdct8x8_c, &idct8x8_12, 0, VPX_BITS_12)));
 #else
 INSTANTIATE_TEST_CASE_P(
     C, FwdTrans8x8DCT,
     ::testing::Values(
-        make_tuple(&vp9_fdct8x8_c, &vp9_idct8x8_64_add_c, 0, VPX_BITS_8)));
+        make_tuple(&vpx_fdct8x8_c, &vpx_idct8x8_64_add_c, 0, VPX_BITS_8)));
 #endif  // CONFIG_VP9_HIGHBITDEPTH
 
 #if CONFIG_VP9_HIGHBITDEPTH
@@ -680,8 +685,6 @@ INSTANTIATE_TEST_CASE_P(
         make_tuple(&vp9_fht8x8_c, &vp9_iht8x8_64_add_c, 2, VPX_BITS_8),
         make_tuple(&vp9_fht8x8_c, &vp9_iht8x8_64_add_c, 3, VPX_BITS_8)));
 #else
-// TODO(jingning): re-enable after this handles the expanded range [0, 65535]
-// returned from Rand16().
 INSTANTIATE_TEST_CASE_P(
     C, FwdTrans8x8HT,
     ::testing::Values(
@@ -692,12 +695,10 @@ INSTANTIATE_TEST_CASE_P(
 #endif  // CONFIG_VP9_HIGHBITDEPTH
 
 #if HAVE_NEON_ASM && !CONFIG_VP9_HIGHBITDEPTH && !CONFIG_EMULATE_HARDWARE
-// TODO(jingning): re-enable after this handles the expanded range [0, 65535]
-// returned from Rand16().
 INSTANTIATE_TEST_CASE_P(
     NEON, FwdTrans8x8DCT,
     ::testing::Values(
-        make_tuple(&vp9_fdct8x8_neon, &vp9_idct8x8_64_add_neon, 0,
+        make_tuple(&vpx_fdct8x8_neon, &vpx_idct8x8_64_add_neon, 0,
                    VPX_BITS_8)));
 #endif  // HAVE_NEON_ASM && !CONFIG_VP9_HIGHBITDEPTH && !CONFIG_EMULATE_HARDWARE
 
@@ -712,12 +713,10 @@ INSTANTIATE_TEST_CASE_P(
 #endif  // HAVE_NEON && !CONFIG_VP9_HIGHBITDEPTH && !CONFIG_EMULATE_HARDWARE
 
 #if HAVE_SSE2 && !CONFIG_VP9_HIGHBITDEPTH && !CONFIG_EMULATE_HARDWARE
-// TODO(jingning): re-enable after these handle the expanded range [0, 65535]
-// returned from Rand16().
 INSTANTIATE_TEST_CASE_P(
     SSE2, FwdTrans8x8DCT,
     ::testing::Values(
-        make_tuple(&vp9_fdct8x8_sse2, &vp9_idct8x8_64_add_sse2, 0,
+        make_tuple(&vpx_fdct8x8_sse2, &vpx_idct8x8_64_add_sse2, 0,
                    VPX_BITS_8)));
 INSTANTIATE_TEST_CASE_P(
     SSE2, FwdTrans8x8HT,
@@ -732,18 +731,16 @@ INSTANTIATE_TEST_CASE_P(
 INSTANTIATE_TEST_CASE_P(
     SSE2, FwdTrans8x8DCT,
     ::testing::Values(
-        make_tuple(&vp9_fdct8x8_sse2, &vp9_idct8x8_64_add_c, 0, VPX_BITS_8),
-        make_tuple(&vp9_highbd_fdct8x8_c,
+        make_tuple(&vpx_fdct8x8_sse2, &vpx_idct8x8_64_add_c, 0, VPX_BITS_8),
+        make_tuple(&vpx_highbd_fdct8x8_c,
                    &idct8x8_64_add_10_sse2, 12, VPX_BITS_10),
-        make_tuple(&vp9_highbd_fdct8x8_sse2,
+        make_tuple(&vpx_highbd_fdct8x8_sse2,
                    &idct8x8_64_add_10_sse2, 12, VPX_BITS_10),
-        make_tuple(&vp9_highbd_fdct8x8_c,
+        make_tuple(&vpx_highbd_fdct8x8_c,
                    &idct8x8_64_add_12_sse2, 12, VPX_BITS_12),
-        make_tuple(&vp9_highbd_fdct8x8_sse2,
+        make_tuple(&vpx_highbd_fdct8x8_sse2,
                    &idct8x8_64_add_12_sse2, 12, VPX_BITS_12)));
 
-// TODO(jingning): re-enable after these handle the expanded range [0, 65535]
-// returned from Rand16().
 INSTANTIATE_TEST_CASE_P(
     SSE2, FwdTrans8x8HT,
     ::testing::Values(
@@ -767,14 +764,26 @@ INSTANTIATE_TEST_CASE_P(
                    &idct8x8_64_add_12_sse2, 6225, VPX_BITS_12)));
 #endif  // HAVE_SSE2 && CONFIG_VP9_HIGHBITDEPTH && !CONFIG_EMULATE_HARDWARE
 
-#if HAVE_SSSE3 && ARCH_X86_64 && !CONFIG_VP9_HIGHBITDEPTH && \
-    !CONFIG_EMULATE_HARDWARE
-// TODO(jingning): re-enable after this handles the expanded range [0, 65535]
-// returned from Rand16().
+#if HAVE_SSSE3 && CONFIG_USE_X86INC && ARCH_X86_64 && \
+    !CONFIG_VP9_HIGHBITDEPTH && !CONFIG_EMULATE_HARDWARE
 INSTANTIATE_TEST_CASE_P(
     SSSE3, FwdTrans8x8DCT,
     ::testing::Values(
-        make_tuple(&vp9_fdct8x8_ssse3, &vp9_idct8x8_64_add_ssse3, 0,
+        make_tuple(&vpx_fdct8x8_ssse3, &vpx_idct8x8_64_add_ssse3, 0,
                    VPX_BITS_8)));
 #endif
+
+#if HAVE_MSA && !CONFIG_VP9_HIGHBITDEPTH && !CONFIG_EMULATE_HARDWARE
+INSTANTIATE_TEST_CASE_P(
+    MSA, FwdTrans8x8DCT,
+    ::testing::Values(
+        make_tuple(&vpx_fdct8x8_msa, &vpx_idct8x8_64_add_msa, 0, VPX_BITS_8)));
+INSTANTIATE_TEST_CASE_P(
+    MSA, FwdTrans8x8HT,
+    ::testing::Values(
+        make_tuple(&vp9_fht8x8_msa, &vp9_iht8x8_64_add_msa, 0, VPX_BITS_8),
+        make_tuple(&vp9_fht8x8_msa, &vp9_iht8x8_64_add_msa, 1, VPX_BITS_8),
+        make_tuple(&vp9_fht8x8_msa, &vp9_iht8x8_64_add_msa, 2, VPX_BITS_8),
+        make_tuple(&vp9_fht8x8_msa, &vp9_iht8x8_64_add_msa, 3, VPX_BITS_8)));
+#endif  // HAVE_MSA && !CONFIG_VP9_HIGHBITDEPTH && !CONFIG_EMULATE_HARDWARE
 }  // namespace

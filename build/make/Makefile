@@ -22,8 +22,10 @@ clean:: .DEFAULT
 exampletest: .DEFAULT
 install:: .DEFAULT
 test:: .DEFAULT
+test-no-data-check:: .DEFAULT
 testdata:: .DEFAULT
 utiltest: .DEFAULT
+exampletest-no-data-check utiltest-no-data-check: .DEFAULT
 
 
 # Note: md5sum is not installed on OS X, but openssl is. Openssl may not be
@@ -56,13 +58,10 @@ dist:
         fi
 endif
 
+# Since we invoke make recursively for multiple targets we need to include the
+# .mk file for the correct target, but only when $(target) is non-empty.
 ifneq ($(target),)
-# Normally, we want to build the filename from the target and the toolchain.
-# This disambiguates from the $(target).mk file that exists in the source tree.
-# However, the toolchain is part of the target in universal builds, so we
-# don't want to include TOOLCHAIN in that case. FAT_ARCHS is used to test
-# if we're in the universal case.
-include $(target)$(if $(FAT_ARCHS),,-$(TOOLCHAIN)).mk
+include $(target)-$(TOOLCHAIN).mk
 endif
 BUILD_ROOT?=.
 VPATH=$(SRC_PATH_BARE)
@@ -116,6 +115,9 @@ test::
 testdata::
 .PHONY: utiltest
 utiltest:
+.PHONY: test-no-data-check exampletest-no-data-check utiltest-no-data-check
+test-no-data-check::
+exampletest-no-data-check utiltest-no-data-check:
 
 # Add compiler flags for intrinsic files
 ifeq ($(TOOLCHAIN), x86-os2-gcc)
@@ -138,6 +140,8 @@ $(BUILD_PFX)%_avx.c.d: CFLAGS += -mavx $(STACKREALIGN)
 $(BUILD_PFX)%_avx.c.o: CFLAGS += -mavx $(STACKREALIGN)
 $(BUILD_PFX)%_avx2.c.d: CFLAGS += -mavx2 $(STACKREALIGN)
 $(BUILD_PFX)%_avx2.c.o: CFLAGS += -mavx2 $(STACKREALIGN)
+$(BUILD_PFX)%vp9_reconintra.c.d: CFLAGS += $(STACKREALIGN)
+$(BUILD_PFX)%vp9_reconintra.c.o: CFLAGS += $(STACKREALIGN)
 
 $(BUILD_PFX)%.c.d: %.c
 	$(if $(quiet),@echo "    [DEP] $@")
@@ -283,7 +287,7 @@ define archive_template
 # for creating them.
 $(1):
 	$(if $(quiet),@echo "    [AR] $$@")
-	$(qexec)$$(AR) $$(ARFLAGS) $$@ $$?
+	$(qexec)$$(AR) $$(ARFLAGS) $$@ $$^
 endef
 
 define so_template
@@ -313,18 +317,15 @@ $(1):
         $$(filter %.o,$$^) $$(extralibs)
 endef
 
-
-
-define lipo_lib_template
-$(1): $(addsuffix /$(1),$(FAT_ARCHS))
-	$(if $(quiet),@echo "    [LIPO] $$@")
-	$(qexec)libtool -static -o $$@ $$?
-endef
-
-define lipo_bin_template
-$(1): $(addsuffix /$(1),$(FAT_ARCHS))
-	$(if $(quiet),@echo "    [LIPO] $$@")
-	$(qexec)lipo -output $$@ -create $$?
+define dll_template
+# Not using a pattern rule here because we don't want to generate empty
+# archives when they are listed as a dependency in files not responsible
+# for creating them.
+$(1):
+	$(if $(quiet),@echo "    [LD] $$@")
+	$(qexec)$$(LD) -Zdll $$(LDFLAGS) \
+        -o $$@ \
+        $$(filter %.o,$$^) $$(extralibs) $$(EXPORTS_FILE)
 endef
 
 
@@ -385,6 +386,7 @@ LIBS=$(call enabled,LIBS)
 $(foreach lib,$(filter %_g.a,$(LIBS)),$(eval $(call archive_template,$(lib))))
 $(foreach lib,$(filter %so.$(SO_VERSION_MAJOR).$(SO_VERSION_MINOR).$(SO_VERSION_PATCH),$(LIBS)),$(eval $(call so_template,$(lib))))
 $(foreach lib,$(filter %$(SO_VERSION_MAJOR).dylib,$(LIBS)),$(eval $(call dl_template,$(lib))))
+$(foreach lib,$(filter %$(SO_VERSION_MAJOR).dll,$(LIBS)),$(eval $(call dll_template,$(lib))))
 
 INSTALL-LIBS=$(call cond_enabled,CONFIG_INSTALL_LIBS,INSTALL-LIBS)
 ifeq ($(MAKECMDGOALS),dist)

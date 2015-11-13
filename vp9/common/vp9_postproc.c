@@ -16,23 +16,22 @@
 #include "./vpx_scale_rtcd.h"
 #include "./vp9_rtcd.h"
 
+#include "vpx_dsp/vpx_dsp_common.h"
+#include "vpx_ports/mem.h"
+#include "vpx_ports/system_state.h"
 #include "vpx_scale/vpx_scale.h"
 #include "vpx_scale/yv12config.h"
 
-#if CONFIG_VP9_HIGHBITDEPTH
-#include "vp9/common/vp9_common.h"
-#endif
 #include "vp9/common/vp9_onyxc_int.h"
 #include "vp9/common/vp9_postproc.h"
-#include "vp9/common/vp9_systemdependent.h"
 #include "vp9/common/vp9_textblit.h"
 
 #if CONFIG_VP9_POSTPROC
-static const short kernel5[] = {
+static const int16_t kernel5[] = {
   1, 1, 4, 1, 1
 };
 
-const short vp9_rv[] = {
+const int16_t vp9_rv[] = {
   8, 5, 2, 2, 8, 12, 4, 9, 8, 3,
   0, 3, 9, 0, 0, 0, 8, 3, 14, 4,
   10, 1, 11, 14, 1, 14, 9, 6, 12, 11,
@@ -91,10 +90,7 @@ void vp9_post_proc_down_and_across_c(const uint8_t *src_ptr,
                                      int flimit) {
   uint8_t const *p_src;
   uint8_t *p_dst;
-  int row;
-  int col;
-  int i;
-  int v;
+  int row, col, i, v, kernel;
   int pitch = src_pixels_per_line;
   uint8_t d[8];
   (void)dst_pixels_per_line;
@@ -105,8 +101,8 @@ void vp9_post_proc_down_and_across_c(const uint8_t *src_ptr,
     p_dst = dst_ptr;
 
     for (col = 0; col < cols; col++) {
-      int kernel = 4;
-      int v = p_src[col];
+      kernel = 4;
+      v = p_src[col];
 
       for (i = -2; i <= 2; i++) {
         if (abs(v - p_src[col + i * pitch]) > flimit)
@@ -128,7 +124,7 @@ void vp9_post_proc_down_and_across_c(const uint8_t *src_ptr,
       d[i] = p_src[i];
 
     for (col = 0; col < cols; col++) {
-      int kernel = 4;
+      kernel = 4;
       v = p_src[col];
 
       d[col & 7] = v;
@@ -168,10 +164,7 @@ void vp9_highbd_post_proc_down_and_across_c(const uint16_t *src_ptr,
                                             int flimit) {
   uint16_t const *p_src;
   uint16_t *p_dst;
-  int row;
-  int col;
-  int i;
-  int v;
+  int row, col, i, v, kernel;
   int pitch = src_pixels_per_line;
   uint16_t d[8];
 
@@ -181,8 +174,8 @@ void vp9_highbd_post_proc_down_and_across_c(const uint16_t *src_ptr,
     p_dst = dst_ptr;
 
     for (col = 0; col < cols; col++) {
-      int kernel = 4;
-      int v = p_src[col];
+      kernel = 4;
+      v = p_src[col];
 
       for (i = -2; i <= 2; i++) {
         if (abs(v - p_src[col + i * pitch]) > flimit)
@@ -205,7 +198,7 @@ void vp9_highbd_post_proc_down_and_across_c(const uint16_t *src_ptr,
       d[i] = p_src[i];
 
     for (col = 0; col < cols; col++) {
-      int kernel = 4;
+      kernel = 4;
       v = p_src[col];
 
       d[col & 7] = v;
@@ -328,7 +321,7 @@ void vp9_mbpost_proc_down_c(uint8_t *dst, int pitch,
     int sumsq = 0;
     int sum   = 0;
     uint8_t d[16];
-    const short *rv2 = rv3 + ((c * 17) & 127);
+    const int16_t *rv2 = rv3 + ((c * 17) & 127);
 
     for (i = -8; i <= 6; i++) {
       sumsq += s[i * pitch] * s[i * pitch];
@@ -518,22 +511,24 @@ void vp9_denoise(const YV12_BUFFER_CONFIG *src, YV12_BUFFER_CONFIG *dst,
     assert((src->flags & YV12_FLAG_HIGHBITDEPTH) ==
            (dst->flags & YV12_FLAG_HIGHBITDEPTH));
     if (src->flags & YV12_FLAG_HIGHBITDEPTH) {
-      const uint16_t *const src = CONVERT_TO_SHORTPTR(srcs[i] + 2 * src_stride
-                                                      + 2);
-      uint16_t *const dst = CONVERT_TO_SHORTPTR(dsts[i] + 2 * dst_stride + 2);
-      vp9_highbd_post_proc_down_and_across(src, dst, src_stride, dst_stride,
-                                           src_height, src_width, ppl);
+      const uint16_t *const src_plane = CONVERT_TO_SHORTPTR(
+          srcs[i] + 2 * src_stride + 2);
+      uint16_t *const dst_plane = CONVERT_TO_SHORTPTR(
+          dsts[i] + 2 * dst_stride + 2);
+      vp9_highbd_post_proc_down_and_across(src_plane, dst_plane, src_stride,
+                                           dst_stride, src_height, src_width,
+                                           ppl);
     } else {
-      const uint8_t *const src = srcs[i] + 2 * src_stride + 2;
-      uint8_t *const dst = dsts[i] + 2 * dst_stride + 2;
+      const uint8_t *const src_plane = srcs[i] + 2 * src_stride + 2;
+      uint8_t *const dst_plane = dsts[i] + 2 * dst_stride + 2;
 
-      vp9_post_proc_down_and_across(src, dst, src_stride, dst_stride,
-                                    src_height, src_width, ppl);
+      vp9_post_proc_down_and_across(src_plane, dst_plane, src_stride,
+                                    dst_stride, src_height, src_width, ppl);
     }
 #else
-    const uint8_t *const src = srcs[i] + 2 * src_stride + 2;
-    uint8_t *const dst = dsts[i] + 2 * dst_stride + 2;
-    vp9_post_proc_down_and_across(src, dst, src_stride, dst_stride,
+    const uint8_t *const src_plane = srcs[i] + 2 * src_stride + 2;
+    uint8_t *const dst_plane = dsts[i] + 2 * dst_stride + 2;
+    vp9_post_proc_down_and_across(src_plane, dst_plane, src_stride, dst_stride,
                                   src_height, src_width, ppl);
 #endif
   }
@@ -550,7 +545,7 @@ static void fillrd(struct postproc_state *state, int q, int a) {
   double sigma;
   int ai = a, qi = q, i;
 
-  vp9_clear_system_state();
+  vpx_clear_system_state();
 
   sigma = ai + .5 + .6 * (63 - qi) / 63.0;
 
@@ -558,16 +553,15 @@ static void fillrd(struct postproc_state *state, int q, int a) {
    * a gaussian distribution with sigma determined by q.
    */
   {
-    double i;
     int next, j;
 
     next = 0;
 
     for (i = -32; i < 32; i++) {
-      int a = (int)(0.5 + 256 * gaussian(sigma, 0, i));
+      int a_i = (int)(0.5 + 256 * gaussian(sigma, 0, i));
 
-      if (a) {
-        for (j = 0; j < a; j++) {
+      if (a_i) {
+        for (j = 0; j < a_i; j++) {
           char_dist[next + j] = (char) i;
         }
 
@@ -632,7 +626,7 @@ static void swap_mi_and_prev_mi(VP9_COMMON *cm) {
 
 int vp9_post_proc_frame(struct VP9Common *cm,
                         YV12_BUFFER_CONFIG *dest, vp9_ppflags_t *ppflags) {
-  const int q = MIN(105, cm->lf.filter_level * 2);
+  const int q = VPXMIN(105, cm->lf.filter_level * 2);
   const int flags = ppflags->post_proc_flag;
   YV12_BUFFER_CONFIG *const ppbuf = &cm->post_proc_buffer;
   struct postproc_state *const ppstate = &cm->postproc_state;
@@ -645,7 +639,7 @@ int vp9_post_proc_frame(struct VP9Common *cm,
     return 0;
   }
 
-  vp9_clear_system_state();
+  vpx_clear_system_state();
 
   // Alloc memory for prev_mip in the first frame.
   if (cm->current_video_frame == 1) {
@@ -656,8 +650,8 @@ int vp9_post_proc_frame(struct VP9Common *cm,
       return 1;
     }
     ppstate->prev_mi = ppstate->prev_mip + cm->mi_stride + 1;
-    vpx_memset(ppstate->prev_mip, 0,
-               cm->mi_stride * (cm->mi_rows + 1) * sizeof(*cm->mip));
+    memset(ppstate->prev_mip, 0,
+           cm->mi_stride * (cm->mi_rows + 1) * sizeof(*cm->mip));
   }
 
   // Allocate post_proc_buffer_int if needed.
@@ -666,7 +660,7 @@ int vp9_post_proc_frame(struct VP9Common *cm,
       const int width = ALIGN_POWER_OF_TWO(cm->width, 4);
       const int height = ALIGN_POWER_OF_TWO(cm->height, 4);
 
-      if (vp9_alloc_frame_buffer(&cm->post_proc_buffer_int, width, height,
+      if (vpx_alloc_frame_buffer(&cm->post_proc_buffer_int, width, height,
                                  cm->subsampling_x, cm->subsampling_y,
 #if CONFIG_VP9_HIGHBITDEPTH
                                  cm->use_highbitdepth,
@@ -679,12 +673,12 @@ int vp9_post_proc_frame(struct VP9Common *cm,
 
       // Ensure that postproc is set to all 0s so that post proc
       // doesn't pull random data in from edge.
-      vpx_memset(cm->post_proc_buffer_int.buffer_alloc, 128,
-                 cm->post_proc_buffer.frame_size);
+      memset(cm->post_proc_buffer_int.buffer_alloc, 128,
+             cm->post_proc_buffer.frame_size);
     }
   }
 
-  if (vp9_realloc_frame_buffer(&cm->post_proc_buffer, cm->width, cm->height,
+  if (vpx_realloc_frame_buffer(&cm->post_proc_buffer, cm->width, cm->height,
                                cm->subsampling_x, cm->subsampling_y,
 #if CONFIG_VP9_HIGHBITDEPTH
                                cm->use_highbitdepth,

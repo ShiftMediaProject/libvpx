@@ -7,12 +7,12 @@
  *  in the file PATENTS.  All contributing project authors may
  *  be found in the AUTHORS file in the root of the source tree.
  */
+#include "vpx_dsp/bitwriter.h"
 
 #include "vp9/common/vp9_common.h"
 #include "vp9/common/vp9_entropy.h"
-
 #include "vp9/encoder/vp9_cost.h"
-#include "vp9/encoder/vp9_writer.h"
+#include "vp9/encoder/vp9_subexp.h"
 
 #define vp9_cost_upd256  ((int)(vp9_cost_one(upd) - vp9_cost_zero(upd)))
 
@@ -78,50 +78,50 @@ static int remap_prob(int v, int m) {
   return i;
 }
 
-static int prob_diff_update_cost(vp9_prob newp, vp9_prob oldp) {
+static int prob_diff_update_cost(vpx_prob newp, vpx_prob oldp) {
   int delp = remap_prob(newp, oldp);
   return update_bits[delp] * 256;
 }
 
-static void encode_uniform(vp9_writer *w, int v) {
+static void encode_uniform(vpx_writer *w, int v) {
   const int l = 8;
   const int m = (1 << l) - 191;
   if (v < m) {
-    vp9_write_literal(w, v, l - 1);
+    vpx_write_literal(w, v, l - 1);
   } else {
-    vp9_write_literal(w, m + ((v - m) >> 1), l - 1);
-    vp9_write_literal(w, (v - m) & 1, 1);
+    vpx_write_literal(w, m + ((v - m) >> 1), l - 1);
+    vpx_write_literal(w, (v - m) & 1, 1);
   }
 }
 
-static INLINE int write_bit_gte(vp9_writer *w, int word, int test) {
-  vp9_write_literal(w, word >= test, 1);
+static INLINE int write_bit_gte(vpx_writer *w, int word, int test) {
+  vpx_write_literal(w, word >= test, 1);
   return word >= test;
 }
 
-static void encode_term_subexp(vp9_writer *w, int word) {
+static void encode_term_subexp(vpx_writer *w, int word) {
   if (!write_bit_gte(w, word, 16)) {
-    vp9_write_literal(w, word, 4);
+    vpx_write_literal(w, word, 4);
   } else if (!write_bit_gte(w, word, 32)) {
-    vp9_write_literal(w, word - 16, 4);
+    vpx_write_literal(w, word - 16, 4);
   } else if (!write_bit_gte(w, word, 64)) {
-    vp9_write_literal(w, word - 32, 5);
+    vpx_write_literal(w, word - 32, 5);
   } else {
     encode_uniform(w, word - 64);
   }
 }
 
-void vp9_write_prob_diff_update(vp9_writer *w, vp9_prob newp, vp9_prob oldp) {
+void vp9_write_prob_diff_update(vpx_writer *w, vpx_prob newp, vpx_prob oldp) {
   const int delp = remap_prob(newp, oldp);
   encode_term_subexp(w, delp);
 }
 
 int vp9_prob_diff_update_savings_search(const unsigned int *ct,
-                                        vp9_prob oldp, vp9_prob *bestp,
-                                        vp9_prob upd) {
+                                        vpx_prob oldp, vpx_prob *bestp,
+                                        vpx_prob upd) {
   const int old_b = cost_branch256(ct, oldp);
   int bestsavings = 0;
-  vp9_prob newp, bestnewp = oldp;
+  vpx_prob newp, bestnewp = oldp;
   const int step = *bestp > oldp ? -1 : 1;
 
   for (newp = *bestp; newp != oldp; newp += step) {
@@ -138,15 +138,15 @@ int vp9_prob_diff_update_savings_search(const unsigned int *ct,
 }
 
 int vp9_prob_diff_update_savings_search_model(const unsigned int *ct,
-                                              const vp9_prob *oldp,
-                                              vp9_prob *bestp,
-                                              vp9_prob upd,
+                                              const vpx_prob *oldp,
+                                              vpx_prob *bestp,
+                                              vpx_prob upd,
                                               int stepsize) {
   int i, old_b, new_b, update_b, savings, bestsavings, step;
   int newp;
-  vp9_prob bestnewp, newplist[ENTROPY_NODES], oldplist[ENTROPY_NODES];
+  vpx_prob bestnewp, newplist[ENTROPY_NODES], oldplist[ENTROPY_NODES];
   vp9_model_to_full_probs(oldp, oldplist);
-  vpx_memcpy(newplist, oldp, sizeof(vp9_prob) * UNCONSTRAINED_NODES);
+  memcpy(newplist, oldp, sizeof(vpx_prob) * UNCONSTRAINED_NODES);
   for (i = UNCONSTRAINED_NODES, old_b = 0; i < ENTROPY_NODES; ++i)
     old_b += cost_branch256(ct + 2 * i, oldplist[i]);
   old_b += cost_branch256(ct + 2 * PIVOT_NODE, oldplist[PIVOT_NODE]);
@@ -196,18 +196,18 @@ int vp9_prob_diff_update_savings_search_model(const unsigned int *ct,
   return bestsavings;
 }
 
-void vp9_cond_prob_diff_update(vp9_writer *w, vp9_prob *oldp,
+void vp9_cond_prob_diff_update(vpx_writer *w, vpx_prob *oldp,
                                const unsigned int ct[2]) {
-  const vp9_prob upd = DIFF_UPDATE_PROB;
-  vp9_prob newp = get_binary_prob(ct[0], ct[1]);
+  const vpx_prob upd = DIFF_UPDATE_PROB;
+  vpx_prob newp = get_binary_prob(ct[0], ct[1]);
   const int savings = vp9_prob_diff_update_savings_search(ct, *oldp, &newp,
                                                           upd);
   assert(newp >= 1);
   if (savings > 0) {
-    vp9_write(w, 1, upd);
+    vpx_write(w, 1, upd);
     vp9_write_prob_diff_update(w, newp, *oldp);
     *oldp = newp;
   } else {
-    vp9_write(w, 0, upd);
+    vpx_write(w, 0, upd);
   }
 }

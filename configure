@@ -31,16 +31,14 @@ Advanced options:
   --size-limit=WxH                max size to allow in the decoder
   --as={yasm|nasm|auto}           use specified assembler [auto, yasm preferred]
   --sdk-path=PATH                 path to root of sdk (android builds only)
-  ${toggle_fast_unaligned}        don't use unaligned accesses, even when
-                                  supported by hardware [auto]
   ${toggle_codec_srcs}            in/exclude codec library source code
   ${toggle_debug_libs}            in/exclude debug version of libraries
   ${toggle_static_msvcrt}         use static MSVCRT (VS builds only)
   ${toggle_vp9_highbitdepth}      use VP9 high bit depth (10/12) profiles
   ${toggle_vp8}                   VP8 codec support
   ${toggle_vp9}                   VP9 codec support
+  ${toggle_vp10}                  VP10 codec support
   ${toggle_internal_stats}        output of encoder internal stats for debug, if supported (encoders)
-  ${toggle_mem_tracker}           track memory usage
   ${toggle_postproc}              postprocessing
   ${toggle_vp9_postproc}          vp9 specific postprocessing
   ${toggle_multithread}           multithreaded encoding and decoding
@@ -109,15 +107,10 @@ all_platforms="${all_platforms} armv7-linux-gcc"     #neon Cortex-A8
 all_platforms="${all_platforms} armv7-none-rvct"     #neon Cortex-A8
 all_platforms="${all_platforms} armv7-win32-vs11"
 all_platforms="${all_platforms} armv7-win32-vs12"
+all_platforms="${all_platforms} armv7-win32-vs14"
 all_platforms="${all_platforms} armv7s-darwin-gcc"
 all_platforms="${all_platforms} mips32-linux-gcc"
 all_platforms="${all_platforms} mips64-linux-gcc"
-all_platforms="${all_platforms} ppc32-darwin8-gcc"
-all_platforms="${all_platforms} ppc32-darwin9-gcc"
-all_platforms="${all_platforms} ppc32-linux-gcc"
-all_platforms="${all_platforms} ppc64-darwin8-gcc"
-all_platforms="${all_platforms} ppc64-darwin9-gcc"
-all_platforms="${all_platforms} ppc64-linux-gcc"
 all_platforms="${all_platforms} sparc-solaris-gcc"
 all_platforms="${all_platforms} x86-android-gcc"
 all_platforms="${all_platforms} x86-darwin8-gcc"
@@ -141,6 +134,8 @@ all_platforms="${all_platforms} x86-win32-vs9"
 all_platforms="${all_platforms} x86-win32-vs10"
 all_platforms="${all_platforms} x86-win32-vs11"
 all_platforms="${all_platforms} x86-win32-vs12"
+all_platforms="${all_platforms} x86-win32-vs14"
+all_platforms="${all_platforms} x86_64-android-gcc"
 all_platforms="${all_platforms} x86_64-darwin9-gcc"
 all_platforms="${all_platforms} x86_64-darwin10-gcc"
 all_platforms="${all_platforms} x86_64-darwin11-gcc"
@@ -157,13 +152,7 @@ all_platforms="${all_platforms} x86_64-win64-vs9"
 all_platforms="${all_platforms} x86_64-win64-vs10"
 all_platforms="${all_platforms} x86_64-win64-vs11"
 all_platforms="${all_platforms} x86_64-win64-vs12"
-all_platforms="${all_platforms} universal-darwin8-gcc"
-all_platforms="${all_platforms} universal-darwin9-gcc"
-all_platforms="${all_platforms} universal-darwin10-gcc"
-all_platforms="${all_platforms} universal-darwin11-gcc"
-all_platforms="${all_platforms} universal-darwin12-gcc"
-all_platforms="${all_platforms} universal-darwin13-gcc"
-all_platforms="${all_platforms} universal-darwin14-gcc"
+all_platforms="${all_platforms} x86_64-win64-vs14"
 all_platforms="${all_platforms} generic-gnu"
 
 # all_targets is a list of all targets that can be configured
@@ -200,6 +189,14 @@ if [ ${doxy_major:-0} -ge 1 ]; then
     [ $doxy_minor -eq 5 ] && [ $doxy_patch -ge 3 ] && enable_feature doxygen
 fi
 
+# disable codecs when their source directory does not exist
+[ -d "${source_path}/vp8" ] || disable_feature vp8
+[ -d "${source_path}/vp9" ] || disable_feature vp9
+[ -d "${source_path}/vp10" ] || disable_feature vp10
+
+# disable vp10 codec by default
+disable_feature vp10
+
 # install everything except the sources, by default. sources will have
 # to be enabled when doing dist builds, since that's no longer a common
 # case.
@@ -210,45 +207,30 @@ enable_feature install_libs
 enable_feature static
 enable_feature optimizations
 enable_feature dependency_tracking
-enable_feature fast_unaligned #allow unaligned accesses, if supported by hw
 enable_feature spatial_resampling
 enable_feature multithread
 enable_feature os_support
 enable_feature temporal_denoising
 
-[ -d "${source_path}/../include" ] && enable_feature alt_tree_layout
-for d in vp8 vp9; do
-    [ -d "${source_path}/${d}" ] && disable_feature alt_tree_layout;
-done
-
-if ! enabled alt_tree_layout; then
-# development environment
-[ -d "${source_path}/vp8" ] && CODECS="${CODECS} vp8_encoder vp8_decoder"
-[ -d "${source_path}/vp9" ] && CODECS="${CODECS} vp9_encoder vp9_decoder"
-else
-# customer environment
-[ -f "${source_path}/../include/vpx/vp8cx.h" ] && CODECS="${CODECS} vp8_encoder"
-[ -f "${source_path}/../include/vpx/vp8dx.h" ] && CODECS="${CODECS} vp8_decoder"
-[ -f "${source_path}/../include/vpx/vp9cx.h" ] && CODECS="${CODECS} vp9_encoder"
-[ -f "${source_path}/../include/vpx/vp9dx.h" ] && CODECS="${CODECS} vp9_decoder"
-[ -f "${source_path}/../include/vpx/vp8cx.h" ] || disable_feature vp8_encoder
-[ -f "${source_path}/../include/vpx/vp8dx.h" ] || disable_feature vp8_decoder
-[ -f "${source_path}/../include/vpx/vp9cx.h" ] || disable_feature vp9_encoder
-[ -f "${source_path}/../include/vpx/vp9dx.h" ] || disable_feature vp9_decoder
-
-[ -f "${source_path}/../lib/*/*mt.lib" ] && soft_enable static_msvcrt
-fi
-
-CODECS="$(echo ${CODECS} | tr ' ' '\n')"
-CODEC_FAMILIES="$(for c in ${CODECS}; do echo ${c%_*}; done | sort | uniq)"
+CODECS="
+    vp8_encoder
+    vp8_decoder
+    vp9_encoder
+    vp9_decoder
+    vp10_encoder
+    vp10_decoder
+"
+CODEC_FAMILIES="
+    vp8
+    vp9
+    vp10
+"
 
 ARCH_LIST="
     arm
     mips
     x86
     x86_64
-    ppc32
-    ppc64
 "
 ARCH_EXT_LIST="
     edsp
@@ -258,7 +240,7 @@ ARCH_EXT_LIST="
 
     mips32
     dspr2
-
+    msa
     mips64
 
     mmx
@@ -269,14 +251,11 @@ ARCH_EXT_LIST="
     sse4_1
     avx
     avx2
-
-    altivec
 "
 HAVE_LIST="
     ${ARCH_EXT_LIST}
     vpx_ports
     stdint_h
-    alt_tree_layout
     pthread_h
     sys_mman_h
     unistd_h
@@ -285,6 +264,7 @@ EXPERIMENT_LIST="
     spatial_svc
     fp_mb_stats
     emulate_hardware
+    misc_fixes
 "
 CONFIG_LIST="
     dependency_tracking
@@ -305,10 +285,6 @@ CONFIG_LIST="
 
     codec_srcs
     debug_libs
-    fast_unaligned
-    mem_manager
-    mem_tracker
-    mem_checks
 
     dequant_tokens
     dc_recon
@@ -370,7 +346,6 @@ CMDLINE_SELECT="
     libc
     as
     size_limit
-    fast_unaligned
     codec_srcs
     debug_libs
 
@@ -383,7 +358,6 @@ CMDLINE_SELECT="
     ${CODECS}
     ${CODEC_FAMILIES}
     static_msvcrt
-    mem_tracker
     spatial_resampling
     realtime_only
     onthefly_bitpacking
@@ -456,22 +430,8 @@ post_process_cmdline() {
 
 process_targets() {
     enabled child || write_common_config_banner
-    enabled universal || write_common_target_config_h  ${BUILD_PFX}vpx_config.h
-
-    # For fat binaries, call configure recursively to configure for each
-    # binary architecture to be included.
-    if enabled universal; then
-        # Call configure (ourselves) for each subarchitecture
-        for arch in $fat_bin_archs; do
-            BUILD_PFX=${arch}/ toolchain=${arch} $self --child $cmdline_args || exit $?
-        done
-    fi
-
-    # The write_common_config (config.mk) logic is deferred until after the
-    # recursive calls to configure complete, because we want our universal
-    # targets to be executed last.
+    write_common_target_config_h ${BUILD_PFX}vpx_config.h
     write_common_config_targets
-    enabled universal && echo "FAT_ARCHS=${fat_bin_archs}" >> config.mk
 
     # Calculate the default distribution name, based on the enabled features
     cf=""
@@ -547,11 +507,11 @@ process_detect() {
         # Can only build shared libs on a subset of platforms. Doing this check
         # here rather than at option parse time because the target auto-detect
         # magic happens after the command line has been parsed.
-        if ! enabled linux; then
+        if ! enabled linux && ! enabled os2; then
             if enabled gnu; then
                 echo "--enable-shared is only supported on ELF; assuming this is OK"
             else
-                die "--enable-shared only supported on ELF for now"
+                die "--enable-shared only supported on ELF and OS/2 for now"
             fi
         fi
     fi
@@ -615,30 +575,6 @@ EOF
 
 process_toolchain() {
     process_common_toolchain
-
-    # Handle universal binaries for this architecture
-    case $toolchain in
-        universal-darwin*)
-            darwin_ver=${tgt_os##darwin}
-
-            # Snow Leopard (10.6/darwin10) dropped support for PPC
-            # Include PPC support for all prior versions
-            if [ $darwin_ver -lt 10 ]; then
-                fat_bin_archs="$fat_bin_archs ppc32-${tgt_os}-gcc"
-            fi
-
-            # Tiger (10.4/darwin8) brought support for x86
-            if [ $darwin_ver -ge 8 ]; then
-                fat_bin_archs="$fat_bin_archs x86-${tgt_os}-${tgt_cc}"
-            fi
-
-            # Leopard (10.5/darwin9) brought 64 bit support
-            if [ $darwin_ver -ge 9 ]; then
-                fat_bin_archs="$fat_bin_archs x86_64-${tgt_os}-${tgt_cc}"
-            fi
-            ;;
-    esac
-
 
     # Enable some useful compiler flags
     if enabled gcc; then
@@ -715,7 +651,7 @@ process_toolchain() {
                  VCPROJ_SFX=vcproj
                  gen_vcproj_cmd=${source_path}/build/make/gen_msvs_proj.sh
                  ;;
-             10|11|12)
+             10|11|12|14)
                  VCPROJ_SFX=vcxproj
                  gen_vcproj_cmd=${source_path}/build/make/gen_msvs_vcxproj.sh
                  enabled werror && gen_vcproj_cmd="${gen_vcproj_cmd} --enable-werror"
@@ -727,7 +663,7 @@ process_toolchain() {
     esac
 
     # Other toolchain specific defaults
-    case $toolchain in x86*|ppc*|universal*) soft_enable postproc;; esac
+    case $toolchain in x86*) soft_enable postproc;; esac
 
     if enabled postproc_visualizer; then
         enabled postproc || die "postproc_visualizer requires postproc to be enabled"
@@ -781,6 +717,16 @@ EOF
     esac
     # libwebm needs to be linked with C++ standard library
     enabled webm_io && LD=${CXX}
+
+    # append any user defined extra cflags
+    if [ -n "${extra_cflags}" ] ; then
+        check_add_cflags ${extra_cflags} || \
+        die "Requested extra CFLAGS '${extra_cflags}' not supported by compiler"
+    fi
+    if [ -n "${extra_cxxflags}" ]; then
+        check_add_cxxflags ${extra_cxxflags} || \
+        die "Requested extra CXXFLAGS '${extra_cxxflags}' not supported by compiler"
+    fi
 }
 
 
@@ -791,6 +737,7 @@ CONFIGURE_ARGS="$@"
 process "$@"
 print_webm_license ${BUILD_PFX}vpx_config.c "/*" " */"
 cat <<EOF >> ${BUILD_PFX}vpx_config.c
+#include "vpx/vpx_codec.h"
 static const char* const cfg = "$CONFIGURE_ARGS";
 const char *vpx_codec_build_config(void) {return cfg;}
 EOF

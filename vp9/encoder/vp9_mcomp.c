@@ -13,10 +13,14 @@
 #include <stdio.h>
 
 #include "./vpx_config.h"
+#include "./vpx_dsp_rtcd.h"
 
+#include "vpx_dsp/vpx_dsp_common.h"
 #include "vpx_mem/vpx_mem.h"
+#include "vpx_ports/mem.h"
 
 #include "vp9/common/vp9_common.h"
+#include "vp9/common/vp9_reconinter.h"
 
 #include "vp9/encoder/vp9_encoder.h"
 #include "vp9/encoder/vp9_mcomp.h"
@@ -34,10 +38,10 @@ void vp9_set_mv_search_range(MACROBLOCK *x, const MV *mv) {
   int col_max = (mv->col >> 3) + MAX_FULL_PEL_VAL;
   int row_max = (mv->row >> 3) + MAX_FULL_PEL_VAL;
 
-  col_min = MAX(col_min, (MV_LOW >> 3) + 1);
-  row_min = MAX(row_min, (MV_LOW >> 3) + 1);
-  col_max = MIN(col_max, (MV_UPP >> 3) - 1);
-  row_max = MIN(row_max, (MV_UPP >> 3) - 1);
+  col_min = VPXMAX(col_min, (MV_LOW >> 3) + 1);
+  row_min = VPXMAX(row_min, (MV_LOW >> 3) + 1);
+  col_max = VPXMIN(col_max, (MV_UPP >> 3) - 1);
+  row_max = VPXMIN(row_max, (MV_UPP >> 3) - 1);
 
   // Get intersection of UMV window and valid MV window to reduce # of checks
   // in diamond search.
@@ -54,12 +58,12 @@ void vp9_set_mv_search_range(MACROBLOCK *x, const MV *mv) {
 int vp9_init_search_range(int size) {
   int sr = 0;
   // Minimum search size no matter what the passed in value.
-  size = MAX(16, size);
+  size = VPXMAX(16, size);
 
   while ((size << sr) < MAX_FULL_PEL_VAL)
     sr++;
 
-  sr = MIN(sr, MAX_MVSEARCH_STEPS - 2);
+  sr = VPXMIN(sr, MAX_MVSEARCH_STEPS - 2);
   return sr;
 }
 
@@ -159,9 +163,9 @@ void vp9_init3smotion_compensation(search_site_config *cfg, int stride) {
       error_per_bit + 4096) >> 13 : 0)
 
 
-// convert motion vector component to offset for svf calc
+// convert motion vector component to offset for sv[a]f calc
 static INLINE int sp(int x) {
-  return (x & 7) << 1;
+  return x & 7;
 }
 
 static INLINE const uint8_t *pre(const uint8_t *buf, int stride, int r, int c) {
@@ -253,6 +257,27 @@ static INLINE const uint8_t *pre(const uint8_t *buf, int stride, int r, int c) {
     }                                                   \
   }
 
+// TODO(yunqingwang): SECOND_LEVEL_CHECKS_BEST was a rewrote of
+// SECOND_LEVEL_CHECKS, and SECOND_LEVEL_CHECKS should be rewritten
+// later in the same way.
+#define SECOND_LEVEL_CHECKS_BEST                        \
+  {                                                     \
+    unsigned int second;                                \
+    int br0 = br;                                       \
+    int bc0 = bc;                                       \
+    assert(tr == br || tc == bc);                       \
+    if (tr == br && tc != bc) {                         \
+      kc = bc - tc;                                     \
+    } else if (tr != br && tc == bc) {                  \
+      kr = br - tr;                                     \
+    }                                                   \
+    CHECK_BETTER(second, br0 + kr, bc0);                \
+    CHECK_BETTER(second, br0, bc0 + kc);                \
+    if (br0 != br || bc0 != bc) {                       \
+      CHECK_BETTER(second, br0 + kr, bc0 + kc);         \
+    }                                                   \
+  }
+
 #define SETUP_SUBPEL_SEARCH                                                \
   const uint8_t *const z = x->plane[0].src.buf;                            \
   const int src_stride = x->plane[0].src.stride;                           \
@@ -273,42 +298,42 @@ static INLINE const uint8_t *pre(const uint8_t *buf, int stride, int r, int c) {
   int br = bestmv->row * 8;                                                \
   int bc = bestmv->col * 8;                                                \
   int hstep = 4;                                                           \
-  const int minc = MAX(x->mv_col_min * 8, ref_mv->col - MV_MAX);           \
-  const int maxc = MIN(x->mv_col_max * 8, ref_mv->col + MV_MAX);           \
-  const int minr = MAX(x->mv_row_min * 8, ref_mv->row - MV_MAX);           \
-  const int maxr = MIN(x->mv_row_max * 8, ref_mv->row + MV_MAX);           \
+  const int minc = VPXMAX(x->mv_col_min * 8, ref_mv->col - MV_MAX);        \
+  const int maxc = VPXMIN(x->mv_col_max * 8, ref_mv->col + MV_MAX);        \
+  const int minr = VPXMAX(x->mv_row_min * 8, ref_mv->row - MV_MAX);        \
+  const int maxr = VPXMIN(x->mv_row_max * 8, ref_mv->row + MV_MAX);        \
   int tr = br;                                                             \
   int tc = bc;                                                             \
                                                                            \
   bestmv->row *= 8;                                                        \
   bestmv->col *= 8;
 
-static INLINE unsigned int setup_center_error(const MACROBLOCKD *xd,
-                                              const MV *bestmv,
-                                              const MV *ref_mv,
-                                              int error_per_bit,
-                                              const vp9_variance_fn_ptr_t *vfp,
-                                              const uint8_t *const src,
-                                              const int src_stride,
-                                              const uint8_t *const y,
-                                              int y_stride,
-                                              const uint8_t *second_pred,
-                                              int w, int h, int offset,
-                                              int *mvjcost, int *mvcost[2],
-                                              unsigned int *sse1,
-                                              int *distortion) {
+static unsigned int setup_center_error(const MACROBLOCKD *xd,
+                                       const MV *bestmv,
+                                       const MV *ref_mv,
+                                       int error_per_bit,
+                                       const vp9_variance_fn_ptr_t *vfp,
+                                       const uint8_t *const src,
+                                       const int src_stride,
+                                       const uint8_t *const y,
+                                       int y_stride,
+                                       const uint8_t *second_pred,
+                                       int w, int h, int offset,
+                                       int *mvjcost, int *mvcost[2],
+                                       unsigned int *sse1,
+                                       int *distortion) {
   unsigned int besterr;
 #if CONFIG_VP9_HIGHBITDEPTH
   if (second_pred != NULL) {
     if (xd->cur_buf->flags & YV12_FLAG_HIGHBITDEPTH) {
-      DECLARE_ALIGNED_ARRAY(16, uint16_t, comp_pred16, 64 * 64);
-      vp9_highbd_comp_avg_pred(comp_pred16, second_pred, w, h, y + offset,
+      DECLARE_ALIGNED(16, uint16_t, comp_pred16[64 * 64]);
+      vpx_highbd_comp_avg_pred(comp_pred16, second_pred, w, h, y + offset,
                                y_stride);
       besterr = vfp->vf(CONVERT_TO_BYTEPTR(comp_pred16), w, src, src_stride,
                         sse1);
     } else {
-      DECLARE_ALIGNED_ARRAY(16, uint8_t, comp_pred, 64 * 64);
-      vp9_comp_avg_pred(comp_pred, second_pred, w, h, y + offset, y_stride);
+      DECLARE_ALIGNED(16, uint8_t, comp_pred[64 * 64]);
+      vpx_comp_avg_pred(comp_pred, second_pred, w, h, y + offset, y_stride);
       besterr = vfp->vf(comp_pred, w, src, src_stride, sse1);
     }
   } else {
@@ -319,8 +344,8 @@ static INLINE unsigned int setup_center_error(const MACROBLOCKD *xd,
 #else
   (void) xd;
   if (second_pred != NULL) {
-    DECLARE_ALIGNED_ARRAY(16, uint8_t, comp_pred, 64 * 64);
-    vp9_comp_avg_pred(comp_pred, second_pred, w, h, y + offset, y_stride);
+    DECLARE_ALIGNED(16, uint8_t, comp_pred[64 * 64]);
+    vpx_comp_avg_pred(comp_pred, second_pred, w, h, y + offset, y_stride);
     besterr = vfp->vf(comp_pred, w, src, src_stride, sse1);
   } else {
     besterr = vfp->vf(y + offset, y_stride, src, src_stride, sse1);
@@ -607,7 +632,7 @@ int vp9_find_best_sub_pixel_tree_pruned(const MACROBLOCK *x,
   return besterr;
 }
 
-const MV search_step_table[12] = {
+static const MV search_step_table[12] = {
     // left, right, up, down
     {0, -4}, {0, 4}, {-4, 0}, {4, 0},
     {0, -2}, {0, 2}, {-2, 0}, {2, 0},
@@ -633,7 +658,6 @@ int vp9_find_best_sub_pixel_tree(const MACROBLOCK *x,
   const MACROBLOCKD *xd = &x->e_mbd;
   unsigned int besterr = INT_MAX;
   unsigned int sse;
-  unsigned int whichdir = 0;
   int thismse;
   const int y_stride = xd->plane[0].pre[0].stride;
   const int offset = bestmv->row * y_stride + bestmv->col;
@@ -645,15 +669,16 @@ int vp9_find_best_sub_pixel_tree(const MACROBLOCK *x,
   int bc = bestmv->col * 8;
   int hstep = 4;
   int iter, round = 3 - forced_stop;
-  const int minc = MAX(x->mv_col_min * 8, ref_mv->col - MV_MAX);
-  const int maxc = MIN(x->mv_col_max * 8, ref_mv->col + MV_MAX);
-  const int minr = MAX(x->mv_row_min * 8, ref_mv->row - MV_MAX);
-  const int maxr = MIN(x->mv_row_max * 8, ref_mv->row + MV_MAX);
+  const int minc = VPXMAX(x->mv_col_min * 8, ref_mv->col - MV_MAX);
+  const int maxc = VPXMIN(x->mv_col_max * 8, ref_mv->col + MV_MAX);
+  const int minr = VPXMAX(x->mv_row_min * 8, ref_mv->row - MV_MAX);
+  const int maxr = VPXMIN(x->mv_row_max * 8, ref_mv->row + MV_MAX);
   int tr = br;
   int tc = bc;
   const MV *search_step = search_step_table;
   int idx, best_idx = -1;
   unsigned int cost_array[5];
+  int kr, kc;
 
   if (!(allow_hp && vp9_use_mv_hp(ref_mv)))
     if (round == 3)
@@ -676,16 +701,14 @@ int vp9_find_best_sub_pixel_tree(const MACROBLOCK *x,
       tc = bc + search_step[idx].col;
       if (tc >= minc && tc <= maxc && tr >= minr && tr <= maxr) {
         const uint8_t *const pre_address = y + (tr >> 3) * y_stride + (tc >> 3);
-        int row_offset = (tr & 0x07) << 1;
-        int col_offset = (tc & 0x07) << 1;
         MV this_mv;
         this_mv.row = tr;
         this_mv.col = tc;
         if (second_pred == NULL)
-          thismse = vfp->svf(pre_address, y_stride, col_offset, row_offset,
+          thismse = vfp->svf(pre_address, y_stride, sp(tc), sp(tr),
                              src_address, src_stride, &sse);
         else
-          thismse = vfp->svaf(pre_address, y_stride, col_offset, row_offset,
+          thismse = vfp->svaf(pre_address, y_stride, sp(tc), sp(tr),
                               src_address, src_stride, &sse, second_pred);
         cost_array[idx] = thismse +
             mv_err_cost(&this_mv, ref_mv, mvjcost, mvcost, error_per_bit);
@@ -702,18 +725,19 @@ int vp9_find_best_sub_pixel_tree(const MACROBLOCK *x,
     }
 
     // Check diagonal sub-pixel position
-    tc = bc + (cost_array[0] < cost_array[1] ? -hstep : hstep);
-    tr = br + (cost_array[2] < cost_array[3] ? -hstep : hstep);
+    kc = (cost_array[0] <= cost_array[1] ? -hstep : hstep);
+    kr = (cost_array[2] <= cost_array[3] ? -hstep : hstep);
+
+    tc = bc + kc;
+    tr = br + kr;
     if (tc >= minc && tc <= maxc && tr >= minr && tr <= maxr) {
       const uint8_t *const pre_address = y + (tr >> 3) * y_stride + (tc >> 3);
-      int row_offset = (tr & 0x07) << 1;
-      int col_offset = (tc & 0x07) << 1;
       MV this_mv = {tr, tc};
       if (second_pred == NULL)
-        thismse = vfp->svf(pre_address, y_stride, col_offset, row_offset,
+        thismse = vfp->svf(pre_address, y_stride, sp(tc), sp(tr),
                            src_address, src_stride, &sse);
       else
-        thismse = vfp->svaf(pre_address, y_stride, col_offset, row_offset,
+        thismse = vfp->svaf(pre_address, y_stride, sp(tc), sp(tr),
                             src_address, src_stride, &sse, second_pred);
       cost_array[4] = thismse +
           mv_err_cost(&this_mv, ref_mv, mvjcost, mvcost, error_per_bit);
@@ -736,8 +760,8 @@ int vp9_find_best_sub_pixel_tree(const MACROBLOCK *x,
       bc = tc;
     }
 
-    if (iters_per_step > 1)
-      SECOND_LEVEL_CHECKS;
+    if (iters_per_step > 1 && best_idx != -1)
+      SECOND_LEVEL_CHECKS_BEST;
 
     tr = br;
     tc = bc;
@@ -1348,15 +1372,15 @@ int vp9_get_mvpred_av_var(const MACROBLOCK *x,
                                  x->mvcost, x->errorperbit) : 0);
 }
 
-int vp9_hex_search(const MACROBLOCK *x,
-                   MV *ref_mv,
-                   int search_param,
-                   int sad_per_bit,
-                   int do_init_search,
-                   int *cost_list,
-                   const vp9_variance_fn_ptr_t *vfp,
-                   int use_mvcost,
-                   const MV *center_mv, MV *best_mv) {
+static int hex_search(const MACROBLOCK *x,
+                      MV *ref_mv,
+                      int search_param,
+                      int sad_per_bit,
+                      int do_init_search,
+                      int *cost_list,
+                      const vp9_variance_fn_ptr_t *vfp,
+                      int use_mvcost,
+                      const MV *center_mv, MV *best_mv) {
   // First scale has 8-closest points, the rest have 6 points in hex shape
   // at increasing scales
   static const int hex_num_candidates[MAX_PATTERN_SCALES] = {
@@ -1383,16 +1407,16 @@ int vp9_hex_search(const MACROBLOCK *x,
                             hex_num_candidates, hex_candidates);
 }
 
-int vp9_bigdia_search(const MACROBLOCK *x,
-                      MV *ref_mv,
-                      int search_param,
-                      int sad_per_bit,
-                      int do_init_search,
-                      int *cost_list,
-                      const vp9_variance_fn_ptr_t *vfp,
-                      int use_mvcost,
-                      const MV *center_mv,
-                      MV *best_mv) {
+static int bigdia_search(const MACROBLOCK *x,
+                         MV *ref_mv,
+                         int search_param,
+                         int sad_per_bit,
+                         int do_init_search,
+                         int *cost_list,
+                         const vp9_variance_fn_ptr_t *vfp,
+                         int use_mvcost,
+                         const MV *center_mv,
+                         MV *best_mv) {
   // First scale has 4-closest points, the rest have 8 points in diamond
   // shape at increasing scales
   static const int bigdia_num_candidates[MAX_PATTERN_SCALES] = {
@@ -1425,16 +1449,16 @@ int vp9_bigdia_search(const MACROBLOCK *x,
                                 bigdia_num_candidates, bigdia_candidates);
 }
 
-int vp9_square_search(const MACROBLOCK *x,
-                      MV *ref_mv,
-                      int search_param,
-                      int sad_per_bit,
-                      int do_init_search,
-                      int *cost_list,
-                      const vp9_variance_fn_ptr_t *vfp,
-                      int use_mvcost,
-                      const MV *center_mv,
-                      MV *best_mv) {
+static int square_search(const MACROBLOCK *x,
+                         MV *ref_mv,
+                         int search_param,
+                         int sad_per_bit,
+                         int do_init_search,
+                         int *cost_list,
+                         const vp9_variance_fn_ptr_t *vfp,
+                         int use_mvcost,
+                         const MV *center_mv,
+                         MV *best_mv) {
   // All scales have 8 closest points in square shape
   static const int square_num_candidates[MAX_PATTERN_SCALES] = {
     8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8,
@@ -1467,34 +1491,34 @@ int vp9_square_search(const MACROBLOCK *x,
                             square_num_candidates, square_candidates);
 }
 
-int vp9_fast_hex_search(const MACROBLOCK *x,
-                        MV *ref_mv,
-                        int search_param,
-                        int sad_per_bit,
-                        int do_init_search,  // must be zero for fast_hex
-                        int *cost_list,
-                        const vp9_variance_fn_ptr_t *vfp,
-                        int use_mvcost,
-                        const MV *center_mv,
-                        MV *best_mv) {
-  return vp9_hex_search(x, ref_mv, MAX(MAX_MVSEARCH_STEPS - 2, search_param),
-                        sad_per_bit, do_init_search, cost_list, vfp, use_mvcost,
-                        center_mv, best_mv);
+static int fast_hex_search(const MACROBLOCK *x,
+                           MV *ref_mv,
+                           int search_param,
+                           int sad_per_bit,
+                           int do_init_search,  // must be zero for fast_hex
+                           int *cost_list,
+                           const vp9_variance_fn_ptr_t *vfp,
+                           int use_mvcost,
+                           const MV *center_mv,
+                           MV *best_mv) {
+  return hex_search(x, ref_mv, VPXMAX(MAX_MVSEARCH_STEPS - 2, search_param),
+                    sad_per_bit, do_init_search, cost_list, vfp, use_mvcost,
+                    center_mv, best_mv);
 }
 
-int vp9_fast_dia_search(const MACROBLOCK *x,
-                        MV *ref_mv,
-                        int search_param,
-                        int sad_per_bit,
-                        int do_init_search,
-                        int *cost_list,
-                        const vp9_variance_fn_ptr_t *vfp,
-                        int use_mvcost,
-                        const MV *center_mv,
-                        MV *best_mv) {
-  return vp9_bigdia_search(x, ref_mv, MAX(MAX_MVSEARCH_STEPS - 2, search_param),
-                           sad_per_bit, do_init_search, cost_list, vfp,
-                           use_mvcost, center_mv, best_mv);
+static int fast_dia_search(const MACROBLOCK *x,
+                           MV *ref_mv,
+                           int search_param,
+                           int sad_per_bit,
+                           int do_init_search,
+                           int *cost_list,
+                           const vp9_variance_fn_ptr_t *vfp,
+                           int use_mvcost,
+                           const MV *center_mv,
+                           MV *best_mv) {
+  return bigdia_search(
+      x, ref_mv, VPXMAX(MAX_MVSEARCH_STEPS - 2, search_param), sad_per_bit,
+      do_init_search, cost_list, vfp, use_mvcost, center_mv, best_mv);
 }
 
 #undef CHECK_BETTER
@@ -1524,10 +1548,10 @@ int vp9_full_range_search_c(const MACROBLOCK *x,
   best_sad = fn_ptr->sdf(what->buf, what->stride,
                          get_buf_from_mv(in_what, ref_mv), in_what->stride) +
                  mvsad_err_cost(x, ref_mv, &fcenter_mv, sad_per_bit);
-  start_row = MAX(-range, x->mv_row_min - ref_mv->row);
-  start_col = MAX(-range, x->mv_col_min - ref_mv->col);
-  end_row = MIN(range, x->mv_row_max - ref_mv->row);
-  end_col = MIN(range, x->mv_col_max - ref_mv->col);
+  start_row = VPXMAX(-range, x->mv_row_min - ref_mv->row);
+  start_col = VPXMAX(-range, x->mv_col_min - ref_mv->col);
+  end_row = VPXMIN(range, x->mv_row_max - ref_mv->row);
+  end_col = VPXMIN(range, x->mv_col_max - ref_mv->col);
 
   for (r = start_row; r <= end_row; ++r) {
     for (c = start_col; c <= end_col; c += 4) {
@@ -1705,7 +1729,7 @@ int vp9_diamond_search_sad_c(const MACROBLOCK *x,
           }
         }
         break;
-      };
+      }
 #endif
     } else if (best_address == in_what) {
       (*num00)++;
@@ -1788,8 +1812,11 @@ static const MV search_pos[4] = {
 };
 
 unsigned int vp9_int_pro_motion_estimation(const VP9_COMP *cpi, MACROBLOCK *x,
-                                           BLOCK_SIZE bsize) {
+                                           BLOCK_SIZE bsize,
+                                           int mi_row, int mi_col) {
   MACROBLOCKD *xd = &x->e_mbd;
+  MB_MODE_INFO *mbmi = &xd->mi[0]->mbmi;
+  struct buf_2d backup_yv12[MAX_MB_PLANE] = {{0, 0}};
   DECLARE_ALIGNED(16, int16_t, hbuf[128]);
   DECLARE_ALIGNED(16, int16_t, vbuf[128]);
   DECLARE_ALIGNED(16, int16_t, src_hbuf[64]);
@@ -1802,16 +1829,38 @@ unsigned int vp9_int_pro_motion_estimation(const VP9_COMP *cpi, MACROBLOCK *x,
   const int src_stride = x->plane[0].src.stride;
   const int ref_stride = xd->plane[0].pre[0].stride;
   uint8_t const *ref_buf, *src_buf;
-  MV *tmp_mv = &xd->mi[0].src_mi->mbmi.mv[0].as_mv;
+  MV *tmp_mv = &xd->mi[0]->mbmi.mv[0].as_mv;
   unsigned int best_sad, tmp_sad, this_sad[4];
   MV this_mv;
   const int norm_factor = 3 + (bw >> 5);
+  const YV12_BUFFER_CONFIG *scaled_ref_frame =
+      vp9_get_scaled_ref_frame(cpi, mbmi->ref_frame[0]);
+
+  if (scaled_ref_frame) {
+    int i;
+    // Swap out the reference frame for a version that's been scaled to
+    // match the resolution of the current frame, allowing the existing
+    // motion search code to be used without additional modifications.
+    for (i = 0; i < MAX_MB_PLANE; i++)
+      backup_yv12[i] = xd->plane[i].pre[0];
+    vp9_setup_pre_planes(xd, 0, scaled_ref_frame, mi_row, mi_col, NULL);
+  }
 
 #if CONFIG_VP9_HIGHBITDEPTH
-  tmp_mv->row = 0;
-  tmp_mv->col = 0;
-  return cpi->fn_ptr[bsize].sdf(x->plane[0].src.buf, src_stride,
-                                xd->plane[0].pre[0].buf, ref_stride);
+  {
+    unsigned int this_sad;
+    tmp_mv->row = 0;
+    tmp_mv->col = 0;
+    this_sad = cpi->fn_ptr[bsize].sdf(x->plane[0].src.buf, src_stride,
+                                      xd->plane[0].pre[0].buf, ref_stride);
+
+    if (scaled_ref_frame) {
+      int i;
+      for (i = 0; i < MAX_MB_PLANE; i++)
+        xd->plane[i].pre[0] = backup_yv12[i];
+    }
+    return this_sad;
+  }
 #endif
 
   // Set up prediction 1-D reference set
@@ -1889,18 +1938,25 @@ unsigned int vp9_int_pro_motion_estimation(const VP9_COMP *cpi, MACROBLOCK *x,
   tmp_mv->row *= 8;
   tmp_mv->col *= 8;
 
+  if (scaled_ref_frame) {
+    int i;
+    for (i = 0; i < MAX_MB_PLANE; i++)
+      xd->plane[i].pre[0] = backup_yv12[i];
+  }
+
   return best_sad;
 }
 
+// Runs sequence of diamond searches in smaller steps for RD.
 /* do_refine: If last step (1-away) of n-step search doesn't pick the center
               point as the best match, we will do a final 1-away diamond
               refining search  */
-int vp9_full_pixel_diamond(const VP9_COMP *cpi, MACROBLOCK *x,
-                           MV *mvp_full, int step_param,
-                           int sadpb, int further_steps, int do_refine,
-                           int *cost_list,
-                           const vp9_variance_fn_ptr_t *fn_ptr,
-                           const MV *ref_mv, MV *dst_mv) {
+static int full_pixel_diamond(const VP9_COMP *cpi, MACROBLOCK *x,
+                              MV *mvp_full, int step_param,
+                              int sadpb, int further_steps, int do_refine,
+                              int *cost_list,
+                              const vp9_variance_fn_ptr_t *fn_ptr,
+                              const MV *ref_mv, MV *dst_mv) {
   MV temp_mv;
   int thissme, n, num00 = 0;
   int bestsme = cpi->diamond_search_sad(x, &cpi->ss_cfg, mvp_full, &temp_mv,
@@ -1967,10 +2023,10 @@ int vp9_full_search_sad_c(const MACROBLOCK *x, const MV *ref_mv,
   const MACROBLOCKD *const xd = &x->e_mbd;
   const struct buf_2d *const what = &x->plane[0].src;
   const struct buf_2d *const in_what = &xd->plane[0].pre[0];
-  const int row_min = MAX(ref_mv->row - distance, x->mv_row_min);
-  const int row_max = MIN(ref_mv->row + distance, x->mv_row_max);
-  const int col_min = MAX(ref_mv->col - distance, x->mv_col_min);
-  const int col_max = MIN(ref_mv->col + distance, x->mv_col_max);
+  const int row_min = VPXMAX(ref_mv->row - distance, x->mv_row_min);
+  const int row_max = VPXMIN(ref_mv->row + distance, x->mv_row_max);
+  const int col_min = VPXMAX(ref_mv->col - distance, x->mv_col_min);
+  const int col_max = VPXMIN(ref_mv->col + distance, x->mv_col_max);
   const MV fcenter_mv = {center_mv->row >> 3, center_mv->col >> 3};
   int best_sad = fn_ptr->sdf(what->buf, what->stride,
       get_buf_from_mv(in_what, ref_mv), in_what->stride) +
@@ -2000,10 +2056,10 @@ int vp9_full_search_sadx3(const MACROBLOCK *x, const MV *ref_mv,
   const MACROBLOCKD *const xd = &x->e_mbd;
   const struct buf_2d *const what = &x->plane[0].src;
   const struct buf_2d *const in_what = &xd->plane[0].pre[0];
-  const int row_min = MAX(ref_mv->row - distance, x->mv_row_min);
-  const int row_max = MIN(ref_mv->row + distance, x->mv_row_max);
-  const int col_min = MAX(ref_mv->col - distance, x->mv_col_min);
-  const int col_max = MIN(ref_mv->col + distance, x->mv_col_max);
+  const int row_min = VPXMAX(ref_mv->row - distance, x->mv_row_min);
+  const int row_max = VPXMIN(ref_mv->row + distance, x->mv_row_max);
+  const int col_min = VPXMAX(ref_mv->col - distance, x->mv_col_min);
+  const int col_max = VPXMIN(ref_mv->col + distance, x->mv_col_max);
   const MV fcenter_mv = {center_mv->row >> 3, center_mv->col >> 3};
   unsigned int best_sad = fn_ptr->sdf(what->buf, what->stride,
       get_buf_from_mv(in_what, ref_mv), in_what->stride) +
@@ -2017,7 +2073,7 @@ int vp9_full_search_sadx3(const MACROBLOCK *x, const MV *ref_mv,
     if (fn_ptr->sdx3f != NULL) {
       while ((c + 2) < col_max) {
         int i;
-        unsigned int sads[3];
+        DECLARE_ALIGNED(16, uint32_t, sads[3]);
 
         fn_ptr->sdx3f(what->buf, what->stride, check_here, in_what->stride,
                       sads);
@@ -2065,10 +2121,10 @@ int vp9_full_search_sadx8(const MACROBLOCK *x, const MV *ref_mv,
   const MACROBLOCKD *const xd = &x->e_mbd;
   const struct buf_2d *const what = &x->plane[0].src;
   const struct buf_2d *const in_what = &xd->plane[0].pre[0];
-  const int row_min = MAX(ref_mv->row - distance, x->mv_row_min);
-  const int row_max = MIN(ref_mv->row + distance, x->mv_row_max);
-  const int col_min = MAX(ref_mv->col - distance, x->mv_col_min);
-  const int col_max = MIN(ref_mv->col + distance, x->mv_col_max);
+  const int row_min = VPXMAX(ref_mv->row - distance, x->mv_row_min);
+  const int row_max = VPXMIN(ref_mv->row + distance, x->mv_row_max);
+  const int col_min = VPXMAX(ref_mv->col - distance, x->mv_col_min);
+  const int col_max = VPXMIN(ref_mv->col + distance, x->mv_col_max);
   const MV fcenter_mv = {center_mv->row >> 3, center_mv->col >> 3};
   unsigned int best_sad = fn_ptr->sdf(what->buf, what->stride,
       get_buf_from_mv(in_what, ref_mv), in_what->stride) +
@@ -2082,7 +2138,7 @@ int vp9_full_search_sadx8(const MACROBLOCK *x, const MV *ref_mv,
     if (fn_ptr->sdx8f != NULL) {
       while ((c + 7) < col_max) {
         int i;
-        unsigned int sads[8];
+        DECLARE_ALIGNED(16, uint32_t, sads[8]);
 
         fn_ptr->sdx8f(what->buf, what->stride, check_here, in_what->stride,
                       sads);
@@ -2106,7 +2162,7 @@ int vp9_full_search_sadx8(const MACROBLOCK *x, const MV *ref_mv,
     if (fn_ptr->sdx3f != NULL) {
       while ((c + 2) < col_max) {
         int i;
-        unsigned int sads[3];
+        DECLARE_ALIGNED(16, uint32_t, sads[3]);
 
         fn_ptr->sdx3f(what->buf, what->stride, check_here, in_what->stride,
                       sads);
@@ -2292,29 +2348,29 @@ int vp9_full_pixel_search(VP9_COMP *cpi, MACROBLOCK *x,
 
   switch (method) {
     case FAST_DIAMOND:
-      var = vp9_fast_dia_search(x, mvp_full, step_param, error_per_bit, 0,
-                                cost_list, fn_ptr, 1, ref_mv, tmp_mv);
+      var = fast_dia_search(x, mvp_full, step_param, error_per_bit, 0,
+                            cost_list, fn_ptr, 1, ref_mv, tmp_mv);
       break;
     case FAST_HEX:
-      var = vp9_fast_hex_search(x, mvp_full, step_param, error_per_bit, 0,
-                                cost_list, fn_ptr, 1, ref_mv, tmp_mv);
+      var = fast_hex_search(x, mvp_full, step_param, error_per_bit, 0,
+                            cost_list, fn_ptr, 1, ref_mv, tmp_mv);
       break;
     case HEX:
-      var = vp9_hex_search(x, mvp_full, step_param, error_per_bit, 1,
-                           cost_list, fn_ptr, 1, ref_mv, tmp_mv);
+      var = hex_search(x, mvp_full, step_param, error_per_bit, 1,
+                       cost_list, fn_ptr, 1, ref_mv, tmp_mv);
       break;
     case SQUARE:
-      var = vp9_square_search(x, mvp_full, step_param, error_per_bit, 1,
-                              cost_list, fn_ptr, 1, ref_mv, tmp_mv);
+      var = square_search(x, mvp_full, step_param, error_per_bit, 1,
+                          cost_list, fn_ptr, 1, ref_mv, tmp_mv);
       break;
     case BIGDIA:
-      var = vp9_bigdia_search(x, mvp_full, step_param, error_per_bit, 1,
-                              cost_list, fn_ptr, 1, ref_mv, tmp_mv);
+      var = bigdia_search(x, mvp_full, step_param, error_per_bit, 1,
+                          cost_list, fn_ptr, 1, ref_mv, tmp_mv);
       break;
     case NSTEP:
-      var = vp9_full_pixel_diamond(cpi, x, mvp_full, step_param, error_per_bit,
-                                   MAX_MVSEARCH_STEPS - 1 - step_param,
-                                   1, cost_list, fn_ptr, ref_mv, tmp_mv);
+      var = full_pixel_diamond(cpi, x, mvp_full, step_param, error_per_bit,
+                               MAX_MVSEARCH_STEPS - 1 - step_param,
+                               1, cost_list, fn_ptr, ref_mv, tmp_mv);
       break;
     default:
       assert(0 && "Invalid search method.");

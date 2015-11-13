@@ -47,11 +47,18 @@ struct macroblock_plane {
 typedef unsigned int vp9_coeff_cost[PLANE_TYPES][REF_TYPES][COEF_BANDS][2]
                                    [COEFF_CONTEXTS][ENTROPY_TOKENS];
 
+typedef struct {
+  int_mv ref_mvs[MAX_REF_FRAMES][MAX_MV_REF_CANDIDATES];
+  uint8_t mode_context[MAX_REF_FRAMES];
+} MB_MODE_INFO_EXT;
+
 typedef struct macroblock MACROBLOCK;
 struct macroblock {
   struct macroblock_plane plane[MAX_MB_PLANE];
 
   MACROBLOCKD e_mbd;
+  MB_MODE_INFO_EXT *mbmi_ext;
+  MB_MODE_INFO_EXT *mbmi_ext_base;
   int skip_block;
   int select_tx_size;
   int skip_recode;
@@ -93,7 +100,10 @@ struct macroblock {
   int mv_row_min;
   int mv_row_max;
 
+  // Notes transform blocks where no coefficents are coded.
+  // Set during mode selection. Read during block encoding.
   uint8_t zcoeff_blk[TX_SIZES][256];
+
   int skip;
 
   int encode_breakout;
@@ -112,6 +122,9 @@ struct macroblock {
 
   // skip forward transform and quantization
   uint8_t skip_txfm[MAX_MB_PLANE << 2];
+  #define SKIP_TXFM_NONE 0
+  #define SKIP_TXFM_AC_DC 1
+  #define SKIP_TXFM_AC_ONLY 2
 
   int64_t bsse[MAX_MB_PLANE << 2];
 

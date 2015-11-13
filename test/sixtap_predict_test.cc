@@ -11,13 +11,15 @@
 #include <math.h>
 #include <stdlib.h>
 #include <string.h>
+
+#include "third_party/googletest/src/include/gtest/gtest.h"
+
+#include "./vpx_config.h"
+#include "./vp8_rtcd.h"
 #include "test/acm_random.h"
 #include "test/clear_system_state.h"
 #include "test/register_state_check.h"
 #include "test/util.h"
-#include "third_party/googletest/src/include/gtest/gtest.h"
-#include "./vpx_config.h"
-#include "./vp8_rtcd.h"
 #include "vpx/vpx_integer.h"
 #include "vpx_mem/vpx_mem.h"
 
@@ -199,7 +201,7 @@ const SixtapPredictFunc sixtap_16x16_neon = vp8_sixtap_predict16x16_neon;
 const SixtapPredictFunc sixtap_8x8_neon = vp8_sixtap_predict8x8_neon;
 const SixtapPredictFunc sixtap_8x4_neon = vp8_sixtap_predict8x4_neon;
 INSTANTIATE_TEST_CASE_P(
-    DISABLED_NEON, SixtapPredictTest, ::testing::Values(
+    NEON, SixtapPredictTest, ::testing::Values(
         make_tuple(16, 16, sixtap_16x16_neon),
         make_tuple(8, 8, sixtap_8x8_neon),
         make_tuple(8, 4, sixtap_8x4_neon)));
@@ -237,5 +239,17 @@ INSTANTIATE_TEST_CASE_P(
         make_tuple(8, 8, sixtap_8x8_ssse3),
         make_tuple(8, 4, sixtap_8x4_ssse3),
         make_tuple(4, 4, sixtap_4x4_ssse3)));
+#endif
+#if HAVE_MSA
+const SixtapPredictFunc sixtap_16x16_msa = vp8_sixtap_predict16x16_msa;
+const SixtapPredictFunc sixtap_8x8_msa = vp8_sixtap_predict8x8_msa;
+const SixtapPredictFunc sixtap_8x4_msa = vp8_sixtap_predict8x4_msa;
+const SixtapPredictFunc sixtap_4x4_msa = vp8_sixtap_predict4x4_msa;
+INSTANTIATE_TEST_CASE_P(
+    MSA, SixtapPredictTest, ::testing::Values(
+        make_tuple(16, 16, sixtap_16x16_msa),
+        make_tuple(8, 8, sixtap_8x8_msa),
+        make_tuple(8, 4, sixtap_8x4_msa),
+        make_tuple(4, 4, sixtap_4x4_msa)));
 #endif
 }  // namespace

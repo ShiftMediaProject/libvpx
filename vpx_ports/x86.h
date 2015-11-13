@@ -136,6 +136,13 @@ static INLINE uint64_t xgetbv(void) {
 #define xgetbv() 0U  // no AVX for older x64 or unrecognized toolchains.
 #endif
 
+#if defined(_MSC_VER) && _MSC_VER >= 1700
+#include <windows.h>
+#if WINAPI_FAMILY_PARTITION(WINAPI_FAMILY_APP)
+#define getenv(x) NULL
+#endif
+#endif
+
 #define HAS_MMX     0x01
 #define HAS_SSE     0x02
 #define HAS_SSE2    0x04
@@ -152,7 +159,7 @@ static INLINE int
 x86_simd_caps(void) {
   unsigned int flags = 0;
   unsigned int mask = ~0;
-  unsigned int reg_eax, reg_ebx, reg_ecx, reg_edx;
+  unsigned int max_cpuid_val, reg_eax, reg_ebx, reg_ecx, reg_edx;
   char *env;
   (void)reg_ebx;
 
@@ -168,9 +175,9 @@ x86_simd_caps(void) {
     mask = strtol(env, NULL, 0);
 
   /* Ensure that the CPUID instruction supports extended features */
-  cpuid(0, 0, reg_eax, reg_ebx, reg_ecx, reg_edx);
+  cpuid(0, 0, max_cpuid_val, reg_ebx, reg_ecx, reg_edx);
 
-  if (reg_eax < 1)
+  if (max_cpuid_val < 1)
     return 0;
 
   /* Get the standard feature flags */
@@ -193,10 +200,12 @@ x86_simd_caps(void) {
     if ((xgetbv() & 0x6) == 0x6) {
       flags |= HAS_AVX;
 
-      /* Get the leaf 7 feature flags. Needed to check for AVX2 support */
-      cpuid(7, 0, reg_eax, reg_ebx, reg_ecx, reg_edx);
+      if (max_cpuid_val >= 7) {
+        /* Get the leaf 7 feature flags. Needed to check for AVX2 support */
+        cpuid(7, 0, reg_eax, reg_ebx, reg_ecx, reg_edx);
 
-      if (reg_ebx & BIT(5)) flags |= HAS_AVX2;
+        if (reg_ebx & BIT(5)) flags |= HAS_AVX2;
+      }
     }
   }
 

@@ -407,6 +407,7 @@ static void pack_tokens_into_partitions(VP8_COMP *cpi, unsigned char *cx_data,
 }
 
 
+#if CONFIG_MULTITHREAD
 static void pack_mb_row_tokens(VP8_COMP *cpi, vp8_writer *w)
 {
     int mb_row;
@@ -421,6 +422,7 @@ static void pack_mb_row_tokens(VP8_COMP *cpi, vp8_writer *w)
     }
 
 }
+#endif  // CONFIG_MULTITHREAD
 
 static void write_mv_ref
 (
@@ -1543,7 +1545,7 @@ void vp8_pack_bitstream(VP8_COMP *cpi, unsigned char *dest, unsigned char * dest
     if (pc->refresh_entropy_probs == 0)
     {
         /* save a copy for later refresh */
-        vpx_memcpy(&cpi->common.lfc, &cpi->common.fc, sizeof(cpi->common.fc));
+        memcpy(&cpi->common.lfc, &cpi->common.fc, sizeof(cpi->common.fc));
     }
 
     vp8_update_coef_probs(cpi);
@@ -1620,7 +1622,7 @@ void vp8_pack_bitstream(VP8_COMP *cpi, unsigned char *dest, unsigned char * dest
             /* concatenate partition buffers */
             for(i = 0; i < num_part; i++)
             {
-                vpx_memmove(dp, cpi->partition_d[i+1], cpi->partition_sz[i+1]);
+                memmove(dp, cpi->partition_d[i+1], cpi->partition_sz[i+1]);
                 cpi->partition_d[i+1] = dp;
                 dp += cpi->partition_sz[i+1];
             }
@@ -1675,7 +1677,7 @@ void vp8_pack_bitstream(VP8_COMP *cpi, unsigned char *dest, unsigned char * dest
         if (cpi->b_multi_threaded)
             pack_mb_row_tokens(cpi, &cpi->bc[1]);
         else
-#endif
+#endif  // CONFIG_MULTITHREAD
             vp8_pack_tokens(&cpi->bc[1], cpi->tok, cpi->tok_count);
 
         vp8_stop_encode(&cpi->bc[1]);
