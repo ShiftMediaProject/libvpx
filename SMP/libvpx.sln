@@ -1,43 +1,43 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-VisualStudioVersion = 12.0.31101.0
+VisualStudioVersion = 12.0.30501.0
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "libvpx", "libvpx.vcxproj", "{8293418A-603A-4119-B7B4-1E6204606BA9}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
-		Debug|Win32 = Debug|Win32
 		Debug|x64 = Debug|x64
-		DebugDLL|Win32 = DebugDLL|Win32
+		Debug|x86 = Debug|x86
 		DebugDLL|x64 = DebugDLL|x64
-		Release|Win32 = Release|Win32
+		DebugDLL|x86 = DebugDLL|x86
 		Release|x64 = Release|x64
-		ReleaseDLL|Win32 = ReleaseDLL|Win32
+		Release|x86 = Release|x86
 		ReleaseDLL|x64 = ReleaseDLL|x64
-		ReleaseLTO|Win32 = ReleaseLTO|Win32
+		ReleaseDLL|x86 = ReleaseDLL|x86
 		ReleaseLTO|x64 = ReleaseLTO|x64
+		ReleaseLTO|x86 = ReleaseLTO|x86
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
-		{8293418A-603A-4119-B7B4-1E6204606BA9}.Debug|Win32.ActiveCfg = Debug|Win32
-		{8293418A-603A-4119-B7B4-1E6204606BA9}.Debug|Win32.Build.0 = Debug|Win32
 		{8293418A-603A-4119-B7B4-1E6204606BA9}.Debug|x64.ActiveCfg = Debug|x64
 		{8293418A-603A-4119-B7B4-1E6204606BA9}.Debug|x64.Build.0 = Debug|x64
-		{8293418A-603A-4119-B7B4-1E6204606BA9}.DebugDLL|Win32.ActiveCfg = DebugDLL|Win32
-		{8293418A-603A-4119-B7B4-1E6204606BA9}.DebugDLL|Win32.Build.0 = DebugDLL|Win32
+		{8293418A-603A-4119-B7B4-1E6204606BA9}.Debug|x86.ActiveCfg = Debug|Win32
+		{8293418A-603A-4119-B7B4-1E6204606BA9}.Debug|x86.Build.0 = Debug|Win32
 		{8293418A-603A-4119-B7B4-1E6204606BA9}.DebugDLL|x64.ActiveCfg = DebugDLL|x64
 		{8293418A-603A-4119-B7B4-1E6204606BA9}.DebugDLL|x64.Build.0 = DebugDLL|x64
-		{8293418A-603A-4119-B7B4-1E6204606BA9}.Release|Win32.ActiveCfg = Release|Win32
-		{8293418A-603A-4119-B7B4-1E6204606BA9}.Release|Win32.Build.0 = Release|Win32
+		{8293418A-603A-4119-B7B4-1E6204606BA9}.DebugDLL|x86.ActiveCfg = DebugDLL|Win32
+		{8293418A-603A-4119-B7B4-1E6204606BA9}.DebugDLL|x86.Build.0 = DebugDLL|Win32
 		{8293418A-603A-4119-B7B4-1E6204606BA9}.Release|x64.ActiveCfg = Release|x64
 		{8293418A-603A-4119-B7B4-1E6204606BA9}.Release|x64.Build.0 = Release|x64
-		{8293418A-603A-4119-B7B4-1E6204606BA9}.ReleaseDLL|Win32.ActiveCfg = ReleaseDLL|Win32
-		{8293418A-603A-4119-B7B4-1E6204606BA9}.ReleaseDLL|Win32.Build.0 = ReleaseDLL|Win32
+		{8293418A-603A-4119-B7B4-1E6204606BA9}.Release|x86.ActiveCfg = Release|Win32
+		{8293418A-603A-4119-B7B4-1E6204606BA9}.Release|x86.Build.0 = Release|Win32
 		{8293418A-603A-4119-B7B4-1E6204606BA9}.ReleaseDLL|x64.ActiveCfg = ReleaseDLL|x64
 		{8293418A-603A-4119-B7B4-1E6204606BA9}.ReleaseDLL|x64.Build.0 = ReleaseDLL|x64
-		{8293418A-603A-4119-B7B4-1E6204606BA9}.ReleaseLTO|Win32.ActiveCfg = ReleaseLTO|Win32
-		{8293418A-603A-4119-B7B4-1E6204606BA9}.ReleaseLTO|Win32.Build.0 = ReleaseLTO|Win32
+		{8293418A-603A-4119-B7B4-1E6204606BA9}.ReleaseDLL|x86.ActiveCfg = ReleaseDLL|Win32
+		{8293418A-603A-4119-B7B4-1E6204606BA9}.ReleaseDLL|x86.Build.0 = ReleaseDLL|Win32
 		{8293418A-603A-4119-B7B4-1E6204606BA9}.ReleaseLTO|x64.ActiveCfg = ReleaseLTO|x64
 		{8293418A-603A-4119-B7B4-1E6204606BA9}.ReleaseLTO|x64.Build.0 = ReleaseLTO|x64
+		{8293418A-603A-4119-B7B4-1E6204606BA9}.ReleaseLTO|x86.ActiveCfg = ReleaseLTO|Win32
+		{8293418A-603A-4119-B7B4-1E6204606BA9}.ReleaseLTO|x86.Build.0 = ReleaseLTO|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
