@@ -79,8 +79,8 @@ static void prob_diff_update(const vpx_tree_index *tree,
 
 static void write_selected_tx_size(const VP9_COMMON *cm,
                                    const MACROBLOCKD *xd, vpx_writer *w) {
-  TX_SIZE tx_size = xd->mi[0]->mbmi.tx_size;
-  BLOCK_SIZE bsize = xd->mi[0]->mbmi.sb_type;
+  TX_SIZE tx_size = xd->mi[0]->tx_size;
+  BLOCK_SIZE bsize = xd->mi[0]->sb_type;
   const TX_SIZE max_tx_size = max_txsize_lookup[bsize];
   const vpx_prob *const tx_probs = get_tx_probs2(max_tx_size, xd,
                                                  &cm->fc->tx_probs);
@@ -97,7 +97,7 @@ static int write_skip(const VP9_COMMON *cm, const MACROBLOCKD *xd,
   if (segfeature_active(&cm->seg, segment_id, SEG_LVL_SKIP)) {
     return 1;
   } else {
-    const int skip = mi->mbmi.skip;
+    const int skip = mi->skip;
     vpx_write(w, skip, vp9_get_skip_prob(cm, xd));
     return skip;
   }
@@ -123,72 +123,66 @@ static void update_switchable_interp_probs(VP9_COMMON *cm, vpx_writer *w,
 static void pack_mb_tokens(vpx_writer *w,
                            TOKENEXTRA **tp, const TOKENEXTRA *const stop,
                            vpx_bit_depth_t bit_depth) {
-  TOKENEXTRA *p = *tp;
-
-  while (p < stop && p->token != EOSB_TOKEN) {
-    const int t = p->token;
-    const struct vp9_token *const a = &vp9_coef_encodings[t];
-    int i = 0;
-    int v = a->value;
-    int n = a->len;
+  const TOKENEXTRA *p;
+  const vp9_extra_bit *const extra_bits =
 #if CONFIG_VP9_HIGHBITDEPTH
-    const vp9_extra_bit *b;
-    if (bit_depth == VPX_BITS_12)
-      b = &vp9_extra_bits_high12[t];
-    else if (bit_depth == VPX_BITS_10)
-      b = &vp9_extra_bits_high10[t];
-    else
-      b = &vp9_extra_bits[t];
+    (bit_depth == VPX_BITS_12) ? vp9_extra_bits_high12 :
+    (bit_depth == VPX_BITS_10) ? vp9_extra_bits_high10 :
+    vp9_extra_bits;
 #else
-    const vp9_extra_bit *const b = &vp9_extra_bits[t];
+    vp9_extra_bits;
     (void) bit_depth;
 #endif  // CONFIG_VP9_HIGHBITDEPTH
 
-    /* skip one or two nodes */
-    if (p->skip_eob_node) {
-      n -= p->skip_eob_node;
-      i = 2 * p->skip_eob_node;
+  for (p = *tp; p < stop && p->token != EOSB_TOKEN; ++p) {
+    if (p->token == EOB_TOKEN) {
+      vpx_write(w, 0, p->context_tree[0]);
+      continue;
     }
-
-    // TODO(jbb): expanding this can lead to big gains.  It allows
-    // much better branch prediction and would enable us to avoid numerous
-    // lookups and compares.
-
-    // If we have a token that's in the constrained set, the coefficient tree
-    // is split into two treed writes.  The first treed write takes care of the
-    // unconstrained nodes.  The second treed write takes care of the
-    // constrained nodes.
-    if (t >= TWO_TOKEN && t < EOB_TOKEN) {
-      int len = UNCONSTRAINED_NODES - p->skip_eob_node;
-      int bits = v >> (n - len);
-      vp9_write_tree(w, vp9_coef_tree, p->context_tree, bits, len, i);
-      vp9_write_tree(w, vp9_coef_con_tree,
-                     vp9_pareto8_full[p->context_tree[PIVOT_NODE] - 1],
-                     v, n - len, 0);
-    } else {
-      vp9_write_tree(w, vp9_coef_tree, p->context_tree, v, n, i);
-    }
-
-    if (b->base_val) {
-      const int e = p->extra, l = b->len;
-
-      if (l) {
-        const unsigned char *pb = b->prob;
-        int v = e >> 1;
-        int n = l;              /* number of bits in v, assumed nonzero */
-
-        do {
-          const int bb = (v >> --n) & 1;
-          vpx_write(w, bb, *pb++);
-        } while (n);
+    vpx_write(w, 1, p->context_tree[0]);
+    while (p->token == ZERO_TOKEN) {
+      vpx_write(w, 0, p->context_tree[1]);
+      ++p;
+      if (p == stop || p->token == EOSB_TOKEN) {
+        *tp = (TOKENEXTRA*)(uintptr_t)p + (p->token == EOSB_TOKEN);
+        return;
       }
-
-      vpx_write_bit(w, e & 1);
     }
-    ++p;
-  }
 
-  *tp = p + (p->token == EOSB_TOKEN);
+    {
+      const int t = p->token;
+      const vpx_prob *const context_tree = p->context_tree;
+      assert(t != ZERO_TOKEN);
+      assert(t != EOB_TOKEN);
+      assert(t != EOSB_TOKEN);
+      vpx_write(w, 1, context_tree[1]);
+      if (t == ONE_TOKEN) {
+        vpx_write(w, 0, context_tree[2]);
+        vpx_write_bit(w, p->extra & 1);
+      } else {  // t >= TWO_TOKEN && t < EOB_TOKEN
+        const struct vp9_token *const a = &vp9_coef_encodings[t];
+        const int v = a->value;
+        const int n = a->len;
+        const int e = p->extra;
+        vpx_write(w, 1, context_tree[2]);
+        vp9_write_tree(w, vp9_coef_con_tree,
+                       vp9_pareto8_full[context_tree[PIVOT_NODE] - 1], v,
+                       n - UNCONSTRAINED_NODES, 0);
+        if (t >= CATEGORY1_TOKEN) {
+          const vp9_extra_bit *const b = &extra_bits[t];
+          const unsigned char *pb = b->prob;
+          int v = e >> 1;
+          int n = b->len;  // number of bits in v, assumed nonzero
+          do {
+            const int bb = (v >> --n) & 1;
+            vpx_write(w, bb, *pb++);
+          } while (n);
+        }
+        vpx_write_bit(w, e & 1);
+      }
+    }
+  }
+  *tp = (TOKENEXTRA*)(uintptr_t)p + (p->token == EOSB_TOKEN);
 }
 
 static void write_segment_id(vpx_writer *w, const struct segmentation *seg,
@@ -200,15 +194,15 @@ static void write_segment_id(vpx_writer *w, const struct segmentation *seg,
 // This function encodes the reference frame
 static void write_ref_frames(const VP9_COMMON *cm, const MACROBLOCKD *xd,
                              vpx_writer *w) {
-  const MB_MODE_INFO *const mbmi = &xd->mi[0]->mbmi;
-  const int is_compound = has_second_ref(mbmi);
-  const int segment_id = mbmi->segment_id;
+  const MODE_INFO *const mi = xd->mi[0];
+  const int is_compound = has_second_ref(mi);
+  const int segment_id = mi->segment_id;
 
   // If segment level coding of this signal is disabled...
   // or the segment allows multiple reference frame options
   if (segfeature_active(&cm->seg, segment_id, SEG_LVL_REF_FRAME)) {
     assert(!is_compound);
-    assert(mbmi->ref_frame[0] ==
+    assert(mi->ref_frame[0] ==
                get_segdata(&cm->seg, segment_id, SEG_LVL_REF_FRAME));
   } else {
     // does the feature use compound prediction or not
@@ -220,13 +214,13 @@ static void write_ref_frames(const VP9_COMMON *cm, const MACROBLOCKD *xd,
     }
 
     if (is_compound) {
-      vpx_write(w, mbmi->ref_frame[0] == GOLDEN_FRAME,
+      vpx_write(w, mi->ref_frame[0] == GOLDEN_FRAME,
                 vp9_get_pred_prob_comp_ref_p(cm, xd));
     } else {
-      const int bit0 = mbmi->ref_frame[0] != LAST_FRAME;
+      const int bit0 = mi->ref_frame[0] != LAST_FRAME;
       vpx_write(w, bit0, vp9_get_pred_prob_single_ref_p1(cm, xd));
       if (bit0) {
-        const int bit1 = mbmi->ref_frame[0] != GOLDEN_FRAME;
+        const int bit1 = mi->ref_frame[0] != GOLDEN_FRAME;
         vpx_write(w, bit1, vp9_get_pred_prob_single_ref_p2(cm, xd));
       }
     }
@@ -240,19 +234,18 @@ static void pack_inter_mode_mvs(VP9_COMP *cpi, const MODE_INFO *mi,
   const MACROBLOCK *const x = &cpi->td.mb;
   const MACROBLOCKD *const xd = &x->e_mbd;
   const struct segmentation *const seg = &cm->seg;
-  const MB_MODE_INFO *const mbmi = &mi->mbmi;
   const MB_MODE_INFO_EXT *const mbmi_ext = x->mbmi_ext;
-  const PREDICTION_MODE mode = mbmi->mode;
-  const int segment_id = mbmi->segment_id;
-  const BLOCK_SIZE bsize = mbmi->sb_type;
+  const PREDICTION_MODE mode = mi->mode;
+  const int segment_id = mi->segment_id;
+  const BLOCK_SIZE bsize = mi->sb_type;
   const int allow_hp = cm->allow_high_precision_mv;
-  const int is_inter = is_inter_block(mbmi);
-  const int is_compound = has_second_ref(mbmi);
+  const int is_inter = is_inter_block(mi);
+  const int is_compound = has_second_ref(mi);
   int skip, ref;
 
   if (seg->update_map) {
     if (seg->temporal_update) {
-      const int pred_flag = mbmi->seg_id_predicted;
+      const int pred_flag = mi->seg_id_predicted;
       vpx_prob pred_prob = vp9_get_pred_prob_seg_id(seg, xd);
       vpx_write(w, pred_flag, pred_prob);
       if (!pred_flag)
@@ -286,9 +279,9 @@ static void pack_inter_mode_mvs(VP9_COMP *cpi, const MODE_INFO *mi,
         }
       }
     }
-    write_intra_mode(w, mbmi->uv_mode, cm->fc->uv_mode_prob[mode]);
+    write_intra_mode(w, mi->uv_mode, cm->fc->uv_mode_prob[mode]);
   } else {
-    const int mode_ctx = mbmi_ext->mode_context[mbmi->ref_frame[0]];
+    const int mode_ctx = mbmi_ext->mode_context[mi->ref_frame[0]];
     const vpx_prob *const inter_probs = cm->fc->inter_mode_probs[mode_ctx];
     write_ref_frames(cm, xd, w);
 
@@ -303,10 +296,10 @@ static void pack_inter_mode_mvs(VP9_COMP *cpi, const MODE_INFO *mi,
       const int ctx = vp9_get_pred_context_switchable_interp(xd);
       vp9_write_token(w, vp9_switchable_interp_tree,
                       cm->fc->switchable_interp_prob[ctx],
-                      &switchable_interp_encodings[mbmi->interp_filter]);
-      ++cpi->interp_filter_selected[0][mbmi->interp_filter];
+                      &switchable_interp_encodings[mi->interp_filter]);
+      ++cpi->interp_filter_selected[0][mi->interp_filter];
     } else {
-      assert(mbmi->interp_filter == cm->interp_filter);
+      assert(mi->interp_filter == cm->interp_filter);
     }
 
     if (bsize < BLOCK_8X8) {
@@ -321,7 +314,7 @@ static void pack_inter_mode_mvs(VP9_COMP *cpi, const MODE_INFO *mi,
           if (b_mode == NEWMV) {
             for (ref = 0; ref < 1 + is_compound; ++ref)
               vp9_encode_mv(cpi, w, &mi->bmi[j].as_mv[ref].as_mv,
-                            &mbmi_ext->ref_mvs[mbmi->ref_frame[ref]][0].as_mv,
+                            &mbmi_ext->ref_mvs[mi->ref_frame[ref]][0].as_mv,
                             nmvc, allow_hp);
           }
         }
@@ -329,8 +322,8 @@ static void pack_inter_mode_mvs(VP9_COMP *cpi, const MODE_INFO *mi,
     } else {
       if (mode == NEWMV) {
         for (ref = 0; ref < 1 + is_compound; ++ref)
-          vp9_encode_mv(cpi, w, &mbmi->mv[ref].as_mv,
-                        &mbmi_ext->ref_mvs[mbmi->ref_frame[ref]][0].as_mv, nmvc,
+          vp9_encode_mv(cpi, w, &mi->mv[ref].as_mv,
+                        &mbmi_ext->ref_mvs[mi->ref_frame[ref]][0].as_mv, nmvc,
                         allow_hp);
       }
     }
@@ -343,19 +336,18 @@ static void write_mb_modes_kf(const VP9_COMMON *cm, const MACROBLOCKD *xd,
   const MODE_INFO *const mi = mi_8x8[0];
   const MODE_INFO *const above_mi = xd->above_mi;
   const MODE_INFO *const left_mi = xd->left_mi;
-  const MB_MODE_INFO *const mbmi = &mi->mbmi;
-  const BLOCK_SIZE bsize = mbmi->sb_type;
+  const BLOCK_SIZE bsize = mi->sb_type;
 
   if (seg->update_map)
-    write_segment_id(w, seg, mbmi->segment_id);
+    write_segment_id(w, seg, mi->segment_id);
 
-  write_skip(cm, xd, mbmi->segment_id, mi, w);
+  write_skip(cm, xd, mi->segment_id, mi, w);
 
   if (bsize >= BLOCK_8X8 && cm->tx_mode == TX_MODE_SELECT)
     write_selected_tx_size(cm, xd, w);
 
   if (bsize >= BLOCK_8X8) {
-    write_intra_mode(w, mbmi->mode, get_y_mode_probs(mi, above_mi, left_mi, 0));
+    write_intra_mode(w, mi->mode, get_y_mode_probs(mi, above_mi, left_mi, 0));
   } else {
     const int num_4x4_w = num_4x4_blocks_wide_lookup[bsize];
     const int num_4x4_h = num_4x4_blocks_high_lookup[bsize];
@@ -370,7 +362,7 @@ static void write_mb_modes_kf(const VP9_COMMON *cm, const MACROBLOCKD *xd,
     }
   }
 
-  write_intra_mode(w, mbmi->uv_mode, vp9_kf_uv_mode_prob[mbmi->mode]);
+  write_intra_mode(w, mi->uv_mode, vp9_kf_uv_mode_prob[mi->mode]);
 }
 
 static void write_modes_b(VP9_COMP *cpi, const TileInfo *const tile,
@@ -388,8 +380,8 @@ static void write_modes_b(VP9_COMP *cpi, const TileInfo *const tile,
       (mi_row * cm->mi_cols + mi_col);
 
   set_mi_row_col(xd, tile,
-                 mi_row, num_8x8_blocks_high_lookup[m->mbmi.sb_type],
-                 mi_col, num_8x8_blocks_wide_lookup[m->mbmi.sb_type],
+                 mi_row, num_8x8_blocks_high_lookup[m->sb_type],
+                 mi_col, num_8x8_blocks_wide_lookup[m->sb_type],
                  cm->mi_rows, cm->mi_cols);
   if (frame_is_intra_only(cm)) {
     write_mb_modes_kf(cm, xd, xd->mi, w);
@@ -441,7 +433,7 @@ static void write_modes_sb(VP9_COMP *cpi,
 
   m = cm->mi_grid_visible[mi_row * cm->mi_stride + mi_col];
 
-  partition = partition_lookup[bsl][m->mbmi.sb_type];
+  partition = partition_lookup[bsl][m->sb_type];
   write_partition(cm, xd, bs, mi_row, mi_col, partition, bsize, w);
   subsize = get_subsize(bsize, partition);
   if (subsize < BLOCK_8X8) {
@@ -553,8 +545,8 @@ static void update_coef_probs_common(vpx_writer* const bc, VP9_COMP *cpi,
                 int u = 0;
                 if (t == PIVOT_NODE)
                   s = vp9_prob_diff_update_savings_search_model(
-                      frame_branch_ct[i][j][k][l][0],
-                      old_coef_probs[i][j][k][l], &newp, upd, stepsize);
+                      frame_branch_ct[i][j][k][l][0], oldp, &newp, upd,
+                      stepsize);
                 else
                   s = vp9_prob_diff_update_savings_search(
                       frame_branch_ct[i][j][k][l][t], oldp, &newp, upd);
@@ -592,7 +584,7 @@ static void update_coef_probs_common(vpx_writer* const bc, VP9_COMP *cpi,
                 if (t == PIVOT_NODE)
                   s = vp9_prob_diff_update_savings_search_model(
                       frame_branch_ct[i][j][k][l][0],
-                      old_coef_probs[i][j][k][l], &newp, upd, stepsize);
+                      *oldp, &newp, upd, stepsize);
                 else
                   s = vp9_prob_diff_update_savings_search(
                       frame_branch_ct[i][j][k][l][t],
@@ -630,7 +622,7 @@ static void update_coef_probs_common(vpx_writer* const bc, VP9_COMP *cpi,
                 if (t == PIVOT_NODE) {
                   s = vp9_prob_diff_update_savings_search_model(
                       frame_branch_ct[i][j][k][l][0],
-                      old_coef_probs[i][j][k][l], &newp, upd, stepsize);
+                      *oldp, &newp, upd, stepsize);
                 } else {
                   s = vp9_prob_diff_update_savings_search(
                       frame_branch_ct[i][j][k][l][t],
@@ -899,7 +891,7 @@ static void write_tile_info(const VP9_COMMON *const cm,
     vpx_wb_write_bit(wb, cm->log2_tile_rows != 1);
 }
 
-static int get_refresh_mask(VP9_COMP *cpi) {
+int vp9_get_refresh_mask(VP9_COMP *cpi) {
   if (vp9_preserve_existing_gf(cpi)) {
     // We have decided to preserve the previously existing golden frame as our
     // new ARF frame. However, in the short term we leave it in the GF slot and,
@@ -1115,11 +1107,11 @@ static void write_uncompressed_header(VP9_COMP *cpi,
         write_bitdepth_colorspace_sampling(cm, wb);
       }
 
-      vpx_wb_write_literal(wb, get_refresh_mask(cpi), REF_FRAMES);
+      vpx_wb_write_literal(wb, vp9_get_refresh_mask(cpi), REF_FRAMES);
       write_frame_size(cm, wb);
     } else {
       MV_REFERENCE_FRAME ref_frame;
-      vpx_wb_write_literal(wb, get_refresh_mask(cpi), REF_FRAMES);
+      vpx_wb_write_literal(wb, vp9_get_refresh_mask(cpi), REF_FRAMES);
       for (ref_frame = LAST_FRAME; ref_frame <= ALTREF_FRAME; ++ref_frame) {
         assert(get_ref_frame_map_idx(cpi, ref_frame) != INVALID_IDX);
         vpx_wb_write_literal(wb, get_ref_frame_map_idx(cpi, ref_frame),

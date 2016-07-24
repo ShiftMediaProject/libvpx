@@ -27,15 +27,6 @@
 extern "C" {
 #endif
 
-// TODO(hkuang): combine this with TileWorkerData.
-typedef struct TileData {
-  VP9_COMMON *cm;
-  vpx_reader bit_reader;
-  DECLARE_ALIGNED(16, MACROBLOCKD, xd);
-  /* dqcoeff are shared by all the planes. So planes must be decoded serially */
-  DECLARE_ALIGNED(16, tran_low_t, dqcoeff[32 * 32]);
-} TileData;
-
 typedef struct TileBuffer {
   const uint8_t *data;
   size_t size;
@@ -74,8 +65,6 @@ typedef struct VP9Decoder {
   TileWorkerData *tile_worker_data;
   TileBuffer tile_buffers[64];
   int num_tile_workers;
-
-  TileData *tile_data;
   int total_tiles;
 
   VP9LfSync lf_row_sync;
@@ -128,7 +117,7 @@ void vp9_decoder_remove(struct VP9Decoder *pbi);
 
 static INLINE void decrease_ref_count(int idx, RefCntBuffer *const frame_bufs,
                                       BufferPool *const pool) {
-  if (idx >= 0) {
+  if (idx >= 0 && frame_bufs[idx].ref_count > 0) {
     --frame_bufs[idx].ref_count;
     // A worker may only get a free framebuffer index when calling get_free_fb.
     // But the private buffer is not set up until finish decoding header.

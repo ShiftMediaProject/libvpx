@@ -189,54 +189,31 @@ static void inverse_transform_block_inter(MACROBLOCKD* xd, int plane,
                                           uint8_t *dst, int stride,
                                           int eob) {
   struct macroblockd_plane *const pd = &xd->plane[plane];
-  if (eob > 0) {
-    tran_low_t *const dqcoeff = pd->dqcoeff;
+  tran_low_t *const dqcoeff = pd->dqcoeff;
+  assert(eob > 0);
 #if CONFIG_VP9_HIGHBITDEPTH
-    if (xd->cur_buf->flags & YV12_FLAG_HIGHBITDEPTH) {
-      if (xd->lossless) {
-        vp9_highbd_iwht4x4_add(dqcoeff, dst, stride, eob, xd->bd);
-      } else {
-        switch (tx_size) {
-          case TX_4X4:
-            vp9_highbd_idct4x4_add(dqcoeff, dst, stride, eob, xd->bd);
-            break;
-          case TX_8X8:
-            vp9_highbd_idct8x8_add(dqcoeff, dst, stride, eob, xd->bd);
-            break;
-          case TX_16X16:
-            vp9_highbd_idct16x16_add(dqcoeff, dst, stride, eob, xd->bd);
-            break;
-          case TX_32X32:
-            vp9_highbd_idct32x32_add(dqcoeff, dst, stride, eob, xd->bd);
-            break;
-          default:
-            assert(0 && "Invalid transform size");
-        }
-      }
+  if (xd->cur_buf->flags & YV12_FLAG_HIGHBITDEPTH) {
+    if (xd->lossless) {
+      vp9_highbd_iwht4x4_add(dqcoeff, dst, stride, eob, xd->bd);
     } else {
-      if (xd->lossless) {
-        vp9_iwht4x4_add(dqcoeff, dst, stride, eob);
-      } else {
-        switch (tx_size) {
-          case TX_4X4:
-            vp9_idct4x4_add(dqcoeff, dst, stride, eob);
-            break;
-          case TX_8X8:
-            vp9_idct8x8_add(dqcoeff, dst, stride, eob);
-            break;
-          case TX_16X16:
-            vp9_idct16x16_add(dqcoeff, dst, stride, eob);
-            break;
-          case TX_32X32:
-            vp9_idct32x32_add(dqcoeff, dst, stride, eob);
-            break;
-          default:
-            assert(0 && "Invalid transform size");
-            return;
-        }
+      switch (tx_size) {
+        case TX_4X4:
+          vp9_highbd_idct4x4_add(dqcoeff, dst, stride, eob, xd->bd);
+          break;
+        case TX_8X8:
+          vp9_highbd_idct8x8_add(dqcoeff, dst, stride, eob, xd->bd);
+          break;
+        case TX_16X16:
+          vp9_highbd_idct16x16_add(dqcoeff, dst, stride, eob, xd->bd);
+          break;
+        case TX_32X32:
+          vp9_highbd_idct32x32_add(dqcoeff, dst, stride, eob, xd->bd);
+          break;
+        default:
+          assert(0 && "Invalid transform size");
       }
     }
-#else
+  } else {
     if (xd->lossless) {
       vp9_iwht4x4_add(dqcoeff, dst, stride, eob);
     } else {
@@ -258,18 +235,40 @@ static void inverse_transform_block_inter(MACROBLOCKD* xd, int plane,
           return;
       }
     }
+  }
+#else
+  if (xd->lossless) {
+    vp9_iwht4x4_add(dqcoeff, dst, stride, eob);
+  } else {
+    switch (tx_size) {
+      case TX_4X4:
+        vp9_idct4x4_add(dqcoeff, dst, stride, eob);
+        break;
+      case TX_8X8:
+        vp9_idct8x8_add(dqcoeff, dst, stride, eob);
+        break;
+      case TX_16X16:
+        vp9_idct16x16_add(dqcoeff, dst, stride, eob);
+        break;
+      case TX_32X32:
+        vp9_idct32x32_add(dqcoeff, dst, stride, eob);
+        break;
+      default:
+        assert(0 && "Invalid transform size");
+        return;
+    }
+  }
 #endif  // CONFIG_VP9_HIGHBITDEPTH
 
-    if (eob == 1) {
-      dqcoeff[0] = 0;
-    } else {
-      if (tx_size <= TX_16X16 && eob <= 10)
-        memset(dqcoeff, 0, 4 * (4 << tx_size) * sizeof(dqcoeff[0]));
-      else if (tx_size == TX_32X32 && eob <= 34)
-        memset(dqcoeff, 0, 256 * sizeof(dqcoeff[0]));
-      else
-        memset(dqcoeff, 0, (16 << (tx_size << 1)) * sizeof(dqcoeff[0]));
-    }
+  if (eob == 1) {
+    dqcoeff[0] = 0;
+  } else {
+    if (tx_size <= TX_16X16 && eob <= 10)
+      memset(dqcoeff, 0, 4 * (4 << tx_size) * sizeof(dqcoeff[0]));
+    else if (tx_size == TX_32X32 && eob <= 34)
+      memset(dqcoeff, 0, 256 * sizeof(dqcoeff[0]));
+    else
+      memset(dqcoeff, 0, (16 << (tx_size << 1)) * sizeof(dqcoeff[0]));
   }
 }
 
@@ -279,54 +278,31 @@ static void inverse_transform_block_intra(MACROBLOCKD* xd, int plane,
                                           uint8_t *dst, int stride,
                                           int eob) {
   struct macroblockd_plane *const pd = &xd->plane[plane];
-  if (eob > 0) {
-    tran_low_t *const dqcoeff = pd->dqcoeff;
+  tran_low_t *const dqcoeff = pd->dqcoeff;
+  assert(eob > 0);
 #if CONFIG_VP9_HIGHBITDEPTH
-    if (xd->cur_buf->flags & YV12_FLAG_HIGHBITDEPTH) {
-      if (xd->lossless) {
-        vp9_highbd_iwht4x4_add(dqcoeff, dst, stride, eob, xd->bd);
-      } else {
-        switch (tx_size) {
-          case TX_4X4:
-            vp9_highbd_iht4x4_add(tx_type, dqcoeff, dst, stride, eob, xd->bd);
-            break;
-          case TX_8X8:
-            vp9_highbd_iht8x8_add(tx_type, dqcoeff, dst, stride, eob, xd->bd);
-            break;
-          case TX_16X16:
-            vp9_highbd_iht16x16_add(tx_type, dqcoeff, dst, stride, eob, xd->bd);
-            break;
-          case TX_32X32:
-            vp9_highbd_idct32x32_add(dqcoeff, dst, stride, eob, xd->bd);
-            break;
-          default:
-            assert(0 && "Invalid transform size");
-        }
-      }
+  if (xd->cur_buf->flags & YV12_FLAG_HIGHBITDEPTH) {
+    if (xd->lossless) {
+      vp9_highbd_iwht4x4_add(dqcoeff, dst, stride, eob, xd->bd);
     } else {
-      if (xd->lossless) {
-        vp9_iwht4x4_add(dqcoeff, dst, stride, eob);
-      } else {
-        switch (tx_size) {
-          case TX_4X4:
-            vp9_iht4x4_add(tx_type, dqcoeff, dst, stride, eob);
-            break;
-          case TX_8X8:
-            vp9_iht8x8_add(tx_type, dqcoeff, dst, stride, eob);
-            break;
-          case TX_16X16:
-            vp9_iht16x16_add(tx_type, dqcoeff, dst, stride, eob);
-            break;
-          case TX_32X32:
-            vp9_idct32x32_add(dqcoeff, dst, stride, eob);
-            break;
-          default:
-            assert(0 && "Invalid transform size");
-            return;
-        }
+      switch (tx_size) {
+        case TX_4X4:
+          vp9_highbd_iht4x4_add(tx_type, dqcoeff, dst, stride, eob, xd->bd);
+          break;
+        case TX_8X8:
+          vp9_highbd_iht8x8_add(tx_type, dqcoeff, dst, stride, eob, xd->bd);
+          break;
+        case TX_16X16:
+          vp9_highbd_iht16x16_add(tx_type, dqcoeff, dst, stride, eob, xd->bd);
+          break;
+        case TX_32X32:
+          vp9_highbd_idct32x32_add(dqcoeff, dst, stride, eob, xd->bd);
+          break;
+        default:
+          assert(0 && "Invalid transform size");
       }
     }
-#else
+  } else {
     if (xd->lossless) {
       vp9_iwht4x4_add(dqcoeff, dst, stride, eob);
     } else {
@@ -348,33 +324,55 @@ static void inverse_transform_block_intra(MACROBLOCKD* xd, int plane,
           return;
       }
     }
+  }
+#else
+  if (xd->lossless) {
+    vp9_iwht4x4_add(dqcoeff, dst, stride, eob);
+  } else {
+    switch (tx_size) {
+      case TX_4X4:
+        vp9_iht4x4_add(tx_type, dqcoeff, dst, stride, eob);
+        break;
+      case TX_8X8:
+        vp9_iht8x8_add(tx_type, dqcoeff, dst, stride, eob);
+        break;
+      case TX_16X16:
+        vp9_iht16x16_add(tx_type, dqcoeff, dst, stride, eob);
+        break;
+      case TX_32X32:
+        vp9_idct32x32_add(dqcoeff, dst, stride, eob);
+        break;
+      default:
+        assert(0 && "Invalid transform size");
+        return;
+    }
+  }
 #endif  // CONFIG_VP9_HIGHBITDEPTH
 
-    if (eob == 1) {
-      dqcoeff[0] = 0;
-    } else {
-      if (tx_type == DCT_DCT && tx_size <= TX_16X16 && eob <= 10)
-        memset(dqcoeff, 0, 4 * (4 << tx_size) * sizeof(dqcoeff[0]));
-      else if (tx_size == TX_32X32 && eob <= 34)
-        memset(dqcoeff, 0, 256 * sizeof(dqcoeff[0]));
-      else
-        memset(dqcoeff, 0, (16 << (tx_size << 1)) * sizeof(dqcoeff[0]));
-    }
+  if (eob == 1) {
+    dqcoeff[0] = 0;
+  } else {
+    if (tx_type == DCT_DCT && tx_size <= TX_16X16 && eob <= 10)
+      memset(dqcoeff, 0, 4 * (4 << tx_size) * sizeof(dqcoeff[0]));
+    else if (tx_size == TX_32X32 && eob <= 34)
+      memset(dqcoeff, 0, 256 * sizeof(dqcoeff[0]));
+    else
+      memset(dqcoeff, 0, (16 << (tx_size << 1)) * sizeof(dqcoeff[0]));
   }
 }
 
 static void predict_and_reconstruct_intra_block(MACROBLOCKD *const xd,
                                                 vpx_reader *r,
-                                                MB_MODE_INFO *const mbmi,
+                                                MODE_INFO *const mi,
                                                 int plane,
                                                 int row, int col,
                                                 TX_SIZE tx_size) {
   struct macroblockd_plane *const pd = &xd->plane[plane];
-  PREDICTION_MODE mode = (plane == 0) ? mbmi->mode : mbmi->uv_mode;
+  PREDICTION_MODE mode = (plane == 0) ? mi->mode : mi->uv_mode;
   uint8_t *dst;
   dst = &pd->dst.buf[4 * row * pd->dst.stride + 4 * col];
 
-  if (mbmi->sb_type < BLOCK_8X8)
+  if (mi->sb_type < BLOCK_8X8)
     if (plane == 0)
       mode = xd->mi[0]->bmi[(row << 1) + col].as_mode;
 
@@ -382,29 +380,33 @@ static void predict_and_reconstruct_intra_block(MACROBLOCKD *const xd,
                           dst, pd->dst.stride, dst, pd->dst.stride,
                           col, row, plane);
 
-  if (!mbmi->skip) {
+  if (!mi->skip) {
     const TX_TYPE tx_type = (plane || xd->lossless) ?
         DCT_DCT : intra_mode_to_tx_type_lookup[mode];
     const scan_order *sc = (plane || xd->lossless) ?
         &vp9_default_scan_orders[tx_size] : &vp9_scan_orders[tx_size][tx_type];
     const int eob = vp9_decode_block_tokens(xd, plane, sc, col, row, tx_size,
-                                            r, mbmi->segment_id);
-    inverse_transform_block_intra(xd, plane, tx_type, tx_size,
-                                  dst, pd->dst.stride, eob);
+                                            r, mi->segment_id);
+    if (eob > 0) {
+      inverse_transform_block_intra(xd, plane, tx_type, tx_size,
+                                    dst, pd->dst.stride, eob);
+    }
   }
 }
 
 static int reconstruct_inter_block(MACROBLOCKD *const xd, vpx_reader *r,
-                                   MB_MODE_INFO *const mbmi, int plane,
+                                   MODE_INFO *const mi, int plane,
                                    int row, int col, TX_SIZE tx_size) {
   struct macroblockd_plane *const pd = &xd->plane[plane];
   const scan_order *sc = &vp9_default_scan_orders[tx_size];
   const int eob = vp9_decode_block_tokens(xd, plane, sc, col, row, tx_size, r,
-                                          mbmi->segment_id);
+                                          mi->segment_id);
 
-  inverse_transform_block_inter(xd, plane, tx_size,
-                            &pd->dst.buf[4 * row * pd->dst.stride + 4 * col],
-                            pd->dst.stride, eob);
+  if (eob > 0) {
+    inverse_transform_block_inter(
+        xd, plane, tx_size, &pd->dst.buf[4 * row * pd->dst.stride + 4 * col],
+        pd->dst.stride, eob);
+  }
   return eob;
 }
 
@@ -523,8 +525,8 @@ static void extend_and_predict(const uint8_t *buf_ptr1, int pre_buf_stride,
   }
 
   if (xd->cur_buf->flags & YV12_FLAG_HIGHBITDEPTH) {
-    high_inter_predictor(buf_ptr, b_w, dst, dst_buf_stride, subpel_x,
-                         subpel_y, sf, w, h, ref, kernel, xs, ys, xd->bd);
+    highbd_inter_predictor(buf_ptr, b_w, dst, dst_buf_stride, subpel_x,
+                           subpel_y, sf, w, h, ref, kernel, xs, ys, xd->bd);
   } else {
     inter_predictor(buf_ptr, b_w, dst, dst_buf_stride, subpel_x,
                     subpel_y, sf, w, h, ref, kernel, xs, ys);
@@ -552,7 +554,7 @@ static void extend_and_predict(const uint8_t *buf_ptr1, int pre_buf_stride,
 }
 #endif  // CONFIG_VP9_HIGHBITDEPTH
 
-static void dec_build_inter_predictors(VP9Decoder *const pbi, MACROBLOCKD *xd,
+static void dec_build_inter_predictors(VPxWorker *const worker, MACROBLOCKD *xd,
                                        int plane, int bw, int bh, int x,
                                        int y, int w, int h, int mi_x, int mi_y,
                                        const InterpKernel *kernel,
@@ -587,7 +589,12 @@ static void dec_build_inter_predictors(VP9Decoder *const pbi, MACROBLOCKD *xd,
     // Co-ordinate of containing block to pixel precision.
     int x_start = (-xd->mb_to_left_edge >> (3 + pd->subsampling_x));
     int y_start = (-xd->mb_to_top_edge >> (3 + pd->subsampling_y));
-
+#if CONFIG_BETTER_HW_COMPATIBILITY
+    assert(xd->mi[0]->sb_type != BLOCK_4X8 &&
+           xd->mi[0]->sb_type != BLOCK_8X4);
+    assert(mv_q4.row == mv->row * (1 << (1 - pd->subsampling_y)) &&
+           mv_q4.col == mv->col * (1 << (1 - pd->subsampling_x)));
+#endif
     // Co-ordinate of the block to 1/16th pixel precision.
     x0_16 = (x_start + x) << SUBPEL_BITS;
     y0_16 = (y_start + y) << SUBPEL_BITS;
@@ -657,8 +664,8 @@ static void dec_build_inter_predictors(VP9Decoder *const pbi, MACROBLOCKD *xd,
 
     // Wait until reference block is ready. Pad 7 more pixels as last 7
     // pixels of each superblock row can be changed by next superblock row.
-    if (pbi->frame_parallel_decode)
-      vp9_frameworker_wait(pbi->frame_worker_owner, ref_frame_buf,
+    if (worker != NULL)
+      vp9_frameworker_wait(worker, ref_frame_buf,
                            VPXMAX(0, (y1 + 7)) << (plane == 0 ? 0 : 1));
 
     // Skip border extension if block is inside the frame.
@@ -684,16 +691,16 @@ static void dec_build_inter_predictors(VP9Decoder *const pbi, MACROBLOCKD *xd,
   } else {
     // Wait until reference block is ready. Pad 7 more pixels as last 7
     // pixels of each superblock row can be changed by next superblock row.
-     if (pbi->frame_parallel_decode) {
-       const int y1 = (y0_16 + (h - 1) * ys) >> SUBPEL_BITS;
-       vp9_frameworker_wait(pbi->frame_worker_owner, ref_frame_buf,
-                            VPXMAX(0, (y1 + 7)) << (plane == 0 ? 0 : 1));
-     }
+    if (worker != NULL) {
+      const int y1 = (y0_16 + (h - 1) * ys) >> SUBPEL_BITS;
+      vp9_frameworker_wait(worker, ref_frame_buf,
+                           VPXMAX(0, (y1 + 7)) << (plane == 0 ? 0 : 1));
+    }
   }
 #if CONFIG_VP9_HIGHBITDEPTH
   if (xd->cur_buf->flags & YV12_FLAG_HIGHBITDEPTH) {
-    high_inter_predictor(buf_ptr, buf_stride, dst, dst_buf->stride, subpel_x,
-                         subpel_y, sf, w, h, ref, kernel, xs, ys, xd->bd);
+    highbd_inter_predictor(buf_ptr, buf_stride, dst, dst_buf->stride, subpel_x,
+                           subpel_y, sf, w, h, ref, kernel, xs, ys, xd->bd);
   } else {
     inter_predictor(buf_ptr, buf_stride, dst, dst_buf->stride, subpel_x,
                     subpel_y, sf, w, h, ref, kernel, xs, ys);
@@ -711,55 +718,75 @@ static void dec_build_inter_predictors_sb(VP9Decoder *const pbi,
   const int mi_x = mi_col * MI_SIZE;
   const int mi_y = mi_row * MI_SIZE;
   const MODE_INFO *mi = xd->mi[0];
-  const InterpKernel *kernel = vp9_filter_kernels[mi->mbmi.interp_filter];
-  const BLOCK_SIZE sb_type = mi->mbmi.sb_type;
-  const int is_compound = has_second_ref(&mi->mbmi);
+  const InterpKernel *kernel = vp9_filter_kernels[mi->interp_filter];
+  const BLOCK_SIZE sb_type = mi->sb_type;
+  const int is_compound = has_second_ref(mi);
+  int ref;
+  int is_scaled;
+  VPxWorker *const fwo = pbi->frame_parallel_decode ?
+      pbi->frame_worker_owner : NULL;
 
-  for (plane = 0; plane < MAX_MB_PLANE; ++plane) {
-    struct macroblockd_plane *const pd = &xd->plane[plane];
-    struct buf_2d *const dst_buf = &pd->dst;
-    const int num_4x4_w = pd->n4_w;
-    const int num_4x4_h = pd->n4_h;
+  for (ref = 0; ref < 1 + is_compound; ++ref) {
+    const MV_REFERENCE_FRAME frame = mi->ref_frame[ref];
+    RefBuffer *ref_buf = &pbi->common.frame_refs[frame - LAST_FRAME];
+    const struct scale_factors *const sf = &ref_buf->sf;
+    const int idx = ref_buf->idx;
+    BufferPool *const pool = pbi->common.buffer_pool;
+    RefCntBuffer *const ref_frame_buf = &pool->frame_bufs[idx];
 
-    const int n4w_x4 = 4 * num_4x4_w;
-    const int n4h_x4 = 4 * num_4x4_h;
-    int ref;
+    if (!vp9_is_valid_scale(sf))
+      vpx_internal_error(xd->error_info, VPX_CODEC_UNSUP_BITSTREAM,
+                         "Reference frame has invalid dimensions");
 
-    for (ref = 0; ref < 1 + is_compound; ++ref) {
-      const struct scale_factors *const sf = &xd->block_refs[ref]->sf;
-      struct buf_2d *const pre_buf = &pd->pre[ref];
-      const int idx = xd->block_refs[ref]->idx;
-      BufferPool *const pool = pbi->common.buffer_pool;
-      RefCntBuffer *const ref_frame_buf = &pool->frame_bufs[idx];
-      const int is_scaled = vp9_is_scaled(sf);
+    is_scaled = vp9_is_scaled(sf);
+    vp9_setup_pre_planes(xd, ref, ref_buf->buf, mi_row, mi_col,
+                         is_scaled ? sf : NULL);
+    xd->block_refs[ref] = ref_buf;
 
-      if (sb_type < BLOCK_8X8) {
+    if (sb_type < BLOCK_8X8) {
+      for (plane = 0; plane < MAX_MB_PLANE; ++plane) {
+        struct macroblockd_plane *const pd = &xd->plane[plane];
+        struct buf_2d *const dst_buf = &pd->dst;
+        const int num_4x4_w = pd->n4_w;
+        const int num_4x4_h = pd->n4_h;
+        const int n4w_x4 = 4 * num_4x4_w;
+        const int n4h_x4 = 4 * num_4x4_h;
+        struct buf_2d *const pre_buf = &pd->pre[ref];
         int i = 0, x, y;
         for (y = 0; y < num_4x4_h; ++y) {
           for (x = 0; x < num_4x4_w; ++x) {
             const MV mv = average_split_mvs(pd, mi, ref, i++);
-            dec_build_inter_predictors(pbi, xd, plane, n4w_x4, n4h_x4,
+            dec_build_inter_predictors(fwo, xd, plane, n4w_x4, n4h_x4,
                                        4 * x, 4 * y, 4, 4, mi_x, mi_y, kernel,
                                        sf, pre_buf, dst_buf, &mv,
                                        ref_frame_buf, is_scaled, ref);
           }
         }
-      } else {
-        const MV mv = mi->mbmi.mv[ref].as_mv;
-        dec_build_inter_predictors(pbi, xd, plane, n4w_x4, n4h_x4,
+      }
+    } else {
+      const MV mv = mi->mv[ref].as_mv;
+      for (plane = 0; plane < MAX_MB_PLANE; ++plane) {
+        struct macroblockd_plane *const pd = &xd->plane[plane];
+        struct buf_2d *const dst_buf = &pd->dst;
+        const int num_4x4_w = pd->n4_w;
+        const int num_4x4_h = pd->n4_h;
+        const int n4w_x4 = 4 * num_4x4_w;
+        const int n4h_x4 = 4 * num_4x4_h;
+        struct buf_2d *const pre_buf = &pd->pre[ref];
+        dec_build_inter_predictors(fwo, xd, plane, n4w_x4, n4h_x4,
                                    0, 0, n4w_x4, n4h_x4, mi_x, mi_y, kernel,
-                                   sf, pre_buf, dst_buf, &mv, ref_frame_buf,
-                                   is_scaled, ref);
+                                   sf, pre_buf, dst_buf, &mv,
+                                   ref_frame_buf, is_scaled, ref);
       }
     }
   }
 }
 
-static INLINE TX_SIZE dec_get_uv_tx_size(const MB_MODE_INFO *mbmi,
+static INLINE TX_SIZE dec_get_uv_tx_size(const MODE_INFO *mi,
                                          int n4_wl, int n4_hl) {
   // get minimum log2 num4x4s dimension
   const int x = VPXMIN(n4_wl, n4_hl);
-  return VPXMIN(mbmi->tx_size,  x);
+  return VPXMIN(mi->tx_size,  x);
 }
 
 static INLINE void dec_reset_skip_context(MACROBLOCKD *xd) {
@@ -782,10 +809,10 @@ static void set_plane_n4(MACROBLOCKD *const xd, int bw, int bh, int bwl,
   }
 }
 
-static MB_MODE_INFO *set_offsets(VP9_COMMON *const cm, MACROBLOCKD *const xd,
-                                 BLOCK_SIZE bsize, int mi_row, int mi_col,
-                                 int bw, int bh, int x_mis, int y_mis,
-                                 int bwl, int bhl) {
+static MODE_INFO *set_offsets(VP9_COMMON *const cm, MACROBLOCKD *const xd,
+                              BLOCK_SIZE bsize, int mi_row, int mi_col,
+                              int bw, int bh, int x_mis, int y_mis,
+                              int bwl, int bhl) {
   const int offset = mi_row * cm->mi_stride + mi_col;
   int x, y;
   const TileInfo *const tile = &xd->tile;
@@ -794,7 +821,7 @@ static MB_MODE_INFO *set_offsets(VP9_COMMON *const cm, MACROBLOCKD *const xd,
   xd->mi[0] = &cm->mi[offset];
   // TODO(slavarnway): Generate sb_type based on bwl and bhl, instead of
   // passing bsize from decode_partition().
-  xd->mi[0]->mbmi.sb_type = bsize;
+  xd->mi[0]->sb_type = bsize;
   for (y = 0; y < y_mis; ++y)
     for (x = !y; x < x_mis; ++x) {
       xd->mi[y * cm->mi_stride + x] = xd->mi[0];
@@ -809,7 +836,7 @@ static MB_MODE_INFO *set_offsets(VP9_COMMON *const cm, MACROBLOCKD *const xd,
   set_mi_row_col(xd, tile, mi_row, bh, mi_col, bw, cm->mi_rows, cm->mi_cols);
 
   vp9_setup_dst_planes(xd->plane, get_frame_new_buffer(cm), mi_row, mi_col);
-  return &xd->mi[0]->mbmi;
+  return xd->mi[0];
 }
 
 static void decode_block(VP9Decoder *const pbi, MACROBLOCKD *const xd,
@@ -823,8 +850,8 @@ static void decode_block(VP9Decoder *const pbi, MACROBLOCKD *const xd,
   const int x_mis = VPXMIN(bw, cm->mi_cols - mi_col);
   const int y_mis = VPXMIN(bh, cm->mi_rows - mi_row);
 
-  MB_MODE_INFO *mbmi = set_offsets(cm, xd, bsize, mi_row, mi_col,
-                                   bw, bh, x_mis, y_mis, bwl, bhl);
+  MODE_INFO *mi = set_offsets(cm, xd, bsize, mi_row, mi_col,
+                              bw, bh, x_mis, y_mis, bwl, bhl);
 
   if (bsize >= BLOCK_8X8 && (cm->subsampling_x || cm->subsampling_y)) {
     const BLOCK_SIZE uv_subsize =
@@ -834,19 +861,19 @@ static void decode_block(VP9Decoder *const pbi, MACROBLOCKD *const xd,
                          VPX_CODEC_CORRUPT_FRAME, "Invalid block size.");
   }
 
-  vpx_read_mode_info(pbi, xd, mi_row, mi_col, r, x_mis, y_mis);
+  vp9_read_mode_info(pbi, xd, mi_row, mi_col, r, x_mis, y_mis);
 
-  if (mbmi->skip) {
+  if (mi->skip) {
     dec_reset_skip_context(xd);
   }
 
-  if (!is_inter_block(mbmi)) {
+  if (!is_inter_block(mi)) {
     int plane;
     for (plane = 0; plane < MAX_MB_PLANE; ++plane) {
       const struct macroblockd_plane *const pd = &xd->plane[plane];
       const TX_SIZE tx_size =
-          plane ? dec_get_uv_tx_size(mbmi, pd->n4_wl, pd->n4_hl)
-                  : mbmi->tx_size;
+          plane ? dec_get_uv_tx_size(mi, pd->n4_wl, pd->n4_hl)
+                  : mi->tx_size;
       const int num_4x4_w = pd->n4_w;
       const int num_4x4_h = pd->n4_h;
       const int step = (1 << tx_size);
@@ -856,9 +883,12 @@ static void decode_block(VP9Decoder *const pbi, MACROBLOCKD *const xd,
       const int max_blocks_high = num_4x4_h + (xd->mb_to_bottom_edge >= 0 ?
           0 : xd->mb_to_bottom_edge >> (5 + pd->subsampling_y));
 
+      xd->max_blocks_wide = xd->mb_to_right_edge >= 0 ? 0 : max_blocks_wide;
+      xd->max_blocks_high = xd->mb_to_bottom_edge >= 0 ? 0 : max_blocks_high;
+
       for (row = 0; row < max_blocks_high; row += step)
         for (col = 0; col < max_blocks_wide; col += step)
-          predict_and_reconstruct_intra_block(xd, r, mbmi, plane,
+          predict_and_reconstruct_intra_block(xd, r, mi, plane,
                                               row, col, tx_size);
     }
   } else {
@@ -866,15 +896,15 @@ static void decode_block(VP9Decoder *const pbi, MACROBLOCKD *const xd,
     dec_build_inter_predictors_sb(pbi, xd, mi_row, mi_col);
 
     // Reconstruction
-    if (!mbmi->skip) {
+    if (!mi->skip) {
       int eobtotal = 0;
       int plane;
 
       for (plane = 0; plane < MAX_MB_PLANE; ++plane) {
         const struct macroblockd_plane *const pd = &xd->plane[plane];
         const TX_SIZE tx_size =
-            plane ? dec_get_uv_tx_size(mbmi, pd->n4_wl, pd->n4_hl)
-                    : mbmi->tx_size;
+            plane ? dec_get_uv_tx_size(mi, pd->n4_wl, pd->n4_hl)
+                    : mi->tx_size;
         const int num_4x4_w = pd->n4_w;
         const int num_4x4_h = pd->n4_h;
         const int step = (1 << tx_size);
@@ -884,21 +914,24 @@ static void decode_block(VP9Decoder *const pbi, MACROBLOCKD *const xd,
         const int max_blocks_high = num_4x4_h + (xd->mb_to_bottom_edge >= 0 ?
             0 : xd->mb_to_bottom_edge >> (5 + pd->subsampling_y));
 
+        xd->max_blocks_wide = xd->mb_to_right_edge >= 0 ? 0 : max_blocks_wide;
+        xd->max_blocks_high = xd->mb_to_bottom_edge >= 0 ? 0 : max_blocks_high;
+
         for (row = 0; row < max_blocks_high; row += step)
           for (col = 0; col < max_blocks_wide; col += step)
-            eobtotal += reconstruct_inter_block(xd, r, mbmi, plane, row, col,
+            eobtotal += reconstruct_inter_block(xd, r, mi, plane, row, col,
                                                 tx_size);
       }
 
       if (!less8x8 && eobtotal == 0)
-        mbmi->skip = 1;  // skip loopfilter
+        mi->skip = 1;  // skip loopfilter
     }
   }
 
   xd->corrupted |= vpx_reader_has_error(r);
 
   if (cm->lf.filter_level) {
-    vp9_build_mask(cm, mbmi, mi_row, mi_col, bw, bh);
+    vp9_build_mask(cm, mi, mi_row, mi_col, bw, bh);
   }
 }
 
@@ -1196,8 +1229,9 @@ static void resize_mv_buffer(VP9_COMMON *cm) {
   vpx_free(cm->cur_frame->mvs);
   cm->cur_frame->mi_rows = cm->mi_rows;
   cm->cur_frame->mi_cols = cm->mi_cols;
-  cm->cur_frame->mvs = (MV_REF *)vpx_calloc(cm->mi_rows * cm->mi_cols,
-                                            sizeof(*cm->cur_frame->mvs));
+  CHECK_MEM_ERROR(cm, cm->cur_frame->mvs,
+                  (MV_REF *)vpx_calloc(cm->mi_rows * cm->mi_cols,
+                                       sizeof(*cm->cur_frame->mvs)));
 }
 
 static void resize_context_buffers(VP9_COMMON *cm, int width, int height) {
@@ -1281,11 +1315,16 @@ static void setup_frame_size_with_refs(VP9_COMMON *cm,
   BufferPool *const pool = cm->buffer_pool;
   for (i = 0; i < REFS_PER_FRAME; ++i) {
     if (vpx_rb_read_bit(rb)) {
-      YV12_BUFFER_CONFIG *const buf = cm->frame_refs[i].buf;
-      width = buf->y_crop_width;
-      height = buf->y_crop_height;
-      found = 1;
-      break;
+      if (cm->frame_refs[i].idx != INVALID_IDX) {
+        YV12_BUFFER_CONFIG *const buf = cm->frame_refs[i].buf;
+        width = buf->y_crop_width;
+        height = buf->y_crop_height;
+        found = 1;
+        break;
+      } else {
+        vpx_internal_error(&cm->error, VPX_CODEC_CORRUPT_FRAME,
+                           "Failed to decode frame size");
+      }
     }
   }
 
@@ -1300,22 +1339,23 @@ static void setup_frame_size_with_refs(VP9_COMMON *cm,
   // has valid dimensions.
   for (i = 0; i < REFS_PER_FRAME; ++i) {
     RefBuffer *const ref_frame = &cm->frame_refs[i];
-    has_valid_ref_frame |= valid_ref_frame_size(ref_frame->buf->y_crop_width,
-                                                ref_frame->buf->y_crop_height,
-                                                width, height);
+    has_valid_ref_frame |= (ref_frame->idx != INVALID_IDX &&
+                            valid_ref_frame_size(ref_frame->buf->y_crop_width,
+                                                 ref_frame->buf->y_crop_height,
+                                                 width, height));
   }
   if (!has_valid_ref_frame)
     vpx_internal_error(&cm->error, VPX_CODEC_CORRUPT_FRAME,
                        "Referenced frame has invalid size");
   for (i = 0; i < REFS_PER_FRAME; ++i) {
     RefBuffer *const ref_frame = &cm->frame_refs[i];
-    if (!valid_ref_frame_img_fmt(
-            ref_frame->buf->bit_depth,
-            ref_frame->buf->subsampling_x,
-            ref_frame->buf->subsampling_y,
-            cm->bit_depth,
-            cm->subsampling_x,
-            cm->subsampling_y))
+    if (ref_frame->idx == INVALID_IDX ||
+        !valid_ref_frame_img_fmt(ref_frame->buf->bit_depth,
+                                 ref_frame->buf->subsampling_x,
+                                 ref_frame->buf->subsampling_y,
+                                 cm->bit_depth,
+                                 cm->subsampling_x,
+                                 cm->subsampling_y))
       vpx_internal_error(&cm->error, VPX_CODEC_CORRUPT_FRAME,
                          "Referenced frame has incompatible color format");
   }
@@ -1434,7 +1474,7 @@ static const uint8_t *decode_tiles(VP9Decoder *pbi,
   TileBuffer tile_buffers[4][1 << 6];
   int tile_row, tile_col;
   int mi_row, mi_col;
-  TileData *tile_data = NULL;
+  TileWorkerData *tile_data = NULL;
 
   if (cm->lf.filter_level && !cm->skip_loop_filter &&
       pbi->lf_worker.data1 == NULL) {
@@ -1470,28 +1510,17 @@ static const uint8_t *decode_tiles(VP9Decoder *pbi,
 
   get_tile_buffers(pbi, data, data_end, tile_cols, tile_rows, tile_buffers);
 
-  if (pbi->tile_data == NULL ||
-      (tile_cols * tile_rows) != pbi->total_tiles) {
-    vpx_free(pbi->tile_data);
-    CHECK_MEM_ERROR(
-        cm,
-        pbi->tile_data,
-        vpx_memalign(32, tile_cols * tile_rows * (sizeof(*pbi->tile_data))));
-    pbi->total_tiles = tile_rows * tile_cols;
-  }
-
   // Load all tile information into tile_data.
   for (tile_row = 0; tile_row < tile_rows; ++tile_row) {
     for (tile_col = 0; tile_col < tile_cols; ++tile_col) {
       const TileBuffer *const buf = &tile_buffers[tile_row][tile_col];
-      tile_data = pbi->tile_data + tile_cols * tile_row + tile_col;
-      tile_data->cm = cm;
+      tile_data = pbi->tile_worker_data + tile_cols * tile_row + tile_col;
       tile_data->xd = pbi->mb;
       tile_data->xd.corrupted = 0;
-      tile_data->xd.counts = cm->frame_parallel_decoding_mode ?
-                             NULL : &cm->counts;
+      tile_data->xd.counts =
+          cm->frame_parallel_decoding_mode ? NULL : &cm->counts;
       vp9_zero(tile_data->dqcoeff);
-      vp9_tile_init(&tile_data->xd.tile, tile_data->cm, tile_row, tile_col);
+      vp9_tile_init(&tile_data->xd.tile, cm, tile_row, tile_col);
       setup_token_decoder(buf->data, data_end, buf->size, &cm->error,
                           &tile_data->bit_reader, pbi->decrypt_cb,
                           pbi->decrypt_state);
@@ -1507,8 +1536,8 @@ static const uint8_t *decode_tiles(VP9Decoder *pbi,
       for (tile_col = 0; tile_col < tile_cols; ++tile_col) {
         const int col = pbi->inv_tile_order ?
                         tile_cols - tile_col - 1 : tile_col;
-        tile_data = pbi->tile_data + tile_cols * tile_row + col;
-        vp9_tile_set_col(&tile, tile_data->cm, col);
+        tile_data = pbi->tile_worker_data + tile_cols * tile_row + col;
+        vp9_tile_set_col(&tile, cm, col);
         vp9_zero(tile_data->xd.left_context);
         vp9_zero(tile_data->xd.left_seg_context);
         for (mi_col = tile.mi_col_start; mi_col < tile.mi_col_end;
@@ -1560,7 +1589,7 @@ static const uint8_t *decode_tiles(VP9Decoder *pbi,
   }
 
   // Get last tile data.
-  tile_data = pbi->tile_data + tile_cols * tile_rows - 1;
+  tile_data = pbi->tile_worker_data + tile_cols * tile_rows - 1;
 
   if (pbi->frame_parallel_decode)
     vp9_frameworker_broadcast(pbi->cur_buf, INT_MAX);
@@ -1645,12 +1674,6 @@ static const uint8_t *decode_tiles_mt(VP9Decoder *pbi,
     const int num_threads = pbi->max_threads;
     CHECK_MEM_ERROR(cm, pbi->tile_workers,
                     vpx_malloc(num_threads * sizeof(*pbi->tile_workers)));
-    // Ensure tile data offsets will be properly aligned. This may fail on
-    // platforms without DECLARE_ALIGNED().
-    assert((sizeof(*pbi->tile_worker_data) % 16) == 0);
-    CHECK_MEM_ERROR(cm, pbi->tile_worker_data,
-                    vpx_memalign(32, num_threads *
-                                 sizeof(*pbi->tile_worker_data)));
     for (n = 0; n < num_threads; ++n) {
       VPxWorker *const worker = &pbi->tile_workers[n];
       ++pbi->num_tile_workers;
@@ -1666,7 +1689,8 @@ static const uint8_t *decode_tiles_mt(VP9Decoder *pbi,
   // Reset tile decoding hook
   for (n = 0; n < num_workers; ++n) {
     VPxWorker *const worker = &pbi->tile_workers[n];
-    TileWorkerData *const tile_data = &pbi->tile_worker_data[n];
+    TileWorkerData *const tile_data =
+        &pbi->tile_worker_data[n + pbi->total_tiles];
     winterface->sync(worker);
     tile_data->xd = pbi->mb;
     tile_data->xd.counts =
@@ -1979,6 +2003,8 @@ static size_t read_uncompressed_header(VP9Decoder *pbi,
   if (!cm->error_resilient_mode) {
     cm->refresh_frame_context = vpx_rb_read_bit(rb);
     cm->frame_parallel_decoding_mode = vpx_rb_read_bit(rb);
+    if (!cm->frame_parallel_decoding_mode)
+      vp9_zero(cm->counts);
   } else {
     cm->refresh_frame_context = 0;
     cm->frame_parallel_decoding_mode = 1;
@@ -2082,43 +2108,6 @@ static int read_compressed_header(VP9Decoder *pbi, const uint8_t *data,
   return vpx_reader_has_error(&r);
 }
 
-#ifdef NDEBUG
-#define debug_check_frame_counts(cm) (void)0
-#else  // !NDEBUG
-// Counts should only be incremented when frame_parallel_decoding_mode and
-// error_resilient_mode are disabled.
-static void debug_check_frame_counts(const VP9_COMMON *const cm) {
-  FRAME_COUNTS zero_counts;
-  vp9_zero(zero_counts);
-  assert(cm->frame_parallel_decoding_mode || cm->error_resilient_mode);
-  assert(!memcmp(cm->counts.y_mode, zero_counts.y_mode,
-                 sizeof(cm->counts.y_mode)));
-  assert(!memcmp(cm->counts.uv_mode, zero_counts.uv_mode,
-                 sizeof(cm->counts.uv_mode)));
-  assert(!memcmp(cm->counts.partition, zero_counts.partition,
-                 sizeof(cm->counts.partition)));
-  assert(!memcmp(cm->counts.coef, zero_counts.coef,
-                 sizeof(cm->counts.coef)));
-  assert(!memcmp(cm->counts.eob_branch, zero_counts.eob_branch,
-                 sizeof(cm->counts.eob_branch)));
-  assert(!memcmp(cm->counts.switchable_interp, zero_counts.switchable_interp,
-                 sizeof(cm->counts.switchable_interp)));
-  assert(!memcmp(cm->counts.inter_mode, zero_counts.inter_mode,
-                 sizeof(cm->counts.inter_mode)));
-  assert(!memcmp(cm->counts.intra_inter, zero_counts.intra_inter,
-                 sizeof(cm->counts.intra_inter)));
-  assert(!memcmp(cm->counts.comp_inter, zero_counts.comp_inter,
-                 sizeof(cm->counts.comp_inter)));
-  assert(!memcmp(cm->counts.single_ref, zero_counts.single_ref,
-                 sizeof(cm->counts.single_ref)));
-  assert(!memcmp(cm->counts.comp_ref, zero_counts.comp_ref,
-                 sizeof(cm->counts.comp_ref)));
-  assert(!memcmp(&cm->counts.tx, &zero_counts.tx, sizeof(cm->counts.tx)));
-  assert(!memcmp(cm->counts.skip, zero_counts.skip, sizeof(cm->counts.skip)));
-  assert(!memcmp(&cm->counts.mv, &zero_counts.mv, sizeof(cm->counts.mv)));
-}
-#endif  // NDEBUG
-
 static struct vpx_read_bit_buffer *init_read_bit_buffer(
     VP9Decoder *pbi,
     struct vpx_read_bit_buffer *rb,
@@ -2202,8 +2191,6 @@ void vp9_decode_frame(VP9Decoder *pbi,
     vpx_internal_error(&cm->error, VPX_CODEC_CORRUPT_FRAME,
                        "Uninitialized entropy context.");
 
-  vp9_zero(cm->counts);
-
   xd->corrupted = 0;
   new_fb->corrupted = read_compressed_header(pbi, data, first_partition_size);
   if (new_fb->corrupted)
@@ -2230,6 +2217,19 @@ void vp9_decode_frame(VP9Decoder *pbi,
     // Signal the main thread that context is ready.
     vp9_frameworker_signal_stats(worker);
     vp9_frameworker_unlock_stats(worker);
+  }
+
+  if (pbi->tile_worker_data == NULL ||
+      (tile_cols * tile_rows) != pbi->total_tiles) {
+    const int num_tile_workers = tile_cols * tile_rows +
+        ((pbi->max_threads > 1) ? pbi->max_threads : 0);
+    const size_t twd_size = num_tile_workers * sizeof(*pbi->tile_worker_data);
+    // Ensure tile data offsets will be properly aligned. This may fail on
+    // platforms without DECLARE_ALIGNED().
+    assert((sizeof(*pbi->tile_worker_data) % 16) == 0);
+    vpx_free(pbi->tile_worker_data);
+    CHECK_MEM_ERROR(cm, pbi->tile_worker_data, vpx_memalign(32, twd_size));
+    pbi->total_tiles = tile_rows * tile_cols;
   }
 
   if (pbi->max_threads > 1 && tile_rows == 1 && tile_cols > 1) {
@@ -2259,8 +2259,6 @@ void vp9_decode_frame(VP9Decoder *pbi,
         vp9_adapt_mode_probs(cm);
         vp9_adapt_mv_probs(cm, cm->allow_high_precision_mv);
       }
-    } else {
-      debug_check_frame_counts(cm);
     }
   } else {
     vpx_internal_error(&cm->error, VPX_CODEC_CORRUPT_FRAME,

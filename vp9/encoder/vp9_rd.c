@@ -41,7 +41,6 @@
 #include "vp9/encoder/vp9_tokenize.h"
 
 #define RD_THRESH_POW      1.25
-#define RD_MULT_EPB_RATIO  64
 
 // Factor to weigh the rate for switchable interp filters.
 #define SWITCHABLE_INTERP_RATE_FACTOR 1
@@ -76,10 +75,12 @@ static void fill_mode_costs(VP9_COMP *cpi) {
                       vp9_intra_mode_tree);
 
   vp9_cost_tokens(cpi->mbmode_cost, fc->y_mode_prob[1], vp9_intra_mode_tree);
-  vp9_cost_tokens(cpi->intra_uv_mode_cost[KEY_FRAME],
-                  vp9_kf_uv_mode_prob[TM_PRED], vp9_intra_mode_tree);
-  vp9_cost_tokens(cpi->intra_uv_mode_cost[INTER_FRAME],
-                  fc->uv_mode_prob[TM_PRED], vp9_intra_mode_tree);
+  for (i = 0; i < INTRA_MODES; ++i) {
+    vp9_cost_tokens(cpi->intra_uv_mode_cost[KEY_FRAME][i],
+                    vp9_kf_uv_mode_prob[i], vp9_intra_mode_tree);
+    vp9_cost_tokens(cpi->intra_uv_mode_cost[INTER_FRAME][i],
+                    fc->uv_mode_prob[i], vp9_intra_mode_tree);
+  }
 
   for (i = 0; i < SWITCHABLE_FILTER_CONTEXTS; ++i)
     vp9_cost_tokens(cpi->switchable_interp_costs[i],
@@ -277,8 +278,7 @@ void vp9_initialize_rd_consts(VP9_COMP *cpi) {
   rd->RDDIV = RDDIV_BITS;  // In bits (to multiply D by 128).
   rd->RDMULT = vp9_compute_rd_mult(cpi, cm->base_qindex + cm->y_dc_delta_q);
 
-  x->errorperbit = rd->RDMULT / RD_MULT_EPB_RATIO;
-  x->errorperbit += (x->errorperbit == 0);
+  set_error_per_bit(x, rd->RDMULT);
 
   x->select_tx_size = (cpi->sf.tx_size_search_method == USE_LARGESTALL &&
                        cm->frame_type != KEY_FRAME) ? 0 : 1;
@@ -286,29 +286,37 @@ void vp9_initialize_rd_consts(VP9_COMP *cpi) {
   set_block_thresholds(cm, rd);
   set_partition_probs(cm, xd);
 
-  if (!cpi->sf.use_nonrd_pick_mode || cm->frame_type == KEY_FRAME)
-    fill_token_costs(x->token_costs, cm->fc->coef_probs);
+  if (cpi->oxcf.pass == 1) {
+    if (!frame_is_intra_only(cm))
+      vp9_build_nmv_cost_table(
+          x->nmvjointcost,
+          cm->allow_high_precision_mv ? x->nmvcost_hp : x->nmvcost,
+          &cm->fc->nmvc, cm->allow_high_precision_mv);
+  } else {
+    if (!cpi->sf.use_nonrd_pick_mode || cm->frame_type == KEY_FRAME)
+      fill_token_costs(x->token_costs, cm->fc->coef_probs);
 
-  if (cpi->sf.partition_search_type != VAR_BASED_PARTITION ||
-      cm->frame_type == KEY_FRAME) {
-    for (i = 0; i < PARTITION_CONTEXTS; ++i)
-      vp9_cost_tokens(cpi->partition_cost[i], get_partition_probs(xd, i),
-                      vp9_partition_tree);
-  }
+    if (cpi->sf.partition_search_type != VAR_BASED_PARTITION ||
+        cm->frame_type == KEY_FRAME) {
+      for (i = 0; i < PARTITION_CONTEXTS; ++i)
+        vp9_cost_tokens(cpi->partition_cost[i], get_partition_probs(xd, i),
+                        vp9_partition_tree);
+    }
 
-  if (!cpi->sf.use_nonrd_pick_mode || (cm->current_video_frame & 0x07) == 1 ||
-      cm->frame_type == KEY_FRAME) {
-    fill_mode_costs(cpi);
+    if (!cpi->sf.use_nonrd_pick_mode || (cm->current_video_frame & 0x07) == 1 ||
+        cm->frame_type == KEY_FRAME) {
+      fill_mode_costs(cpi);
 
-    if (!frame_is_intra_only(cm)) {
-      vp9_build_nmv_cost_table(x->nmvjointcost,
-                               cm->allow_high_precision_mv ? x->nmvcost_hp
-                                                           : x->nmvcost,
-                               &cm->fc->nmvc, cm->allow_high_precision_mv);
+      if (!frame_is_intra_only(cm)) {
+        vp9_build_nmv_cost_table(
+            x->nmvjointcost,
+            cm->allow_high_precision_mv ? x->nmvcost_hp : x->nmvcost,
+            &cm->fc->nmvc, cm->allow_high_precision_mv);
 
-      for (i = 0; i < INTER_MODE_CONTEXTS; ++i)
-        vp9_cost_tokens((int *)cpi->inter_mode_cost[i],
-                        cm->fc->inter_mode_probs[i], vp9_inter_mode_tree);
+        for (i = 0; i < INTER_MODE_CONTEXTS; ++i)
+          vp9_cost_tokens((int *)cpi->inter_mode_cost[i],
+                          cm->fc->inter_mode_probs[i], vp9_inter_mode_tree);
+      }
     }
   }
 }
@@ -341,6 +349,7 @@ static void model_rd_norm(int xsq_q10, int *r_q10, int *d_q10) {
        38,    28,    21,    16,    12,    10,     8,     6,
         5,     3,     2,     1,     1,     1,     0,     0,
   };
+
   // Normalized distortion:
   // This table models the normalized distortion for a Laplacian source
   // with given variance when quantized with a uniform quantizer
@@ -407,7 +416,7 @@ void vp9_model_rd_from_var_lapndz(unsigned int var, unsigned int n_log2,
         (((uint64_t)qstep * qstep << (n_log2 + 10)) + (var >> 1)) / var;
     const int xsq_q10 = (int)VPXMIN(xsq_q10_64, MAX_XSQ_Q10);
     model_rd_norm(xsq_q10, &r_q10, &d_q10);
-    *rate = ((r_q10 << n_log2) + 2) >> 2;
+    *rate = ROUND_POWER_OF_TWO(r_q10 << n_log2, 10 - VP9_PROB_COST_SHIFT);
     *dist = (var * (int64_t)d_q10 + 512) >> 10;
   }
 }
@@ -555,10 +564,10 @@ YV12_BUFFER_CONFIG *vp9_get_scaled_ref_frame(const VP9_COMP *cpi,
 }
 
 int vp9_get_switchable_rate(const VP9_COMP *cpi, const MACROBLOCKD *const xd) {
-  const MB_MODE_INFO *const mbmi = &xd->mi[0]->mbmi;
+  const MODE_INFO *const mi = xd->mi[0];
   const int ctx = vp9_get_pred_context_switchable_interp(xd);
   return SWITCHABLE_INTERP_RATE_FACTOR *
-             cpi->switchable_interp_costs[ctx][mbmi->interp_filter];
+             cpi->switchable_interp_costs[ctx][mi->interp_filter];
 }
 
 void vp9_set_rd_speed_thresholds(VP9_COMP *cpi) {

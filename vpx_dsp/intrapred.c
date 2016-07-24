@@ -44,6 +44,7 @@ static INLINE void d207_predictor(uint8_t *dst, ptrdiff_t stride, int bs,
       dst[r * stride + c] = dst[(r + 1) * stride + c - 2];
 }
 
+#if CONFIG_MISC_FIXES
 static INLINE void d207e_predictor(uint8_t *dst, ptrdiff_t stride, int bs,
                                    const uint8_t *above, const uint8_t *left) {
   int r, c;
@@ -58,6 +59,7 @@ static INLINE void d207e_predictor(uint8_t *dst, ptrdiff_t stride, int bs,
     dst += stride;
   }
 }
+#endif  // CONFIG_MISC_FIXES
 
 static INLINE void d63_predictor(uint8_t *dst, ptrdiff_t stride, int bs,
                                  const uint8_t *above, const uint8_t *left) {
@@ -76,6 +78,7 @@ static INLINE void d63_predictor(uint8_t *dst, ptrdiff_t stride, int bs,
   }
 }
 
+#if CONFIG_MISC_FIXES
 static INLINE void d63e_predictor(uint8_t *dst, ptrdiff_t stride, int bs,
                                   const uint8_t *above, const uint8_t *left) {
   int r, c;
@@ -89,6 +92,7 @@ static INLINE void d63e_predictor(uint8_t *dst, ptrdiff_t stride, int bs,
     dst += stride;
   }
 }
+#endif  // CONFIG_MISC_FIXES
 
 static INLINE void d45_predictor(uint8_t *dst, ptrdiff_t stride, int bs,
                                  const uint8_t *above, const uint8_t *left) {
@@ -109,6 +113,7 @@ static INLINE void d45_predictor(uint8_t *dst, ptrdiff_t stride, int bs,
   }
 }
 
+#if CONFIG_MISC_FIXES
 static INLINE void d45e_predictor(uint8_t *dst, ptrdiff_t stride, int bs,
                                   const uint8_t *above, const uint8_t *left) {
   int r, c;
@@ -121,6 +126,7 @@ static INLINE void d45e_predictor(uint8_t *dst, ptrdiff_t stride, int bs,
     dst += stride;
   }
 }
+#endif  // CONFIG_MISC_FIXES
 
 static INLINE void d117_predictor(uint8_t *dst, ptrdiff_t stride, int bs,
                                   const uint8_t *above, const uint8_t *left) {
@@ -152,20 +158,29 @@ static INLINE void d117_predictor(uint8_t *dst, ptrdiff_t stride, int bs,
 
 static INLINE void d135_predictor(uint8_t *dst, ptrdiff_t stride, int bs,
                                   const uint8_t *above, const uint8_t *left) {
-  int r, c;
-  dst[0] = AVG3(left[0], above[-1], above[0]);
-  for (c = 1; c < bs; c++)
-    dst[c] = AVG3(above[c - 2], above[c - 1], above[c]);
+  int i;
+#if defined(__GNUC__) && __GNUC__ == 4 && __GNUC_MINOR__ > 7
+  // silence a spurious -Warray-bounds warning, possibly related to:
+  // https://gcc.gnu.org/bugzilla/show_bug.cgi?id=56273
+  uint8_t border[69];
+#else
+  uint8_t border[32 + 32 - 1];  // outer border from bottom-left to top-right
+#endif
 
-  dst[stride] = AVG3(above[-1], left[0], left[1]);
-  for (r = 2; r < bs; ++r)
-    dst[r * stride] = AVG3(left[r - 2], left[r - 1], left[r]);
+  // dst(bs, bs - 2)[0], i.e., border starting at bottom-left
+  for (i = 0; i < bs - 2; ++i) {
+    border[i] = AVG3(left[bs - 3 - i], left[bs - 2 - i], left[bs - 1 - i]);
+  }
+  border[bs - 2] = AVG3(above[-1], left[0], left[1]);
+  border[bs - 1] = AVG3(left[0], above[-1], above[0]);
+  border[bs - 0] = AVG3(above[-1], above[0], above[1]);
+  // dst[0][2, size), i.e., remaining top border ascending
+  for (i = 0; i < bs - 2; ++i) {
+    border[bs + 1 + i] = AVG3(above[i], above[i + 1], above[i + 2]);
+  }
 
-  dst += stride;
-  for (r = 1; r < bs; ++r) {
-    for (c = 1; c < bs; c++)
-      dst[c] = dst[-stride + c - 1];
-    dst += stride;
+  for (i = 0; i < bs; ++i) {
+    memcpy(dst + i * stride, border + bs - 1 - i, bs);
   }
 }
 
@@ -311,6 +326,7 @@ void vpx_ve_predictor_4x4_c(uint8_t *dst, ptrdiff_t stride,
   const int K = above[2];
   const int L = above[3];
   const int M = above[4];
+  (void)left;
 
   dst[0] = AVG3(H, I, J);
   dst[1] = AVG3(I, J, K);
@@ -528,6 +544,7 @@ static INLINE void highbd_d207_predictor(uint16_t *dst, ptrdiff_t stride,
   }
 }
 
+#if CONFIG_MISC_FIXES
 static INLINE void highbd_d207e_predictor(uint16_t *dst, ptrdiff_t stride,
                                           int bs, const uint16_t *above,
                                           const uint16_t *left, int bd) {
@@ -544,6 +561,7 @@ static INLINE void highbd_d207e_predictor(uint16_t *dst, ptrdiff_t stride,
     dst += stride;
   }
 }
+#endif  // CONFIG_MISC_FIXES
 
 static INLINE void highbd_d63_predictor(uint16_t *dst, ptrdiff_t stride,
                                         int bs, const uint16_t *above,
@@ -579,6 +597,7 @@ static INLINE void highbd_d45_predictor(uint16_t *dst, ptrdiff_t stride, int bs,
   }
 }
 
+#if CONFIG_MISC_FIXES
 static INLINE void highbd_d45e_predictor(uint16_t *dst, ptrdiff_t stride,
                                          int bs, const uint16_t *above,
                                          const uint16_t *left, int bd) {
@@ -593,6 +612,7 @@ static INLINE void highbd_d45e_predictor(uint16_t *dst, ptrdiff_t stride,
     dst += stride;
   }
 }
+#endif  // CONFIG_MISC_FIXES
 
 static INLINE void highbd_d117_predictor(uint16_t *dst, ptrdiff_t stride,
                                          int bs, const uint16_t *above,

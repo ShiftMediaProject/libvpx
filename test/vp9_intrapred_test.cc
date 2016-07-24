@@ -34,7 +34,7 @@ class VP9IntraPredBase {
   virtual ~VP9IntraPredBase() { libvpx_test::ClearSystemState(); }
 
  protected:
-  virtual void Predict(PREDICTION_MODE mode) = 0;
+  virtual void Predict() = 0;
 
   void CheckPrediction(int test_case_number, int *error_count) const {
     // For each pixel ensure that the calculated value is the same as reference.
@@ -73,7 +73,7 @@ class VP9IntraPredBase {
           left_col_[y] = rnd.Rand16() & mask_;
         }
       }
-      Predict(DC_PRED);
+      Predict();
       CheckPrediction(i, &error_count);
     }
     ASSERT_EQ(0, error_count);
@@ -106,7 +106,7 @@ class VP9IntraPredTest
     mask_       = (1 << bit_depth_) - 1;
   }
 
-  virtual void Predict(PREDICTION_MODE mode) {
+  virtual void Predict() {
     const uint16_t *const_above_row = above_row_;
     const uint16_t *const_left_col = left_col_;
     ref_fn_(ref_dst_, stride_, const_above_row, const_left_col, bit_depth_);
@@ -132,7 +132,6 @@ using std::tr1::make_tuple;
 #if HAVE_SSE2
 #if CONFIG_VP9_HIGHBITDEPTH
 #if CONFIG_USE_X86INC
-#if ARCH_X86_64
 INSTANTIATE_TEST_CASE_P(SSE2_TO_C_8, VP9IntraPredTest,
                         ::testing::Values(
                             make_tuple(&vpx_highbd_dc_predictor_32x32_sse2,
@@ -141,13 +140,13 @@ INSTANTIATE_TEST_CASE_P(SSE2_TO_C_8, VP9IntraPredTest,
                                        &vpx_highbd_tm_predictor_16x16_c, 16, 8),
                             make_tuple(&vpx_highbd_tm_predictor_32x32_sse2,
                                        &vpx_highbd_tm_predictor_32x32_c, 32, 8),
-                            make_tuple(&vpx_highbd_dc_predictor_4x4_sse,
+                            make_tuple(&vpx_highbd_dc_predictor_4x4_sse2,
                                        &vpx_highbd_dc_predictor_4x4_c, 4, 8),
                             make_tuple(&vpx_highbd_dc_predictor_8x8_sse2,
                                        &vpx_highbd_dc_predictor_8x8_c, 8, 8),
                             make_tuple(&vpx_highbd_dc_predictor_16x16_sse2,
                                        &vpx_highbd_dc_predictor_16x16_c, 16, 8),
-                            make_tuple(&vpx_highbd_v_predictor_4x4_sse,
+                            make_tuple(&vpx_highbd_v_predictor_4x4_sse2,
                                        &vpx_highbd_v_predictor_4x4_c, 4, 8),
                             make_tuple(&vpx_highbd_v_predictor_8x8_sse2,
                                        &vpx_highbd_v_predictor_8x8_c, 8, 8),
@@ -155,34 +154,11 @@ INSTANTIATE_TEST_CASE_P(SSE2_TO_C_8, VP9IntraPredTest,
                                        &vpx_highbd_v_predictor_16x16_c, 16, 8),
                             make_tuple(&vpx_highbd_v_predictor_32x32_sse2,
                                        &vpx_highbd_v_predictor_32x32_c, 32, 8),
-                            make_tuple(&vpx_highbd_tm_predictor_4x4_sse,
+                            make_tuple(&vpx_highbd_tm_predictor_4x4_sse2,
                                        &vpx_highbd_tm_predictor_4x4_c, 4, 8),
                             make_tuple(&vpx_highbd_tm_predictor_8x8_sse2,
                                        &vpx_highbd_tm_predictor_8x8_c, 8, 8)));
-#else
-INSTANTIATE_TEST_CASE_P(SSE2_TO_C_8, VP9IntraPredTest,
-                        ::testing::Values(
-                            make_tuple(&vpx_highbd_dc_predictor_4x4_sse,
-                                       &vpx_highbd_dc_predictor_4x4_c, 4, 8),
-                            make_tuple(&vpx_highbd_dc_predictor_8x8_sse2,
-                                       &vpx_highbd_dc_predictor_8x8_c, 8, 8),
-                            make_tuple(&vpx_highbd_dc_predictor_16x16_sse2,
-                                       &vpx_highbd_dc_predictor_16x16_c, 16, 8),
-                            make_tuple(&vpx_highbd_v_predictor_4x4_sse,
-                                       &vpx_highbd_v_predictor_4x4_c, 4, 8),
-                            make_tuple(&vpx_highbd_v_predictor_8x8_sse2,
-                                       &vpx_highbd_v_predictor_8x8_c, 8, 8),
-                            make_tuple(&vpx_highbd_v_predictor_16x16_sse2,
-                                       &vpx_highbd_v_predictor_16x16_c, 16, 8),
-                            make_tuple(&vpx_highbd_v_predictor_32x32_sse2,
-                                       &vpx_highbd_v_predictor_32x32_c, 32, 8),
-                            make_tuple(&vpx_highbd_tm_predictor_4x4_sse,
-                                       &vpx_highbd_tm_predictor_4x4_c, 4, 8),
-                            make_tuple(&vpx_highbd_tm_predictor_8x8_sse2,
-                                       &vpx_highbd_tm_predictor_8x8_c, 8, 8)));
-#endif  // !ARCH_X86_64
 
-#if ARCH_X86_64
 INSTANTIATE_TEST_CASE_P(SSE2_TO_C_10, VP9IntraPredTest,
                         ::testing::Values(
                             make_tuple(&vpx_highbd_dc_predictor_32x32_sse2,
@@ -194,14 +170,14 @@ INSTANTIATE_TEST_CASE_P(SSE2_TO_C_10, VP9IntraPredTest,
                             make_tuple(&vpx_highbd_tm_predictor_32x32_sse2,
                                        &vpx_highbd_tm_predictor_32x32_c, 32,
                                        10),
-                            make_tuple(&vpx_highbd_dc_predictor_4x4_sse,
+                            make_tuple(&vpx_highbd_dc_predictor_4x4_sse2,
                                        &vpx_highbd_dc_predictor_4x4_c, 4, 10),
                             make_tuple(&vpx_highbd_dc_predictor_8x8_sse2,
                                        &vpx_highbd_dc_predictor_8x8_c, 8, 10),
                             make_tuple(&vpx_highbd_dc_predictor_16x16_sse2,
                                        &vpx_highbd_dc_predictor_16x16_c, 16,
                                        10),
-                            make_tuple(&vpx_highbd_v_predictor_4x4_sse,
+                            make_tuple(&vpx_highbd_v_predictor_4x4_sse2,
                                        &vpx_highbd_v_predictor_4x4_c, 4, 10),
                             make_tuple(&vpx_highbd_v_predictor_8x8_sse2,
                                        &vpx_highbd_v_predictor_8x8_c, 8, 10),
@@ -211,35 +187,11 @@ INSTANTIATE_TEST_CASE_P(SSE2_TO_C_10, VP9IntraPredTest,
                             make_tuple(&vpx_highbd_v_predictor_32x32_sse2,
                                        &vpx_highbd_v_predictor_32x32_c, 32,
                                        10),
-                            make_tuple(&vpx_highbd_tm_predictor_4x4_sse,
+                            make_tuple(&vpx_highbd_tm_predictor_4x4_sse2,
                                        &vpx_highbd_tm_predictor_4x4_c, 4, 10),
                             make_tuple(&vpx_highbd_tm_predictor_8x8_sse2,
                                        &vpx_highbd_tm_predictor_8x8_c, 8, 10)));
-#else
-INSTANTIATE_TEST_CASE_P(SSE2_TO_C_10, VP9IntraPredTest,
-                        ::testing::Values(
-                            make_tuple(&vpx_highbd_dc_predictor_4x4_sse,
-                                       &vpx_highbd_dc_predictor_4x4_c, 4, 10),
-                            make_tuple(&vpx_highbd_dc_predictor_8x8_sse2,
-                                       &vpx_highbd_dc_predictor_8x8_c, 8, 10),
-                            make_tuple(&vpx_highbd_dc_predictor_16x16_sse2,
-                                       &vpx_highbd_dc_predictor_16x16_c, 16,
-                                       10),
-                            make_tuple(&vpx_highbd_v_predictor_4x4_sse,
-                                       &vpx_highbd_v_predictor_4x4_c, 4, 10),
-                            make_tuple(&vpx_highbd_v_predictor_8x8_sse2,
-                                       &vpx_highbd_v_predictor_8x8_c, 8, 10),
-                            make_tuple(&vpx_highbd_v_predictor_16x16_sse2,
-                                       &vpx_highbd_v_predictor_16x16_c, 16, 10),
-                            make_tuple(&vpx_highbd_v_predictor_32x32_sse2,
-                                       &vpx_highbd_v_predictor_32x32_c, 32, 10),
-                            make_tuple(&vpx_highbd_tm_predictor_4x4_sse,
-                                       &vpx_highbd_tm_predictor_4x4_c, 4, 10),
-                            make_tuple(&vpx_highbd_tm_predictor_8x8_sse2,
-                                       &vpx_highbd_tm_predictor_8x8_c, 8, 10)));
-#endif  // !ARCH_X86_64
 
-#if ARCH_X86_64
 INSTANTIATE_TEST_CASE_P(SSE2_TO_C_12, VP9IntraPredTest,
                         ::testing::Values(
                             make_tuple(&vpx_highbd_dc_predictor_32x32_sse2,
@@ -251,14 +203,14 @@ INSTANTIATE_TEST_CASE_P(SSE2_TO_C_12, VP9IntraPredTest,
                             make_tuple(&vpx_highbd_tm_predictor_32x32_sse2,
                                        &vpx_highbd_tm_predictor_32x32_c, 32,
                                        12),
-                            make_tuple(&vpx_highbd_dc_predictor_4x4_sse,
+                            make_tuple(&vpx_highbd_dc_predictor_4x4_sse2,
                                        &vpx_highbd_dc_predictor_4x4_c, 4, 12),
                             make_tuple(&vpx_highbd_dc_predictor_8x8_sse2,
                                        &vpx_highbd_dc_predictor_8x8_c, 8, 12),
                             make_tuple(&vpx_highbd_dc_predictor_16x16_sse2,
                                        &vpx_highbd_dc_predictor_16x16_c, 16,
                                        12),
-                            make_tuple(&vpx_highbd_v_predictor_4x4_sse,
+                            make_tuple(&vpx_highbd_v_predictor_4x4_sse2,
                                        &vpx_highbd_v_predictor_4x4_c, 4, 12),
                             make_tuple(&vpx_highbd_v_predictor_8x8_sse2,
                                        &vpx_highbd_v_predictor_8x8_c, 8, 12),
@@ -268,33 +220,11 @@ INSTANTIATE_TEST_CASE_P(SSE2_TO_C_12, VP9IntraPredTest,
                             make_tuple(&vpx_highbd_v_predictor_32x32_sse2,
                                        &vpx_highbd_v_predictor_32x32_c, 32,
                                        12),
-                            make_tuple(&vpx_highbd_tm_predictor_4x4_sse,
+                            make_tuple(&vpx_highbd_tm_predictor_4x4_sse2,
                                        &vpx_highbd_tm_predictor_4x4_c, 4, 12),
                             make_tuple(&vpx_highbd_tm_predictor_8x8_sse2,
                                        &vpx_highbd_tm_predictor_8x8_c, 8, 12)));
-#else
-INSTANTIATE_TEST_CASE_P(SSE2_TO_C_12, VP9IntraPredTest,
-                        ::testing::Values(
-                            make_tuple(&vpx_highbd_dc_predictor_4x4_sse,
-                                       &vpx_highbd_dc_predictor_4x4_c, 4, 12),
-                            make_tuple(&vpx_highbd_dc_predictor_8x8_sse2,
-                                       &vpx_highbd_dc_predictor_8x8_c, 8, 12),
-                            make_tuple(&vpx_highbd_dc_predictor_16x16_sse2,
-                                       &vpx_highbd_dc_predictor_16x16_c, 16,
-                                       12),
-                            make_tuple(&vpx_highbd_v_predictor_4x4_sse,
-                                       &vpx_highbd_v_predictor_4x4_c, 4, 12),
-                            make_tuple(&vpx_highbd_v_predictor_8x8_sse2,
-                                       &vpx_highbd_v_predictor_8x8_c, 8, 12),
-                            make_tuple(&vpx_highbd_v_predictor_16x16_sse2,
-                                       &vpx_highbd_v_predictor_16x16_c, 16, 12),
-                            make_tuple(&vpx_highbd_v_predictor_32x32_sse2,
-                                       &vpx_highbd_v_predictor_32x32_c, 32, 12),
-                            make_tuple(&vpx_highbd_tm_predictor_4x4_sse,
-                                       &vpx_highbd_tm_predictor_4x4_c, 4, 12),
-                            make_tuple(&vpx_highbd_tm_predictor_8x8_sse2,
-                                       &vpx_highbd_tm_predictor_8x8_c, 8, 12)));
-#endif  // !ARCH_X86_64
+
 #endif  // CONFIG_USE_X86INC
 #endif  // CONFIG_VP9_HIGHBITDEPTH
 #endif  // HAVE_SSE2

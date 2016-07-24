@@ -65,12 +65,20 @@ struct macroblock {
   int skip_optimize;
   int q_index;
 
+  // The equivalent error at the current rdmult of one whole bit (not one
+  // bitcost unit).
   int errorperbit;
+  // The equivalend SAD error of one (whole) bit at the current quantizer
+  // for large blocks.
   int sadperbit16;
+  // The equivalend SAD error of one (whole) bit at the current quantizer
+  // for sub-8x8 blocks.
   int sadperbit4;
   int rddiv;
   int rdmult;
   int mb_energy;
+  int * m_search_count_ptr;
+  int * ex_search_count_ptr;
 
   // These are set to their default values at the beginning, and then adjusted
   // further in the encoding process.
@@ -134,6 +142,13 @@ struct macroblock {
   // Strong color activity detection. Used in RTC coding mode to enhance
   // the visual quality at the boundary of moving color objects.
   uint8_t color_sensitivity[2];
+
+  uint8_t sb_is_skin;
+
+  // Used to save the status of whether a block has a low variance in
+  // choose_partitioning. 0 for 64x64, 1~2 for 64x32, 3~4 for 32x64, 5~8 for
+  // 32x32, 9~24 for 16x16.
+  uint8_t variance_low[25];
 
   void (*fwd_txm4x4)(const int16_t *input, tran_low_t *output, int stride);
   void (*itxm_add)(const tran_low_t *input, uint8_t *dest, int stride, int eob);

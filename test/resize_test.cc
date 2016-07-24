@@ -7,6 +7,8 @@
  *  in the file PATENTS.  All contributing project authors may
  *  be found in the AUTHORS file in the root of the source tree.
  */
+#include <stdio.h>
+
 #include <climits>
 #include <vector>
 #include "third_party/googletest/src/include/gtest/gtest.h"
@@ -90,34 +92,178 @@ struct FrameInfo {
   unsigned int h;
 };
 
-unsigned int ScaleForFrameNumber(unsigned int frame, unsigned int val) {
-  if (frame < 10)
-    return val;
-  if (frame < 20)
-    return val / 2;
-  if (frame < 30)
-    return val * 2 / 3;
-  if (frame < 40)
-    return val / 4;
-  if (frame < 50)
-    return val * 7 / 8;
-  return val;
+void ScaleForFrameNumber(unsigned int frame,
+                         unsigned int initial_w,
+                         unsigned int initial_h,
+                         unsigned int *w,
+                         unsigned int *h,
+                         int flag_codec) {
+  if (frame < 10) {
+    *w = initial_w;
+    *h = initial_h;
+    return;
+  }
+  if (frame < 20) {
+    *w = initial_w * 3 / 4;
+    *h = initial_h * 3 / 4;
+    return;
+  }
+  if (frame < 30) {
+    *w = initial_w / 2;
+    *h = initial_h / 2;
+    return;
+  }
+  if (frame < 40) {
+    *w = initial_w;
+    *h = initial_h;
+    return;
+  }
+  if (frame < 50) {
+    *w = initial_w * 3 / 4;
+    *h = initial_h * 3 / 4;
+    return;
+  }
+  if (frame < 60) {
+    *w = initial_w / 2;
+    *h = initial_h / 2;
+    return;
+  }
+  if (frame < 70) {
+    *w = initial_w;
+    *h = initial_h;
+    return;
+  }
+  if (frame < 80) {
+    *w = initial_w * 3 / 4;
+    *h = initial_h * 3 / 4;
+    return;
+  }
+  if (frame < 90) {
+    *w = initial_w / 2;
+    *h = initial_h / 2;
+    return;
+  }
+  if (frame < 100) {
+    *w = initial_w * 3 / 4;
+    *h = initial_h * 3 / 4;
+    return;
+  }
+  if (frame < 110) {
+    *w = initial_w;
+    *h = initial_h;
+    return;
+  }
+  if (frame < 120) {
+    *w = initial_w * 3 / 4;
+    *h = initial_h * 3 / 4;
+    return;
+  }
+  if (frame < 130) {
+    *w = initial_w / 2;
+    *h = initial_h / 2;
+    return;
+  }
+  if (frame < 140) {
+    *w = initial_w * 3 / 4;
+    *h = initial_h * 3 / 4;
+    return;
+  }
+  if (frame < 150) {
+    *w = initial_w;
+    *h = initial_h;
+    return;
+  }
+  if (frame < 160) {
+    *w = initial_w * 3 / 4;
+    *h = initial_h * 3 / 4;
+    return;
+  }
+  if (frame < 170) {
+    *w = initial_w / 2;
+    *h = initial_h / 2;
+    return;
+  }
+  if (frame < 180) {
+    *w = initial_w * 3 / 4;
+    *h = initial_h * 3 / 4;
+    return;
+  }
+  if (frame < 190) {
+    *w = initial_w;
+    *h = initial_h;
+    return;
+  }
+  if (frame < 200) {
+    *w = initial_w * 3 / 4;
+    *h = initial_h * 3 / 4;
+    return;
+  }
+  if (frame < 210) {
+    *w = initial_w / 2;
+    *h = initial_h / 2;
+    return;
+  }
+  if (frame < 220) {
+    *w = initial_w * 3 / 4;
+    *h = initial_h * 3 / 4;
+    return;
+  }
+  if (frame < 230) {
+    *w = initial_w;
+    *h = initial_h;
+    return;
+  }
+  if (frame < 240) {
+    *w = initial_w * 3 / 4;
+    *h = initial_h * 3 / 4;
+    return;
+  }
+  if (frame < 250) {
+    *w = initial_w  / 2;
+    *h = initial_h / 2;
+    return;
+  }
+  if (frame < 260) {
+    *w = initial_w;
+    *h = initial_h;
+    return;
+  }
+  // Go down very low.
+  if (frame < 270) {
+    *w = initial_w / 4;
+    *h = initial_h / 4;
+    return;
+  }
+  if (flag_codec == 1) {
+    // Cases that only works for VP9.
+    // For VP9: Swap width and height of original.
+    if (frame < 320) {
+      *w = initial_h;
+      *h = initial_w;
+      return;
+    }
+  }
+  *w = initial_w;
+  *h = initial_h;
 }
 
 class ResizingVideoSource : public ::libvpx_test::DummyVideoSource {
  public:
   ResizingVideoSource() {
     SetSize(kInitialWidth, kInitialHeight);
-    limit_ = 60;
+    limit_ = 350;
   }
-
+  int flag_codec_;
   virtual ~ResizingVideoSource() {}
 
  protected:
   virtual void Next() {
     ++frame_;
-    SetSize(ScaleForFrameNumber(frame_, kInitialWidth),
-            ScaleForFrameNumber(frame_, kInitialHeight));
+    unsigned int width;
+    unsigned int height;
+    ScaleForFrameNumber(frame_, kInitialWidth, kInitialHeight, &width, &height,
+                        flag_codec_);
+    SetSize(width, height);
     FillFrame();
   }
 };
@@ -144,15 +290,17 @@ class ResizeTest : public ::libvpx_test::EncoderTest,
 
 TEST_P(ResizeTest, TestExternalResizeWorks) {
   ResizingVideoSource video;
+  video.flag_codec_ = 0;
   cfg_.g_lag_in_frames = 0;
   ASSERT_NO_FATAL_FAILURE(RunLoop(&video));
 
   for (std::vector<FrameInfo>::const_iterator info = frame_info_list_.begin();
        info != frame_info_list_.end(); ++info) {
     const unsigned int frame = static_cast<unsigned>(info->pts);
-    const unsigned int expected_w = ScaleForFrameNumber(frame, kInitialWidth);
-    const unsigned int expected_h = ScaleForFrameNumber(frame, kInitialHeight);
-
+    unsigned int expected_w;
+    unsigned int expected_h;
+    ScaleForFrameNumber(frame, kInitialWidth, kInitialHeight,
+                        &expected_w, &expected_h, 0);
     EXPECT_EQ(expected_w, info->w)
         << "Frame " << frame << " had unexpected width";
     EXPECT_EQ(expected_h, info->h)
@@ -286,11 +434,11 @@ TEST_P(ResizeInternalTest, TestInternalResizeChangeConfig) {
   ASSERT_NO_FATAL_FAILURE(RunLoop(&video));
 }
 
-class ResizeInternalRealtimeTest : public ::libvpx_test::EncoderTest,
+class ResizeRealtimeTest : public ::libvpx_test::EncoderTest,
   public ::libvpx_test::CodecTestWith2Params<libvpx_test::TestMode, int> {
  protected:
-  ResizeInternalRealtimeTest() : EncoderTest(GET_PARAM(0)) {}
-  virtual ~ResizeInternalRealtimeTest() {}
+  ResizeRealtimeTest() : EncoderTest(GET_PARAM(0)) {}
+  virtual ~ResizeRealtimeTest() {}
 
   virtual void PreEncodeFrameHook(libvpx_test::VideoSource *video,
                                   libvpx_test::Encoder *encoder) {
@@ -317,9 +465,18 @@ class ResizeInternalRealtimeTest : public ::libvpx_test::EncoderTest,
     frame_info_list_.push_back(FrameInfo(pts, img.d_w, img.d_h));
   }
 
+  virtual void MismatchHook(const vpx_image_t *img1,
+                             const vpx_image_t *img2) {
+    double mismatch_psnr = compute_psnr(img1, img2);
+    mismatch_psnr_ += mismatch_psnr;
+    ++mismatch_nframes_;
+  }
+
+  unsigned int GetMismatchFrames() {
+      return mismatch_nframes_;
+  }
+
   void DefaultConfig() {
-    cfg_.g_w = 352;
-    cfg_.g_h = 288;
     cfg_.rc_buf_initial_sz = 500;
     cfg_.rc_buf_optimal_sz = 600;
     cfg_.rc_buf_sz = 1000;
@@ -344,16 +501,48 @@ class ResizeInternalRealtimeTest : public ::libvpx_test::EncoderTest,
   std::vector< FrameInfo > frame_info_list_;
   int set_cpu_used_;
   bool change_bitrate_;
+  double mismatch_psnr_;
+  int mismatch_nframes_;
 };
+
+TEST_P(ResizeRealtimeTest, TestExternalResizeWorks) {
+  ResizingVideoSource video;
+  video.flag_codec_ = 1;
+  DefaultConfig();
+  // Disable internal resize for this test.
+  cfg_.rc_resize_allowed = 0;
+  change_bitrate_ = false;
+  mismatch_psnr_ = 0.0;
+  mismatch_nframes_ = 0;
+  ASSERT_NO_FATAL_FAILURE(RunLoop(&video));
+
+  for (std::vector<FrameInfo>::const_iterator info = frame_info_list_.begin();
+       info != frame_info_list_.end(); ++info) {
+    const unsigned int frame = static_cast<unsigned>(info->pts);
+    unsigned int expected_w;
+    unsigned int expected_h;
+    ScaleForFrameNumber(frame, kInitialWidth, kInitialHeight,
+                        &expected_w, &expected_h, 1);
+    EXPECT_EQ(expected_w, info->w)
+        << "Frame " << frame << " had unexpected width";
+    EXPECT_EQ(expected_h, info->h)
+        << "Frame " << frame << " had unexpected height";
+    EXPECT_EQ(static_cast<unsigned int>(0), GetMismatchFrames());
+  }
+}
 
 // Verify the dynamic resizer behavior for real time, 1 pass CBR mode.
 // Run at low bitrate, with resize_allowed = 1, and verify that we get
 // one resize down event.
-TEST_P(ResizeInternalRealtimeTest, TestInternalResizeDown) {
+TEST_P(ResizeRealtimeTest, TestInternalResizeDown) {
   ::libvpx_test::I420VideoSource video("hantro_collage_w352h288.yuv", 352, 288,
                                        30, 1, 0, 299);
   DefaultConfig();
+  cfg_.g_w = 352;
+  cfg_.g_h = 288;
   change_bitrate_ = false;
+  mismatch_psnr_ = 0.0;
+  mismatch_nframes_ = 0;
   ASSERT_NO_FATAL_FAILURE(RunLoop(&video));
 
   unsigned int last_w = cfg_.g_w;
@@ -371,22 +560,31 @@ TEST_P(ResizeInternalRealtimeTest, TestInternalResizeDown) {
     }
   }
 
+#if CONFIG_VP9_DECODER
   // Verify that we get 1 resize down event in this test.
   ASSERT_EQ(1, resize_count) << "Resizing should occur.";
+  EXPECT_EQ(static_cast<unsigned int>(0), GetMismatchFrames());
+#else
+  printf("Warning: VP9 decoder unavailable, unable to check resize count!\n");
+#endif
 }
 
 // Verify the dynamic resizer behavior for real time, 1 pass CBR mode.
 // Start at low target bitrate, raise the bitrate in the middle of the clip,
 // scaling-up should occur after bitrate changed.
-TEST_P(ResizeInternalRealtimeTest, TestInternalResizeDownUpChangeBitRate) {
+TEST_P(ResizeRealtimeTest, TestInternalResizeDownUpChangeBitRate) {
   ::libvpx_test::I420VideoSource video("hantro_collage_w352h288.yuv", 352, 288,
-                                       30, 1, 0, 299);
+                                       30, 1, 0, 359);
   DefaultConfig();
+  cfg_.g_w = 352;
+  cfg_.g_h = 288;
   change_bitrate_ = true;
+  mismatch_psnr_ = 0.0;
+  mismatch_nframes_ = 0;
   // Disable dropped frames.
   cfg_.rc_dropframe_thresh = 0;
   // Starting bitrate low.
-  cfg_.rc_target_bitrate = 100;
+  cfg_.rc_target_bitrate = 80;
   ASSERT_NO_FATAL_FAILURE(RunLoop(&video));
 
   unsigned int last_w = cfg_.g_w;
@@ -410,8 +608,13 @@ TEST_P(ResizeInternalRealtimeTest, TestInternalResizeDownUpChangeBitRate) {
     }
   }
 
+#if CONFIG_VP9_DECODER
   // Verify that we get 2 resize events in this test.
-  ASSERT_EQ(2, resize_count) << "Resizing should occur twice.";
+  ASSERT_EQ(resize_count, 2) << "Resizing should occur twice.";
+  EXPECT_EQ(static_cast<unsigned int>(0), GetMismatchFrames());
+#else
+  printf("Warning: VP9 decoder unavailable, unable to check resize count!\n");
+#endif
 }
 
 vpx_img_fmt_t CspForFrameNumber(int frame) {
@@ -524,7 +727,7 @@ VP9_INSTANTIATE_TEST_CASE(ResizeTest,
                           ::testing::Values(::libvpx_test::kRealTime));
 VP9_INSTANTIATE_TEST_CASE(ResizeInternalTest,
                           ::testing::Values(::libvpx_test::kOnePassBest));
-VP9_INSTANTIATE_TEST_CASE(ResizeInternalRealtimeTest,
+VP9_INSTANTIATE_TEST_CASE(ResizeRealtimeTest,
                           ::testing::Values(::libvpx_test::kRealTime),
                           ::testing::Range(5, 9));
 VP9_INSTANTIATE_TEST_CASE(ResizeCspTest,

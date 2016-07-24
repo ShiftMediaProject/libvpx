@@ -14,6 +14,8 @@
 
 #include "vpx/vpx_integer.h"
 #include "vp9/common/vp9_blockd.h"
+#include "vp9/encoder/vp9_block.h"
+#include "vp9/encoder/vp9_skin_detection.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -51,8 +53,6 @@ struct CYCLIC_REFRESH {
   signed char *map;
   // Map of the last q a block was coded at.
   uint8_t *last_coded_q_map;
-  // Count on how many consecutive times a block uses ZER0MV for encoding.
-  uint8_t *consec_zero_mv;
   // Thresholds applied to the projected rate/distortion of the coding block,
   // when deciding whether block should be refreshed.
   int64_t thresh_rate_sb;
@@ -91,12 +91,13 @@ int vp9_cyclic_refresh_rc_bits_per_mb(const struct VP9_COMP *cpi, int i,
 // check if we should reset the segment_id, and update the cyclic_refresh map
 // and segmentation map.
 void vp9_cyclic_refresh_update_segment(struct VP9_COMP *const cpi,
-                                       MB_MODE_INFO *const mbmi,
+                                       MODE_INFO *const mi,
                                        int mi_row, int mi_col, BLOCK_SIZE bsize,
-                                       int64_t rate, int64_t dist, int skip);
+                                       int64_t rate, int64_t dist, int skip,
+                                       struct macroblock_plane *const p);
 
 void vp9_cyclic_refresh_update_sb_postencode(struct VP9_COMP *const cpi,
-                                             const MB_MODE_INFO *const mbmi,
+                                             const MODE_INFO *const mi,
                                              int mi_row, int mi_col,
                                              BLOCK_SIZE bsize);
 

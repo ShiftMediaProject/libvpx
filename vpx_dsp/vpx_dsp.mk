@@ -52,6 +52,12 @@ DSP_SRCS-$(HAVE_SSE2) += x86/highbd_intrapred_sse2.asm
 endif  # CONFIG_USE_X86INC
 endif  # CONFIG_VP9_HIGHBITDEPTH
 
+ifneq ($(filter yes,$(CONFIG_POSTPROC) $(CONFIG_VP9_POSTPROC)),)
+DSP_SRCS-yes += add_noise.c
+DSP_SRCS-$(HAVE_MSA) += mips/add_noise_msa.c
+DSP_SRCS-$(HAVE_SSE2) += x86/add_noise_sse2.asm
+endif # CONFIG_POSTPROC
+
 DSP_SRCS-$(HAVE_NEON_ASM) += arm/intrapred_neon_asm$(ASM)
 DSP_SRCS-$(HAVE_NEON) += arm/intrapred_neon.c
 DSP_SRCS-$(HAVE_MSA) += mips/intrapred_msa.c
@@ -128,7 +134,6 @@ DSP_SRCS-yes += loopfilter.c
 
 DSP_SRCS-$(ARCH_X86)$(ARCH_X86_64)   += x86/loopfilter_sse2.c
 DSP_SRCS-$(HAVE_AVX2)                += x86/loopfilter_avx2.c
-DSP_SRCS-$(HAVE_MMX)                 += x86/loopfilter_mmx.asm
 
 DSP_SRCS-$(HAVE_NEON)   += arm/loopfilter_neon.c
 ifeq ($(HAVE_NEON_ASM),yes)
@@ -164,7 +169,7 @@ DSP_SRCS-yes            += txfm_common.h
 DSP_SRCS-$(HAVE_SSE2)   += x86/txfm_common_sse2.h
 DSP_SRCS-$(HAVE_MSA)    += mips/txfm_macros_msa.h
 # forward transform
-ifneq ($(filter yes,$(CONFIG_VP9_ENCODER) $(CONFIG_VP10_ENCODER)),)
+ifeq ($(CONFIG_VP9_ENCODER),yes)
 DSP_SRCS-yes            += fwd_txfm.c
 DSP_SRCS-yes            += fwd_txfm.h
 DSP_SRCS-$(HAVE_SSE2)   += x86/fwd_txfm_sse2.h
@@ -182,10 +187,10 @@ DSP_SRCS-$(HAVE_NEON)   += arm/fwd_txfm_neon.c
 DSP_SRCS-$(HAVE_MSA)    += mips/fwd_txfm_msa.h
 DSP_SRCS-$(HAVE_MSA)    += mips/fwd_txfm_msa.c
 DSP_SRCS-$(HAVE_MSA)    += mips/fwd_dct32x32_msa.c
-endif  # CONFIG_VP9_ENCODER || CONFIG_VP10_ENCODER
+endif  # CONFIG_VP9_ENCODER
 
 # inverse transform
-ifneq ($(filter yes,$(CONFIG_VP9) $(CONFIG_VP10)),)
+ifeq ($(CONFIG_VP9),yes)
 DSP_SRCS-yes            += inv_txfm.h
 DSP_SRCS-yes            += inv_txfm.c
 DSP_SRCS-$(HAVE_SSE2)   += x86/inv_txfm_sse2.h
@@ -235,10 +240,10 @@ DSP_SRCS-$(HAVE_DSPR2) += mips/itrans16_dspr2.c
 DSP_SRCS-$(HAVE_DSPR2) += mips/itrans32_dspr2.c
 DSP_SRCS-$(HAVE_DSPR2) += mips/itrans32_cols_dspr2.c
 endif  # CONFIG_VP9_HIGHBITDEPTH
-endif  # CONFIG_VP9 || CONFIG_VP10
+endif  # CONFIG_VP9
 
 # quantization
-ifneq ($(filter yes, $(CONFIG_VP9_ENCODER) $(CONFIG_VP10_ENCODER)),)
+ifeq ($(CONFIG_VP9_ENCODER),yes)
 DSP_SRCS-yes            += quantize.c
 DSP_SRCS-yes            += quantize.h
 
@@ -252,7 +257,20 @@ DSP_SRCS-$(HAVE_SSSE3)  += x86/quantize_ssse3_x86_64.asm
 DSP_SRCS-$(HAVE_AVX)    += x86/quantize_avx_x86_64.asm
 endif
 endif
-endif  # CONFIG_VP9_ENCODER || CONFIG_VP10_ENCODER
+
+# avg
+DSP_SRCS-yes           += avg.c
+DSP_SRCS-$(HAVE_SSE2)  += x86/avg_intrin_sse2.c
+DSP_SRCS-$(HAVE_NEON)  += arm/avg_neon.c
+DSP_SRCS-$(HAVE_MSA)   += mips/avg_msa.c
+DSP_SRCS-$(HAVE_NEON)  += arm/hadamard_neon.c
+ifeq ($(ARCH_X86_64),yes)
+ifeq ($(CONFIG_USE_X86INC),yes)
+DSP_SRCS-$(HAVE_SSSE3) += x86/avg_ssse3_x86_64.asm
+endif
+endif
+
+endif  # CONFIG_VP9_ENCODER
 
 ifeq ($(CONFIG_ENCODERS),yes)
 DSP_SRCS-yes            += sad.c
@@ -266,7 +284,6 @@ DSP_SRCS-$(HAVE_NEON)   += arm/subtract_neon.c
 DSP_SRCS-$(HAVE_MSA)    += mips/sad_msa.c
 DSP_SRCS-$(HAVE_MSA)    += mips/subtract_msa.c
 
-DSP_SRCS-$(HAVE_MMX)    += x86/sad_mmx.asm
 DSP_SRCS-$(HAVE_SSE3)   += x86/sad_sse3.asm
 DSP_SRCS-$(HAVE_SSSE3)  += x86/sad_ssse3.asm
 DSP_SRCS-$(HAVE_SSE4_1) += x86/sad_sse4.asm
@@ -304,8 +321,6 @@ DSP_SRCS-$(HAVE_NEON)   += arm/variance_neon.c
 DSP_SRCS-$(HAVE_MSA)    += mips/variance_msa.c
 DSP_SRCS-$(HAVE_MSA)    += mips/sub_pixel_variance_msa.c
 
-DSP_SRCS-$(HAVE_MMX)    += x86/variance_mmx.c
-DSP_SRCS-$(HAVE_MMX)    += x86/variance_impl_mmx.asm
 DSP_SRCS-$(HAVE_SSE)    += x86/variance_sse2.c
 DSP_SRCS-$(HAVE_SSE2)   += x86/variance_sse2.c  # Contains SSE2 and SSSE3
 DSP_SRCS-$(HAVE_SSE2)   += x86/halfpix_variance_sse2.c

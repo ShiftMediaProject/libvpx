@@ -9,6 +9,7 @@
  */
 
 
+#include <assert.h>
 #include <stdlib.h>
 #include <string.h>
 #include "./vp8_rtcd.h"
@@ -67,10 +68,11 @@ struct vpx_codec_alg_priv
     FRAGMENT_DATA           fragments;
 };
 
-static void vp8_init_ctx(vpx_codec_ctx_t *ctx)
+static int vp8_init_ctx(vpx_codec_ctx_t *ctx)
 {
     vpx_codec_alg_priv_t *priv =
         (vpx_codec_alg_priv_t *)vpx_calloc(1, sizeof(*priv));
+    if (!priv) return 1;
 
     ctx->priv = (vpx_codec_priv_t *)priv;
     ctx->priv->init_flags = ctx->init_flags;
@@ -85,6 +87,8 @@ static void vp8_init_ctx(vpx_codec_ctx_t *ctx)
         priv->cfg = *ctx->config.dec;
         ctx->config.dec = &priv->cfg;
     }
+
+    return 0;
 }
 
 static vpx_codec_err_t vp8_init(vpx_codec_ctx_t *ctx,
@@ -103,7 +107,7 @@ static vpx_codec_err_t vp8_init(vpx_codec_ctx_t *ctx,
      * information becomes known.
      */
     if (!ctx->priv) {
-      vp8_init_ctx(ctx);
+      if (vp8_init_ctx(ctx)) return VPX_CODEC_MEM_ERROR;
       priv = (vpx_codec_alg_priv_t *)ctx->priv;
 
       /* initialize number of fragments to zero */
@@ -150,6 +154,8 @@ static vpx_codec_err_t vp8_peek_si_internal(const uint8_t *data,
                                             void *decrypt_state)
 {
     vpx_codec_err_t res = VPX_CODEC_OK;
+
+    assert(data != NULL);
 
     if(data + data_sz <= data)
     {
@@ -516,7 +522,8 @@ static vpx_image_t *vp8_get_frame(vpx_codec_alg_priv_t  *ctx,
     {
         YV12_BUFFER_CONFIG sd;
         int64_t time_stamp = 0, time_end_stamp = 0;
-        vp8_ppflags_t flags = {0};
+        vp8_ppflags_t flags;
+        vp8_zero(flags);
 
         if (ctx->base.init_flags & VPX_CODEC_USE_POSTPROC)
         {
@@ -810,11 +817,12 @@ CODEC_INTERFACE(vpx_codec_vp8_dx) =
     },
     { /* encoder functions */
         0,
-        NULL,
-        NULL,
-        NULL,
-        NULL,
-        NULL,
-        NULL
+        NULL,  /* vpx_codec_enc_cfg_map_t */
+        NULL,  /* vpx_codec_encode_fn_t */
+        NULL,  /* vpx_codec_get_cx_data_fn_t */
+        NULL,  /* vpx_codec_enc_config_set_fn_t */
+        NULL,  /* vpx_codec_get_global_headers_fn_t */
+        NULL,  /* vpx_codec_get_preview_frame_fn_t */
+        NULL   /* vpx_codec_enc_mr_get_mem_loc_fn_t */
     }
 };

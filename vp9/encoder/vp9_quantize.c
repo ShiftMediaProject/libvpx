@@ -94,7 +94,7 @@ void vp9_highbd_quantize_fp_c(const tran_low_t *coeff_ptr,
       const int coeff_sign = (coeff >> 31);
       const int abs_coeff = (coeff ^ coeff_sign) - coeff_sign;
       const int64_t tmp = abs_coeff + round_ptr[rc != 0];
-      const uint32_t abs_qcoeff = (uint32_t)((tmp * quant_ptr[rc != 0]) >> 16);
+      const int abs_qcoeff = (int)((tmp * quant_ptr[rc != 0]) >> 16);
       qcoeff_ptr[rc] = (tran_low_t)((abs_qcoeff ^ coeff_sign) - coeff_sign);
       dqcoeff_ptr[rc] = qcoeff_ptr[rc] * dequant_ptr[rc != 0];
       if (abs_qcoeff)
@@ -219,12 +219,12 @@ void vp9_regular_quantize_b_4x4(MACROBLOCK *x, int plane, int block,
 
 static void invert_quant(int16_t *quant, int16_t *shift, int d) {
   unsigned t;
-  int l;
+  int l, m;
   t = d;
   for (l = 0; t > 1; l++)
     t >>= 1;
-  t = 1 + (1 << (16 + l)) / d;
-  *quant = (int16_t)(t - (1 << 16));
+  m = 1 + (1 << (16 + l)) / d;
+  *quant = (int16_t)(m - (1 << 16));
   *shift = 1 << (16 - l);
 }
 
@@ -308,7 +308,7 @@ void vp9_init_plane_quantizers(VP9_COMP *cpi, MACROBLOCK *x) {
   const VP9_COMMON *const cm = &cpi->common;
   MACROBLOCKD *const xd = &x->e_mbd;
   QUANTS *const quants = &cpi->quants;
-  const int segment_id = xd->mi[0]->mbmi.segment_id;
+  const int segment_id = xd->mi[0]->segment_id;
   const int qindex = vp9_get_qindex(&cm->seg, segment_id, cm->base_qindex);
   const int rdmult = vp9_compute_rd_mult(cpi, qindex + cm->y_dc_delta_q);
   int i;
@@ -342,8 +342,7 @@ void vp9_init_plane_quantizers(VP9_COMP *cpi, MACROBLOCK *x) {
   x->skip_block = segfeature_active(&cm->seg, segment_id, SEG_LVL_SKIP);
   x->q_index = qindex;
 
-  x->errorperbit = rdmult >> 6;
-  x->errorperbit += (x->errorperbit == 0);
+  set_error_per_bit(x, rdmult);
 
   vp9_initialize_me_consts(cpi, x, x->q_index);
 }

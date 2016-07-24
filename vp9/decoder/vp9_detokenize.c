@@ -23,14 +23,6 @@
 #define EOB_CONTEXT_NODE            0
 #define ZERO_CONTEXT_NODE           1
 #define ONE_CONTEXT_NODE            2
-#define LOW_VAL_CONTEXT_NODE        0
-#define TWO_CONTEXT_NODE            1
-#define THREE_CONTEXT_NODE          2
-#define HIGH_LOW_CONTEXT_NODE       3
-#define CAT_ONE_CONTEXT_NODE        4
-#define CAT_THREEFOUR_CONTEXT_NODE  5
-#define CAT_THREE_CONTEXT_NODE      6
-#define CAT_FIVE_CONTEXT_NODE       7
 
 #define INCREMENT_COUNT(token)                              \
   do {                                                      \
@@ -53,7 +45,7 @@ static int decode_coefs(const MACROBLOCKD *xd,
   FRAME_COUNTS *counts = xd->counts;
   const int max_eob = 16 << (tx_size << 1);
   const FRAME_CONTEXT *const fc = xd->fc;
-  const int ref = is_inter_block(&xd->mi[0]->mbmi);
+  const int ref = is_inter_block(xd->mi[0]);
   int band, c = 0;
   const vpx_prob (*coef_probs)[COEFF_CONTEXTS][UNCONSTRAINED_NODES] =
       fc->coef_probs[tx_size][type][ref];
@@ -65,51 +57,23 @@ static int decode_coefs(const MACROBLOCKD *xd,
   const int dq_shift = (tx_size == TX_32X32);
   int v, token;
   int16_t dqv = dq[0];
-  const uint8_t *cat1_prob;
-  const uint8_t *cat2_prob;
-  const uint8_t *cat3_prob;
-  const uint8_t *cat4_prob;
-  const uint8_t *cat5_prob;
-  const uint8_t *cat6_prob;
+  const uint8_t *const cat6_prob =
+#if CONFIG_VP9_HIGHBITDEPTH
+      (xd->bd == VPX_BITS_12) ? vp9_cat6_prob_high12 :
+      (xd->bd == VPX_BITS_10) ? vp9_cat6_prob_high12 + 2 :
+#endif  // CONFIG_VP9_HIGHBITDEPTH
+      vp9_cat6_prob;
+  const int cat6_bits =
+#if CONFIG_VP9_HIGHBITDEPTH
+      (xd->bd == VPX_BITS_12) ? 18 :
+      (xd->bd == VPX_BITS_10) ? 16 :
+#endif  // CONFIG_VP9_HIGHBITDEPTH
+      14;
 
   if (counts) {
     coef_counts = counts->coef[tx_size][type][ref];
     eob_branch_count = counts->eob_branch[tx_size][type][ref];
   }
-
-#if CONFIG_VP9_HIGHBITDEPTH
-  if (xd->bd > VPX_BITS_8) {
-    if (xd->bd == VPX_BITS_10) {
-      cat1_prob = vp9_cat1_prob_high10;
-      cat2_prob = vp9_cat2_prob_high10;
-      cat3_prob = vp9_cat3_prob_high10;
-      cat4_prob = vp9_cat4_prob_high10;
-      cat5_prob = vp9_cat5_prob_high10;
-      cat6_prob = vp9_cat6_prob_high10;
-    } else {
-      cat1_prob = vp9_cat1_prob_high12;
-      cat2_prob = vp9_cat2_prob_high12;
-      cat3_prob = vp9_cat3_prob_high12;
-      cat4_prob = vp9_cat4_prob_high12;
-      cat5_prob = vp9_cat5_prob_high12;
-      cat6_prob = vp9_cat6_prob_high12;
-    }
-  } else {
-    cat1_prob = vp9_cat1_prob;
-    cat2_prob = vp9_cat2_prob;
-    cat3_prob = vp9_cat3_prob;
-    cat4_prob = vp9_cat4_prob;
-    cat5_prob = vp9_cat5_prob;
-    cat6_prob = vp9_cat6_prob;
-  }
-#else
-  cat1_prob = vp9_cat1_prob;
-  cat2_prob = vp9_cat2_prob;
-  cat3_prob = vp9_cat3_prob;
-  cat4_prob = vp9_cat4_prob;
-  cat5_prob = vp9_cat5_prob;
-  cat6_prob = vp9_cat6_prob;
-#endif
 
   while (c < max_eob) {
     int val = -1;
@@ -149,39 +113,22 @@ static int decode_coefs(const MACROBLOCKD *xd,
           val = token;
           break;
         case CATEGORY1_TOKEN:
-          val = CAT1_MIN_VAL + read_coeff(cat1_prob, 1, r);
+          val = CAT1_MIN_VAL + read_coeff(vp9_cat1_prob, 1, r);
           break;
         case CATEGORY2_TOKEN:
-          val = CAT2_MIN_VAL + read_coeff(cat2_prob, 2, r);
+          val = CAT2_MIN_VAL + read_coeff(vp9_cat2_prob, 2, r);
           break;
         case CATEGORY3_TOKEN:
-          val = CAT3_MIN_VAL + read_coeff(cat3_prob, 3, r);
+          val = CAT3_MIN_VAL + read_coeff(vp9_cat3_prob, 3, r);
           break;
         case CATEGORY4_TOKEN:
-          val = CAT4_MIN_VAL + read_coeff(cat4_prob, 4, r);
+          val = CAT4_MIN_VAL + read_coeff(vp9_cat4_prob, 4, r);
           break;
         case CATEGORY5_TOKEN:
-          val = CAT5_MIN_VAL + read_coeff(cat5_prob, 5, r);
+          val = CAT5_MIN_VAL + read_coeff(vp9_cat5_prob, 5, r);
           break;
         case CATEGORY6_TOKEN:
-#if CONFIG_VP9_HIGHBITDEPTH
-          switch (xd->bd) {
-            case VPX_BITS_8:
-              val = CAT6_MIN_VAL + read_coeff(cat6_prob, 14, r);
-              break;
-            case VPX_BITS_10:
-              val = CAT6_MIN_VAL + read_coeff(cat6_prob, 16, r);
-              break;
-            case VPX_BITS_12:
-              val = CAT6_MIN_VAL + read_coeff(cat6_prob, 18, r);
-              break;
-            default:
-              assert(0);
-              return -1;
-          }
-#else
-          val = CAT6_MIN_VAL + read_coeff(cat6_prob, 14, r);
-#endif
+          val = CAT6_MIN_VAL + read_coeff(cat6_prob, cat6_bits, r);
           break;
       }
     }
@@ -205,65 +152,73 @@ static int decode_coefs(const MACROBLOCKD *xd,
   return c;
 }
 
-// TODO(slavarnway): Decode version of vp9_set_context.  Modify vp9_set_context
-// after testing is complete, then delete this version.
-static
-void dec_set_contexts(const MACROBLOCKD *xd, struct macroblockd_plane *pd,
-                      TX_SIZE tx_size, int has_eob,
-                      int aoff, int loff) {
-  ENTROPY_CONTEXT *const a = pd->above_context + aoff;
-  ENTROPY_CONTEXT *const l = pd->left_context + loff;
-  const int tx_size_in_blocks = 1 << tx_size;
-
-  // above
-  if (has_eob && xd->mb_to_right_edge < 0) {
-    int i;
-    const int blocks_wide = pd->n4_w +
-                            (xd->mb_to_right_edge >> (5 + pd->subsampling_x));
-    int above_contexts = tx_size_in_blocks;
-    if (above_contexts + aoff > blocks_wide)
-      above_contexts = blocks_wide - aoff;
-
-    for (i = 0; i < above_contexts; ++i)
-      a[i] = has_eob;
-    for (i = above_contexts; i < tx_size_in_blocks; ++i)
-      a[i] = 0;
-  } else {
-    memset(a, has_eob, sizeof(ENTROPY_CONTEXT) * tx_size_in_blocks);
+static void get_ctx_shift(MACROBLOCKD *xd, int *ctx_shift_a, int *ctx_shift_l,
+                          int x, int y, unsigned int tx_size_in_blocks) {
+  if (xd->max_blocks_wide) {
+    if (tx_size_in_blocks + x > xd->max_blocks_wide)
+      *ctx_shift_a = (tx_size_in_blocks - (xd->max_blocks_wide - x)) * 8;
   }
-
-  // left
-  if (has_eob && xd->mb_to_bottom_edge < 0) {
-    int i;
-    const int blocks_high = pd->n4_h +
-                            (xd->mb_to_bottom_edge >> (5 + pd->subsampling_y));
-    int left_contexts = tx_size_in_blocks;
-    if (left_contexts + loff > blocks_high)
-      left_contexts = blocks_high - loff;
-
-    for (i = 0; i < left_contexts; ++i)
-      l[i] = has_eob;
-    for (i = left_contexts; i < tx_size_in_blocks; ++i)
-      l[i] = 0;
-  } else {
-    memset(l, has_eob, sizeof(ENTROPY_CONTEXT) * tx_size_in_blocks);
+  if (xd->max_blocks_high) {
+    if (tx_size_in_blocks + y > xd->max_blocks_high)
+      *ctx_shift_l = (tx_size_in_blocks - (xd->max_blocks_high - y)) * 8;
   }
 }
 
-int vp9_decode_block_tokens(MACROBLOCKD *xd,
-                            int plane, const scan_order *sc,
-                            int x, int y,
-                            TX_SIZE tx_size, vpx_reader *r,
+int vp9_decode_block_tokens(MACROBLOCKD *xd, int plane, const scan_order *sc,
+                            int x, int y, TX_SIZE tx_size, vpx_reader *r,
                             int seg_id) {
   struct macroblockd_plane *const pd = &xd->plane[plane];
   const int16_t *const dequant = pd->seg_dequant[seg_id];
-  const int ctx = get_entropy_context(tx_size, pd->above_context + x,
-                                               pd->left_context + y);
-  const int eob = decode_coefs(xd, get_plane_type(plane),
-                               pd->dqcoeff, tx_size,
-                               dequant, ctx, sc->scan, sc->neighbors, r);
-  dec_set_contexts(xd, pd, tx_size, eob > 0, x, y);
+  int eob;
+  ENTROPY_CONTEXT *a = pd->above_context + x;
+  ENTROPY_CONTEXT *l = pd->left_context + y;
+  int ctx;
+  int ctx_shift_a = 0;
+  int ctx_shift_l = 0;
+
+  switch (tx_size) {
+    case TX_4X4:
+      ctx  = a[0] != 0;
+      ctx += l[0] != 0;
+      eob = decode_coefs(xd, get_plane_type(plane), pd->dqcoeff, tx_size,
+                         dequant, ctx, sc->scan, sc->neighbors, r);
+      a[0] = l[0] = (eob > 0);
+      break;
+    case TX_8X8:
+      get_ctx_shift(xd, &ctx_shift_a, &ctx_shift_l, x, y, 1 << TX_8X8);
+      ctx  = !!*(const uint16_t *)a;
+      ctx += !!*(const uint16_t *)l;
+      eob = decode_coefs(xd, get_plane_type(plane), pd->dqcoeff, tx_size,
+                         dequant, ctx, sc->scan, sc->neighbors, r);
+      *(uint16_t *)a = ((eob > 0) * 0x0101) >> ctx_shift_a;
+      *(uint16_t *)l = ((eob > 0) * 0x0101) >> ctx_shift_l;
+      break;
+    case TX_16X16:
+      get_ctx_shift(xd, &ctx_shift_a, &ctx_shift_l, x, y, 1 << TX_16X16);
+      ctx  = !!*(const uint32_t *)a;
+      ctx += !!*(const uint32_t *)l;
+      eob = decode_coefs(xd, get_plane_type(plane), pd->dqcoeff, tx_size,
+                         dequant, ctx, sc->scan, sc->neighbors, r);
+      *(uint32_t *)a = ((eob > 0) * 0x01010101) >> ctx_shift_a;
+      *(uint32_t *)l = ((eob > 0) * 0x01010101) >> ctx_shift_l;
+      break;
+    case TX_32X32:
+      get_ctx_shift(xd, &ctx_shift_a, &ctx_shift_l, x, y, 1 << TX_32X32);
+      // NOTE: casting to uint64_t here is safe because the default memory
+      // alignment is at least 8 bytes and the TX_32X32 is aligned on 8 byte
+      // boundaries.
+      ctx  = !!*(const uint64_t *)a;
+      ctx += !!*(const uint64_t *)l;
+      eob = decode_coefs(xd, get_plane_type(plane), pd->dqcoeff, tx_size,
+                         dequant, ctx, sc->scan, sc->neighbors, r);
+      *(uint64_t *)a = ((eob > 0) * 0x0101010101010101ULL) >> ctx_shift_a;
+      *(uint64_t *)l = ((eob > 0) * 0x0101010101010101ULL) >> ctx_shift_l;
+      break;
+    default:
+      assert(0 && "Invalid transform size.");
+      eob = 0;
+      break;
+  }
+
   return eob;
 }
-
-

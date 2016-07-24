@@ -23,8 +23,16 @@ extern "C" {
 
 typedef enum vp9_denoiser_decision {
   COPY_BLOCK,
-  FILTER_BLOCK
+  FILTER_BLOCK,
+  FILTER_ZEROMV_BLOCK
 } VP9_DENOISER_DECISION;
+
+typedef enum vp9_denoiser_level {
+  kDenLowLow,
+  kDenLow,
+  kDenMedium,
+  kDenHigh
+} VP9_DENOISER_LEVEL;
 
 typedef struct vp9_denoiser {
   YV12_BUFFER_CONFIG running_avg_y[MAX_REF_FRAMES];
@@ -32,11 +40,22 @@ typedef struct vp9_denoiser {
   YV12_BUFFER_CONFIG last_source;
   int increase_denoising;
   int frame_buffer_initialized;
-  int denoising_on;
-  int noise_estimate;
-  int thresh_noise_estimate;
-  int noise_estimate_count;
+  int reset;
+  VP9_DENOISER_LEVEL denoising_level;
+  VP9_DENOISER_LEVEL prev_denoising_level;
 } VP9_DENOISER;
+
+typedef struct {
+  int64_t zero_last_cost_orig;
+  int *ref_frame_cost;
+  int_mv (*frame_mv)[MAX_REF_FRAMES];
+  int reuse_inter_pred;
+  TX_SIZE best_tx_size;
+  PREDICTION_MODE best_mode;
+  MV_REFERENCE_FRAME best_ref_frame;
+  INTERP_FILTER best_pred_filter;
+  uint8_t best_mode_skip_txfm;
+} VP9_PICKMODE_CTX_DEN;
 
 struct VP9_COMP;
 
@@ -48,13 +67,14 @@ void vp9_denoiser_update_frame_info(VP9_DENOISER *denoiser,
                                     int refresh_last_frame,
                                     int resized);
 
-void vp9_denoiser_denoise(VP9_DENOISER *denoiser, MACROBLOCK *mb,
+void vp9_denoiser_denoise(struct VP9_COMP *cpi, MACROBLOCK *mb,
                           int mi_row, int mi_col, BLOCK_SIZE bs,
-                          PICK_MODE_CONTEXT *ctx);
+                          PICK_MODE_CONTEXT *ctx ,
+                          VP9_DENOISER_DECISION *denoiser_decision);
 
 void vp9_denoiser_reset_frame_stats(PICK_MODE_CONTEXT *ctx);
 
-void vp9_denoiser_update_frame_stats(MB_MODE_INFO *mbmi,
+void vp9_denoiser_update_frame_stats(MODE_INFO *mi,
                                      unsigned int sse, PREDICTION_MODE mode,
                                      PICK_MODE_CONTEXT *ctx);
 
@@ -69,18 +89,16 @@ int vp9_denoiser_alloc(VP9_DENOISER *denoiser, int width, int height,
 // This function is used by both c and sse2 denoiser implementations.
 // Define it as a static function within the scope where vp9_denoiser.h
 // is referenced.
-static int total_adj_strong_thresh(BLOCK_SIZE bs, int increase_denoising) {
+static INLINE int total_adj_strong_thresh(BLOCK_SIZE bs,
+                                          int increase_denoising) {
   return (1 << num_pels_log2_lookup[bs]) * (increase_denoising ? 3 : 2);
 }
 #endif
 
 void vp9_denoiser_free(VP9_DENOISER *denoiser);
 
-void vp9_denoiser_init_noise_estimate(VP9_DENOISER *denoiser,
-                                      int width,
-                                      int height);
-
-void vp9_denoiser_update_noise_estimate(struct VP9_COMP *const cpi);
+void vp9_denoiser_set_noise_level(VP9_DENOISER *denoiser,
+                                  int noise_level);
 
 #ifdef __cplusplus
 }  // extern "C"

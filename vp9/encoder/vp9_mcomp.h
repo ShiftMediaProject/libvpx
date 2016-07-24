@@ -31,16 +31,12 @@ extern "C" {
 // for Block_16x16
 #define BORDER_MV_PIXELS_B16 (16 + VP9_INTERP_EXTEND)
 
-// motion search site
-typedef struct search_site {
-  MV mv;
-  int offset;
-} search_site;
-
 typedef struct search_site_config {
-  search_site ss[8 * MAX_MVSEARCH_STEPS + 1];
-  int ss_count;
+  // motion search sites
+  MV  ss_mv[8 * MAX_MVSEARCH_STEPS];        // Motion vector
+  intptr_t ss_os[8 * MAX_MVSEARCH_STEPS];   // Offset
   int searches_per_step;
+  int total_steps;
 } search_site_config;
 
 void vp9_init_dsmotion_compensation(search_site_config *cfg, int stride);
@@ -78,7 +74,7 @@ unsigned int vp9_int_pro_motion_estimation(const struct VP9_COMP *cpi,
                                            BLOCK_SIZE bsize,
                                            int mi_row, int mi_col);
 
-typedef int (fractional_mv_step_fp) (
+typedef uint32_t (fractional_mv_step_fp) (
     const MACROBLOCK *x,
     MV *bestmv, const MV *ref_mv,
     int allow_hp,
@@ -88,7 +84,7 @@ typedef int (fractional_mv_step_fp) (
     int iters_per_step,
     int *cost_list,
     int *mvjcost, int *mvcost[2],
-    int *distortion, unsigned int *sse1,
+    uint32_t *distortion, uint32_t *sse1,
     const uint8_t *second_pred,
     int w, int h);
 
@@ -96,6 +92,7 @@ extern fractional_mv_step_fp vp9_find_best_sub_pixel_tree;
 extern fractional_mv_step_fp vp9_find_best_sub_pixel_tree_pruned;
 extern fractional_mv_step_fp vp9_find_best_sub_pixel_tree_pruned_more;
 extern fractional_mv_step_fp vp9_find_best_sub_pixel_tree_pruned_evenmore;
+extern fractional_mv_step_fp vp9_skip_sub_pixel_tree;
 
 typedef int (*vp9_full_search_fn_t)(const MACROBLOCK *x,
                                     const MV *ref_mv, int sad_per_bit,

@@ -48,7 +48,7 @@ void vp9_vaq_frame_setup(VP9_COMP *cpi) {
   struct segmentation *seg = &cm->seg;
   int i;
 
-  if (cm->frame_type == KEY_FRAME ||
+  if (frame_is_intra_only(cm) || cm->error_resilient_mode ||
       cpi->refresh_alt_ref_frame ||
       (cpi->refresh_golden_frame && !cpi->rc.is_src_frame_alt_ref)) {
     vp9_enable_segmentation(seg);
@@ -167,7 +167,7 @@ static unsigned int block_variance(VP9_COMP *cpi, MACROBLOCK *x,
                 vp9_64_zeros, 0, bw, bh, &sse, &avg);
 #endif  // CONFIG_VP9_HIGHBITDEPTH
     var = sse - (((int64_t)avg * avg) / (bw * bh));
-    return (256 * var) / (bw * bh);
+    return (unsigned int)(((uint64_t)256 * var) / (bw * bh));
   } else {
 #if CONFIG_VP9_HIGHBITDEPTH
     if (xd->cur_buf->flags & YV12_FLAG_HIGHBITDEPTH) {
@@ -185,7 +185,7 @@ static unsigned int block_variance(VP9_COMP *cpi, MACROBLOCK *x,
                              x->plane[0].src.stride,
                              vp9_64_zeros, 0, &sse);
 #endif  // CONFIG_VP9_HIGHBITDEPTH
-    return (256 * var) >> num_pels_log2_lookup[bs];
+    return (unsigned int)(((uint64_t)256 * var) >> num_pels_log2_lookup[bs]);
   }
 }
 

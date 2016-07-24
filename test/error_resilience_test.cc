@@ -100,7 +100,7 @@ class ErrorResilienceTestLarge : public ::libvpx_test::EncoderTest,
   }
 
   virtual void PreEncodeFrameHook(libvpx_test::VideoSource *video,
-                                  ::libvpx_test::Encoder *encoder) {
+                                  ::libvpx_test::Encoder * /*encoder*/) {
     frame_flags_ &= ~(VP8_EFLAG_NO_UPD_LAST |
                       VP8_EFLAG_NO_UPD_GF |
                       VP8_EFLAG_NO_UPD_ARF);
@@ -596,7 +596,4 @@ VP8_INSTANTIATE_TEST_CASE(ErrorResilienceTestLargeCodecControls,
                           ONE_PASS_TEST_MODES);
 VP9_INSTANTIATE_TEST_CASE(ErrorResilienceTestLarge, ONE_PASS_TEST_MODES,
                           ::testing::Values(true));
-// SVC-related tests don't run for VP10 since SVC is not supported.
-VP10_INSTANTIATE_TEST_CASE(ErrorResilienceTestLarge, ONE_PASS_TEST_MODES,
-                           ::testing::Values(false));
 }  // namespace

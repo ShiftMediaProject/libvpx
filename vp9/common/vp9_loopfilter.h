@@ -69,6 +69,7 @@ typedef struct {
 
 struct loopfilter {
   int filter_level;
+  int last_filt_level;
 
   int sharpness_level;
   int last_sharpness_level;
@@ -134,7 +135,7 @@ static INLINE LOOP_FILTER_MASK *get_lfm(const struct loopfilter *lf,
   return &lf->lfm[(mi_col >> 3) + ((mi_row >> 3) * lf->lfm_stride)];
 }
 
-void vp9_build_mask(struct VP9Common *cm, const MB_MODE_INFO *mbmi, int mi_row,
+void vp9_build_mask(struct VP9Common *cm, const MODE_INFO *mi, int mi_row,
                     int mi_col, int bw, int bh);
 void vp9_adjust_mask(struct VP9Common *const cm, const int mi_row,
                      const int mi_col, LOOP_FILTER_MASK *lfm);

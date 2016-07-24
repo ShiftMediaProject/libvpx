@@ -40,7 +40,7 @@ typedef std::tr1::tuple<FdctFunc, IdctFunc, int, vpx_bit_depth_t> Dct4x4Param;
 typedef std::tr1::tuple<FhtFunc, IhtFunc, int, vpx_bit_depth_t> Ht4x4Param;
 
 void fdct4x4_ref(const int16_t *in, tran_low_t *out, int stride,
-                 int tx_type) {
+                 int /*tx_type*/) {
   vpx_fdct4x4_c(in, out, stride);
 }
 
@@ -49,7 +49,7 @@ void fht4x4_ref(const int16_t *in, tran_low_t *out, int stride, int tx_type) {
 }
 
 void fwht4x4_ref(const int16_t *in, tran_low_t *out, int stride,
-                 int tx_type) {
+                 int /*tx_type*/) {
   vp9_fwht4x4_c(in, out, stride);
 }
 
@@ -141,11 +141,11 @@ class Trans4x4TestBase {
 
       for (int j = 0; j < kNumCoeffs; ++j) {
 #if CONFIG_VP9_HIGHBITDEPTH
-        const uint32_t diff =
+        const int diff =
             bit_depth_ == VPX_BITS_8 ? dst[j] - src[j] : dst16[j] - src16[j];
 #else
         ASSERT_EQ(VPX_BITS_8, bit_depth_);
-        const uint32_t diff = dst[j] - src[j];
+        const int diff = dst[j] - src[j];
 #endif
         const uint32_t error = diff * diff;
         if (max_error < error)
@@ -258,10 +258,10 @@ class Trans4x4TestBase {
 
       for (int j = 0; j < kNumCoeffs; ++j) {
 #if CONFIG_VP9_HIGHBITDEPTH
-        const uint32_t diff =
+        const int diff =
             bit_depth_ == VPX_BITS_8 ? dst[j] - src[j] : dst16[j] - src16[j];
 #else
-        const uint32_t diff = dst[j] - src[j];
+        const int diff = dst[j] - src[j];
 #endif
         const uint32_t error = diff * diff;
         EXPECT_GE(static_cast<uint32_t>(limit), error)
@@ -487,19 +487,11 @@ INSTANTIATE_TEST_CASE_P(
         make_tuple(&vp9_fht4x4_c, &vp9_iht4x4_16_add_neon, 3, VPX_BITS_8)));
 #endif  // HAVE_NEON && !CONFIG_VP9_HIGHBITDEPTH && !CONFIG_EMULATE_HARDWARE
 
-#if CONFIG_USE_X86INC && HAVE_MMX && !CONFIG_VP9_HIGHBITDEPTH && \
-    !CONFIG_EMULATE_HARDWARE
-INSTANTIATE_TEST_CASE_P(
-    MMX, Trans4x4WHT,
-    ::testing::Values(
-        make_tuple(&vp9_fwht4x4_mmx, &vpx_iwht4x4_16_add_c, 0, VPX_BITS_8)));
-#endif
-
-#if CONFIG_USE_X86INC && HAVE_SSE2 && !CONFIG_VP9_HIGHBITDEPTH && \
-    !CONFIG_EMULATE_HARDWARE
+#if CONFIG_USE_X86INC && HAVE_SSE2 && !CONFIG_EMULATE_HARDWARE
 INSTANTIATE_TEST_CASE_P(
     SSE2, Trans4x4WHT,
     ::testing::Values(
+        make_tuple(&vp9_fwht4x4_sse2, &vpx_iwht4x4_16_add_c, 0, VPX_BITS_8),
         make_tuple(&vp9_fwht4x4_c, &vpx_iwht4x4_16_add_sse2, 0, VPX_BITS_8)));
 #endif
 

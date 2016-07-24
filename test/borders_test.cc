@@ -52,7 +52,7 @@ TEST_P(BordersTest, TestEncodeHighBitrate) {
   // extend into the border and test the border condition.
   cfg_.g_lag_in_frames = 25;
   cfg_.rc_2pass_vbr_minsection_pct = 5;
-  cfg_.rc_2pass_vbr_minsection_pct = 2000;
+  cfg_.rc_2pass_vbr_maxsection_pct = 2000;
   cfg_.rc_target_bitrate = 2000;
   cfg_.rc_max_quantizer = 10;
 
@@ -79,8 +79,5 @@ TEST_P(BordersTest, TestLowBitrate) {
 }
 
 VP9_INSTANTIATE_TEST_CASE(BordersTest, ::testing::Values(
-    ::libvpx_test::kTwoPassGood));
-
-VP10_INSTANTIATE_TEST_CASE(BordersTest, ::testing::Values(
     ::libvpx_test::kTwoPassGood));
 }  // namespace

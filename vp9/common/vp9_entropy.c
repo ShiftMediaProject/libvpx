@@ -36,20 +36,6 @@ const vpx_prob vp9_cat6_prob[] = {
     254, 254, 254, 252, 249, 243, 230, 196, 177, 153, 140, 133, 130, 129
 };
 #if CONFIG_VP9_HIGHBITDEPTH
-const vpx_prob vp9_cat1_prob_high10[] = { 159 };
-const vpx_prob vp9_cat2_prob_high10[] = { 165, 145 };
-const vpx_prob vp9_cat3_prob_high10[] = { 173, 148, 140 };
-const vpx_prob vp9_cat4_prob_high10[] = { 176, 155, 140, 135 };
-const vpx_prob vp9_cat5_prob_high10[] = { 180, 157, 141, 134, 130 };
-const vpx_prob vp9_cat6_prob_high10[] = {
-    255, 255, 254, 254, 254, 252, 249, 243,
-    230, 196, 177, 153, 140, 133, 130, 129
-};
-const vpx_prob vp9_cat1_prob_high12[] = { 159 };
-const vpx_prob vp9_cat2_prob_high12[] = { 165, 145 };
-const vpx_prob vp9_cat3_prob_high12[] = { 173, 148, 140 };
-const vpx_prob vp9_cat4_prob_high12[] = { 176, 155, 140, 135 };
-const vpx_prob vp9_cat5_prob_high12[] = { 180, 157, 141, 134, 130 };
 const vpx_prob vp9_cat6_prob_high12[] = {
     255, 255, 255, 255, 254, 254, 254, 252, 249,
     243, 230, 196, 177, 153, 140, 133, 130, 129
@@ -403,7 +389,6 @@ const vpx_prob vp9_pareto8_full[COEFF_PROB_MODELS][MODEL_NODES] = {
   {255, 241, 243, 255, 236, 255, 252, 254},
   {255, 243, 245, 255, 237, 255, 252, 254},
   {255, 246, 247, 255, 239, 255, 253, 255},
-  {255, 246, 247, 255, 239, 255, 253, 255},
 };
 
 static const vp9_coeff_probs_model default_coef_probs_4x4[PLANE_TYPES] = {
@@ -743,8 +728,8 @@ static const vp9_coeff_probs_model default_coef_probs_32x32[PLANE_TYPES] = {
 };
 
 static void extend_to_full_distribution(vpx_prob *probs, vpx_prob p) {
-  memcpy(probs, vp9_pareto8_full[p = 0 ? 0 : p - 1],
-         MODEL_NODES * sizeof(vpx_prob));
+  assert(p != 0);
+  memcpy(probs, vp9_pareto8_full[p - 1], MODEL_NODES * sizeof(vpx_prob));
 }
 
 void vp9_model_to_full_probs(const vpx_prob *model, vpx_prob *full) {

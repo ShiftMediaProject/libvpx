@@ -15,6 +15,22 @@
 #include "vp9/encoder/vp9_rdopt.h"
 #include "vpx_dsp/vpx_dsp_common.h"
 
+// Mesh search patters for various speed settings
+static MESH_PATTERN best_quality_mesh_pattern[MAX_MESH_STEP] =
+    {{64, 4}, {28, 2}, {15, 1}, {7, 1}};
+
+#define MAX_MESH_SPEED 5  // Max speed setting for mesh motion method
+static MESH_PATTERN good_quality_mesh_patterns[MAX_MESH_SPEED + 1]
+                                              [MAX_MESH_STEP] =
+    {{{64, 8}, {28, 4}, {15, 1}, {7, 1}},
+     {{64, 8}, {28, 4}, {15, 1}, {7, 1}},
+     {{64, 8},  {14, 2}, {7, 1},  {7, 1}},
+     {{64, 16}, {24, 8}, {12, 4}, {7, 1}},
+     {{64, 16}, {24, 8}, {12, 4}, {7, 1}},
+     {{64, 16}, {24, 8}, {12, 4}, {7, 1}},
+    };
+static unsigned char good_quality_max_mesh_pct[MAX_MESH_SPEED + 1] =
+    {50, 25, 15, 5, 1, 1};
 
 // Intra only frames, golden frames (except alt ref overlays) and
 // alt ref frames tend to be coded at a higher than ambient quality
@@ -259,6 +275,8 @@ static void set_rt_speed_feature(VP9_COMP *cpi, SPEED_FEATURES *sf,
   sf->static_segmentation = 0;
   sf->adaptive_rd_thresh = 1;
   sf->use_fast_coef_costing = 1;
+  sf->allow_exhaustive_searches = 0;
+  sf->exhaustive_searches_thresh = INT_MAX;
 
   if (speed >= 1) {
     sf->use_square_partition_only = !frame_is_intra_only(cm);
@@ -285,12 +303,26 @@ static void set_rt_speed_feature(VP9_COMP *cpi, SPEED_FEATURES *sf,
                                  FLAG_SKIP_INTRA_LOWVAR;
     sf->adaptive_pred_interp_filter = 2;
 
-    // Disable reference masking if using spatial scaling since
-    // pred_mv_sad will not be set (since vp9_mv_pred will not
-    // be called).
-    // TODO(marpan/agrange): Fix this condition.
-    sf->reference_masking = (cpi->oxcf.resize_mode != RESIZE_DYNAMIC &&
-                             cpi->svc.number_spatial_layers == 1) ? 1 : 0;
+    // Reference masking only enabled for 1 spatial layer, and if none of the
+    // references have been scaled. The latter condition needs to be checked
+    // for external or internal dynamic resize.
+    sf->reference_masking = (cpi->svc.number_spatial_layers == 1);
+    if (sf->reference_masking == 1 &&
+        (cpi->external_resize == 1 ||
+         cpi->oxcf.resize_mode == RESIZE_DYNAMIC)) {
+      MV_REFERENCE_FRAME ref_frame;
+      static const int flag_list[4] =
+          {0, VP9_LAST_FLAG, VP9_GOLD_FLAG, VP9_ALT_FLAG};
+      for (ref_frame = LAST_FRAME; ref_frame <= ALTREF_FRAME; ++ref_frame) {
+        const YV12_BUFFER_CONFIG *yv12 = get_ref_frame_buffer(cpi, ref_frame);
+        if (yv12 != NULL && (cpi->ref_frame_flags & flag_list[ref_frame])) {
+          const struct scale_factors *const scale_fac =
+              &cm->frame_refs[ref_frame - 1].sf;
+          if (vp9_is_scaled(scale_fac))
+            sf->reference_masking = 0;
+        }
+      }
+    }
 
     sf->disable_filter_search_var_thresh = 50;
     sf->comp_inter_joint_search_thresh = BLOCK_SIZES;
@@ -368,6 +400,8 @@ static void set_rt_speed_feature(VP9_COMP *cpi, SPEED_FEATURES *sf,
     sf->mode_search_skip_flags = FLAG_SKIP_INTRA_DIRMISMATCH;
     sf->tx_size_search_method = is_keyframe ? USE_LARGESTALL : USE_TX_8X8;
     sf->simple_model_rd_from_var = 1;
+    if (cpi->oxcf.rc_mode == VPX_VBR)
+      sf->mv.search_method = NSTEP;
 
     if (!is_keyframe) {
       int i;
@@ -376,12 +410,15 @@ static void set_rt_speed_feature(VP9_COMP *cpi, SPEED_FEATURES *sf,
           sf->intra_y_mode_bsize_mask[i] = INTRA_DC_TM_H_V;
       } else {
         for (i = 0; i < BLOCK_SIZES; ++i)
-          if (i >= BLOCK_16X16)
+          if (i > BLOCK_16X16)
             sf->intra_y_mode_bsize_mask[i] = INTRA_DC;
           else
             // Use H and V intra mode for block sizes <= 16X16.
             sf->intra_y_mode_bsize_mask[i] = INTRA_DC_H_V;
       }
+    }
+    if (content == VP9E_CONTENT_SCREEN) {
+      sf->short_circuit_flat_blocks = 1;
     }
   }
 
@@ -392,6 +429,11 @@ static void set_rt_speed_feature(VP9_COMP *cpi, SPEED_FEATURES *sf,
     sf->mv.search_method = NSTEP;
     sf->mv.reduce_first_step_size = 1;
     sf->skip_encode_sb = 0;
+    if (!cpi->use_svc && cpi->oxcf.rc_mode == VPX_CBR &&
+        content != VP9E_CONTENT_SCREEN) {
+      // Enable short circuit for low temporal variance.
+      sf->short_circuit_low_temp_var = 1;
+    }
   }
 
   if (speed >= 7) {
@@ -406,8 +448,19 @@ static void set_rt_speed_feature(VP9_COMP *cpi, SPEED_FEATURES *sf,
   }
   if (speed >= 8) {
     sf->adaptive_rd_thresh = 4;
-    sf->mv.subpel_force_stop = 2;
+    sf->mv.subpel_force_stop = (content == VP9E_CONTENT_SCREEN) ? 3 : 2;
     sf->lpf_pick = LPF_PICK_MINIMAL_LPF;
+    // Only keep INTRA_DC mode for speed 8.
+    if (!is_keyframe) {
+      int i = 0;
+      for (i = 0; i < BLOCK_SIZES; ++i)
+        sf->intra_y_mode_bsize_mask[i] = INTRA_DC;
+    }
+    if (!cpi->use_svc && cpi->oxcf.rc_mode == VPX_CBR &&
+        content != VP9E_CONTENT_SCREEN) {
+      // More aggressive short circuit for speed 8.
+      sf->short_circuit_low_temp_var = 2;
+    }
   }
 }
 
@@ -460,7 +513,6 @@ void vp9_set_speed_features_framesize_independent(VP9_COMP *cpi) {
   sf->mv.auto_mv_step_size = 0;
   sf->mv.fullpel_search_step_param = 6;
   sf->comp_inter_joint_search_thresh = BLOCK_4X4;
-  sf->adaptive_rd_thresh = 0;
   sf->tx_size_search_method = USE_FULL_RD;
   sf->use_lp32x32fdct = 0;
   sf->adaptive_motion_search = 0;
@@ -516,10 +568,15 @@ void vp9_set_speed_features_framesize_independent(VP9_COMP *cpi) {
   // Recode loop tolerance %.
   sf->recode_tolerance = 25;
   sf->default_interp_filter = SWITCHABLE;
-  sf->tx_size_search_breakout = 0;
-  sf->partition_search_breakout_dist_thr = 0;
-  sf->partition_search_breakout_rate_thr = 0;
   sf->simple_model_rd_from_var = 0;
+  sf->short_circuit_flat_blocks = 0;
+  sf->short_circuit_low_temp_var = 0;
+
+  // Some speed-up features even for best quality as minimal impact on quality.
+  sf->adaptive_rd_thresh = 1;
+  sf->tx_size_search_breakout = 1;
+  sf->partition_search_breakout_dist_thr = (1 << 19);
+  sf->partition_search_breakout_rate_thr = 80;
 
   if (oxcf->mode == REALTIME)
     set_rt_speed_feature(cpi, sf, oxcf->speed, oxcf->content);
@@ -527,8 +584,36 @@ void vp9_set_speed_features_framesize_independent(VP9_COMP *cpi) {
     set_good_speed_feature(cpi, cm, sf, oxcf->speed);
 
   cpi->full_search_sad = vp9_full_search_sad;
-  cpi->diamond_search_sad = oxcf->mode == BEST ? vp9_full_range_search
-                                               : vp9_diamond_search_sad;
+  cpi->diamond_search_sad = vp9_diamond_search_sad;
+
+  sf->allow_exhaustive_searches = 1;
+  if (oxcf->mode == BEST) {
+    if (cpi->twopass.fr_content_type == FC_GRAPHICS_ANIMATION)
+      sf->exhaustive_searches_thresh = (1 << 20);
+    else
+      sf->exhaustive_searches_thresh = (1 << 21);
+    sf->max_exaustive_pct = 100;
+    for (i = 0; i < MAX_MESH_STEP; ++i) {
+      sf->mesh_patterns[i].range = best_quality_mesh_pattern[i].range;
+      sf->mesh_patterns[i].interval = best_quality_mesh_pattern[i].interval;
+    }
+  } else {
+    int speed = (oxcf->speed > MAX_MESH_SPEED) ? MAX_MESH_SPEED : oxcf->speed;
+    if (cpi->twopass.fr_content_type == FC_GRAPHICS_ANIMATION)
+      sf->exhaustive_searches_thresh = (1 << 22);
+    else
+      sf->exhaustive_searches_thresh = (1 << 23);
+    sf->max_exaustive_pct = good_quality_max_mesh_pct[speed];
+    if (speed > 0)
+      sf->exhaustive_searches_thresh = sf->exhaustive_searches_thresh << 1;
+
+    for (i = 0; i < MAX_MESH_STEP; ++i) {
+      sf->mesh_patterns[i].range =
+          good_quality_mesh_patterns[speed][i].range;
+      sf->mesh_patterns[i].interval =
+          good_quality_mesh_patterns[speed][i].interval;
+    }
+  }
 
   // Slow quant, dct and trellis not worthwhile for first pass
   // so make sure they are always turned off.
@@ -541,7 +626,10 @@ void vp9_set_speed_features_framesize_independent(VP9_COMP *cpi) {
     sf->optimize_coefficients = 0;
   }
 
-  if (sf->mv.subpel_search_method == SUBPEL_TREE) {
+  if (sf->mv.subpel_force_stop == 3) {
+    // Whole pel only
+    cpi->find_fractional_mv_step = vp9_skip_sub_pixel_tree;
+  } else if (sf->mv.subpel_search_method == SUBPEL_TREE) {
     cpi->find_fractional_mv_step = vp9_find_best_sub_pixel_tree;
   } else if (sf->mv.subpel_search_method == SUBPEL_TREE_PRUNED) {
     cpi->find_fractional_mv_step = vp9_find_best_sub_pixel_tree_pruned;

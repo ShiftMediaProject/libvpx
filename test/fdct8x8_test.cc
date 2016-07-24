@@ -47,7 +47,7 @@ typedef std::tr1::tuple<FdctFunc, IdctFunc, int, vpx_bit_depth_t> Dct8x8Param;
 typedef std::tr1::tuple<FhtFunc, IhtFunc, int, vpx_bit_depth_t> Ht8x8Param;
 typedef std::tr1::tuple<IdctFunc, IdctFunc, int, vpx_bit_depth_t> Idct8x8Param;
 
-void reference_8x8_dct_1d(const double in[8], double out[8], int stride) {
+void reference_8x8_dct_1d(const double in[8], double out[8]) {
   const double kInvSqrt2 = 0.707106781186547524400844362104;
   for (int k = 0; k < 8; k++) {
     out[k] = 0.0;
@@ -65,7 +65,7 @@ void reference_8x8_dct_2d(const int16_t input[kNumCoeffs],
     double temp_in[8], temp_out[8];
     for (int j = 0; j < 8; ++j)
       temp_in[j] = input[j*8 + i];
-    reference_8x8_dct_1d(temp_in, temp_out, 1);
+    reference_8x8_dct_1d(temp_in, temp_out);
     for (int j = 0; j < 8; ++j)
       output[j * 8 + i] = temp_out[j];
   }
@@ -74,7 +74,7 @@ void reference_8x8_dct_2d(const int16_t input[kNumCoeffs],
     double temp_in[8], temp_out[8];
     for (int j = 0; j < 8; ++j)
       temp_in[j] = output[j + i*8];
-    reference_8x8_dct_1d(temp_in, temp_out, 1);
+    reference_8x8_dct_1d(temp_in, temp_out);
     // Scale by some magic number
     for (int j = 0; j < 8; ++j)
       output[j + i * 8] = temp_out[j] * 2;
@@ -82,7 +82,8 @@ void reference_8x8_dct_2d(const int16_t input[kNumCoeffs],
 }
 
 
-void fdct8x8_ref(const int16_t *in, tran_low_t *out, int stride, int tx_type) {
+void fdct8x8_ref(const int16_t *in, tran_low_t *out, int stride,
+                 int /*tx_type*/) {
   vpx_fdct8x8_c(in, out, stride);
 }
 
@@ -107,6 +108,8 @@ void iht8x8_12(const tran_low_t *in, uint8_t *out, int stride, int tx_type) {
   vp9_highbd_iht8x8_64_add_c(in, out, stride, tx_type, 12);
 }
 
+#if HAVE_SSE2
+
 void idct8x8_10_add_10_c(const tran_low_t *in, uint8_t *out, int stride) {
   vpx_highbd_idct8x8_10_add_c(in, out, stride, 10);
 }
@@ -115,7 +118,6 @@ void idct8x8_10_add_12_c(const tran_low_t *in, uint8_t *out, int stride) {
   vpx_highbd_idct8x8_10_add_c(in, out, stride, 12);
 }
 
-#if HAVE_SSE2
 void idct8x8_10_add_10_sse2(const tran_low_t *in, uint8_t *out, int stride) {
   vpx_highbd_idct8x8_10_add_sse2(in, out, stride, 10);
 }
@@ -423,10 +425,10 @@ class FwdTrans8x8TestBase {
 
       for (int j = 0; j < kNumCoeffs; ++j) {
 #if CONFIG_VP9_HIGHBITDEPTH
-        const uint32_t diff =
+        const int diff =
             bit_depth_ == VPX_BITS_8 ? dst[j] - src[j] : dst16[j] - src16[j];
 #else
-        const uint32_t diff = dst[j] - src[j];
+        const int diff = dst[j] - src[j];
 #endif
         const uint32_t error = diff * diff;
         EXPECT_GE(1u << 2 * (bit_depth_ - 8), error)
@@ -456,7 +458,7 @@ class FwdTrans8x8TestBase {
         coeff_r[j] = static_cast<tran_low_t>(round(out_r[j]));
 
       for (int j = 0; j < kNumCoeffs; ++j) {
-        const uint32_t diff = coeff[j] - coeff_r[j];
+        const int32_t diff = coeff[j] - coeff_r[j];
         const uint32_t error = diff * diff;
         EXPECT_GE(9u << 2 * (bit_depth_ - 8), error)
             << "Error: 8x8 DCT has error " << error
@@ -509,10 +511,10 @@ void CompareInvReference(IdctFunc ref_txfm, int thresh) {
 
       for (int j = 0; j < kNumCoeffs; ++j) {
 #if CONFIG_VP9_HIGHBITDEPTH
-        const uint32_t diff =
+        const int diff =
             bit_depth_ == VPX_BITS_8 ? dst[j] - ref[j] : dst16[j] - ref16[j];
 #else
-        const uint32_t diff = dst[j] - ref[j];
+        const int diff = dst[j] - ref[j];
 #endif
         const uint32_t error = diff * diff;
         EXPECT_EQ(0u, error)
@@ -641,7 +643,7 @@ class InvTrans8x8DCT
   void RunInvTxfm(tran_low_t *out, uint8_t *dst, int stride) {
     inv_txfm_(out, dst, stride);
   }
-  void RunFwdTxfm(int16_t *out, tran_low_t *dst, int stride) {}
+  void RunFwdTxfm(int16_t * /*out*/, tran_low_t * /*dst*/, int /*stride*/) {}
 
   IdctFunc ref_txfm_;
   IdctFunc inv_txfm_;

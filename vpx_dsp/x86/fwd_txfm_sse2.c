@@ -11,6 +11,7 @@
 #include <emmintrin.h>  // SSE2
 
 #include "./vpx_config.h"
+#include "./vpx_dsp_rtcd.h"
 #include "vpx_dsp/vpx_dsp_common.h"
 #include "vpx_dsp/x86/fwd_txfm_sse2.h"
 
@@ -40,7 +41,7 @@ void vpx_fdct4x4_1_sse2(const int16_t *input, tran_low_t *output, int stride) {
 
   in1 = _mm_add_epi32(tmp, in0);
   in0 = _mm_slli_epi32(in1, 1);
-  store_output(&in0, output);
+  output[0] = (tran_low_t)_mm_cvtsi128_si32(in0);
 }
 
 void vpx_fdct8x8_1_sse2(const int16_t *input, tran_low_t *output, int stride) {
@@ -80,7 +81,7 @@ void vpx_fdct8x8_1_sse2(const int16_t *input, tran_low_t *output, int stride) {
   in0 = _mm_srli_si128(sum, 8);
 
   in1 = _mm_add_epi32(sum, in0);
-  store_output(&in1, output);
+  output[0] = (tran_low_t)_mm_cvtsi128_si32(in1);
 }
 
 void vpx_fdct16x16_1_sse2(const int16_t *input, tran_low_t *output,
@@ -91,40 +92,39 @@ void vpx_fdct16x16_1_sse2(const int16_t *input, tran_low_t *output,
   int i;
 
   for (i = 0; i < 2; ++i) {
-    input += 8 * i;
-    in0  = _mm_load_si128((const __m128i *)(input +  0 * stride));
-    in1  = _mm_load_si128((const __m128i *)(input +  1 * stride));
-    in2  = _mm_load_si128((const __m128i *)(input +  2 * stride));
-    in3  = _mm_load_si128((const __m128i *)(input +  3 * stride));
+    in0  = _mm_load_si128((const __m128i *)(input + 0 * stride + 0));
+    in1  = _mm_load_si128((const __m128i *)(input + 0 * stride + 8));
+    in2  = _mm_load_si128((const __m128i *)(input + 1 * stride + 0));
+    in3  = _mm_load_si128((const __m128i *)(input + 1 * stride + 8));
 
     u0 = _mm_add_epi16(in0, in1);
     u1 = _mm_add_epi16(in2, in3);
     sum = _mm_add_epi16(sum, u0);
 
-    in0  = _mm_load_si128((const __m128i *)(input +  4 * stride));
-    in1  = _mm_load_si128((const __m128i *)(input +  5 * stride));
-    in2  = _mm_load_si128((const __m128i *)(input +  6 * stride));
-    in3  = _mm_load_si128((const __m128i *)(input +  7 * stride));
+    in0  = _mm_load_si128((const __m128i *)(input + 2 * stride + 0));
+    in1  = _mm_load_si128((const __m128i *)(input + 2 * stride + 8));
+    in2  = _mm_load_si128((const __m128i *)(input + 3 * stride + 0));
+    in3  = _mm_load_si128((const __m128i *)(input + 3 * stride + 8));
 
     sum = _mm_add_epi16(sum, u1);
     u0  = _mm_add_epi16(in0, in1);
     u1  = _mm_add_epi16(in2, in3);
     sum = _mm_add_epi16(sum, u0);
 
-    in0  = _mm_load_si128((const __m128i *)(input +  8 * stride));
-    in1  = _mm_load_si128((const __m128i *)(input +  9 * stride));
-    in2  = _mm_load_si128((const __m128i *)(input + 10 * stride));
-    in3  = _mm_load_si128((const __m128i *)(input + 11 * stride));
+    in0  = _mm_load_si128((const __m128i *)(input + 4 * stride + 0));
+    in1  = _mm_load_si128((const __m128i *)(input + 4 * stride + 8));
+    in2  = _mm_load_si128((const __m128i *)(input + 5 * stride + 0));
+    in3  = _mm_load_si128((const __m128i *)(input + 5 * stride + 8));
 
     sum = _mm_add_epi16(sum, u1);
     u0  = _mm_add_epi16(in0, in1);
     u1  = _mm_add_epi16(in2, in3);
     sum = _mm_add_epi16(sum, u0);
 
-    in0  = _mm_load_si128((const __m128i *)(input + 12 * stride));
-    in1  = _mm_load_si128((const __m128i *)(input + 13 * stride));
-    in2  = _mm_load_si128((const __m128i *)(input + 14 * stride));
-    in3  = _mm_load_si128((const __m128i *)(input + 15 * stride));
+    in0  = _mm_load_si128((const __m128i *)(input + 6 * stride + 0));
+    in1  = _mm_load_si128((const __m128i *)(input + 6 * stride + 8));
+    in2  = _mm_load_si128((const __m128i *)(input + 7 * stride + 0));
+    in3  = _mm_load_si128((const __m128i *)(input + 7 * stride + 8));
 
     sum = _mm_add_epi16(sum, u1);
     u0  = _mm_add_epi16(in0, in1);
@@ -132,6 +132,7 @@ void vpx_fdct16x16_1_sse2(const int16_t *input, tran_low_t *output,
     sum = _mm_add_epi16(sum, u0);
 
     sum = _mm_add_epi16(sum, u1);
+    input += 8 * stride;
   }
 
   u0  = _mm_setzero_si128();
@@ -149,7 +150,7 @@ void vpx_fdct16x16_1_sse2(const int16_t *input, tran_low_t *output,
 
   in1 = _mm_add_epi32(sum, in0);
   in1 = _mm_srai_epi32(in1, 1);
-  store_output(&in1, output);
+  output[0] = (tran_low_t)_mm_cvtsi128_si32(in1);
 }
 
 void vpx_fdct32x32_1_sse2(const int16_t *input, tran_low_t *output,
@@ -221,7 +222,7 @@ void vpx_fdct32x32_1_sse2(const int16_t *input, tran_low_t *output,
 
   in1 = _mm_add_epi32(sum, in0);
   in1 = _mm_srai_epi32(in1, 3);
-  store_output(&in1, output);
+  output[0] = (tran_low_t)_mm_cvtsi128_si32(in1);
 }
 
 #define DCT_HIGH_BIT_DEPTH 0

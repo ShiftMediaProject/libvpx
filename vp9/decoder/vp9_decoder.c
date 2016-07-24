@@ -131,11 +131,12 @@ void vp9_decoder_remove(VP9Decoder *pbi) {
 
   vpx_get_worker_interface()->end(&pbi->lf_worker);
   vpx_free(pbi->lf_worker.data1);
-  vpx_free(pbi->tile_data);
+
   for (i = 0; i < pbi->num_tile_workers; ++i) {
     VPxWorker *const worker = &pbi->tile_workers[i];
     vpx_get_worker_interface()->end(worker);
   }
+
   vpx_free(pbi->tile_worker_data);
   vpx_free(pbi->tile_workers);
 
@@ -213,8 +214,11 @@ vpx_codec_err_t vp9_set_reference_dec(VP9_COMMON *cm,
 
     // Find an empty frame buffer.
     const int free_fb = get_free_fb(cm);
-    if (cm->new_fb_idx == INVALID_IDX)
-      return VPX_CODEC_MEM_ERROR;
+    if (cm->new_fb_idx == INVALID_IDX) {
+      vpx_internal_error(&cm->error, VPX_CODEC_MEM_ERROR,
+                         "Unable to find free frame buffer");
+      return cm->error.error_code;
+    }
 
     // Decrease ref_count since it will be increased again in
     // ref_cnt_fb() below.
@@ -243,7 +247,7 @@ static void swap_frame_buffers(VP9Decoder *pbi) {
     decrease_ref_count(old_idx, frame_bufs, pool);
 
     // Release the reference frame in reference map.
-    if ((mask & 1) && old_idx >= 0) {
+    if (mask & 1) {
       decrease_ref_count(old_idx, frame_bufs, pool);
     }
     cm->ref_frame_map[ref_index] = cm->next_ref_frame_map[ref_index];
@@ -305,8 +309,11 @@ int vp9_receive_compressed_data(VP9Decoder *pbi,
                         &frame_bufs[cm->new_fb_idx].raw_frame_buffer);
   // Find a free frame buffer. Return error if can not find any.
   cm->new_fb_idx = get_free_fb(cm);
-  if (cm->new_fb_idx == INVALID_IDX)
-    return VPX_CODEC_MEM_ERROR;
+  if (cm->new_fb_idx == INVALID_IDX) {
+    vpx_internal_error(&cm->error, VPX_CODEC_MEM_ERROR,
+                       "Unable to find free frame buffer");
+    return cm->error.error_code;
+  }
 
   // Assign a MV array to the frame buffer.
   cm->cur_frame = &pool->frame_bufs[cm->new_fb_idx];
@@ -350,7 +357,7 @@ int vp9_receive_compressed_data(VP9Decoder *pbi,
         decrease_ref_count(old_idx, frame_bufs, pool);
 
         // Release the reference frame in reference map.
-        if ((mask & 1) && old_idx >= 0) {
+        if (mask & 1) {
           decrease_ref_count(old_idx, frame_bufs, pool);
         }
         ++ref_index;
@@ -501,7 +508,7 @@ vpx_codec_err_t vp9_parse_superframe_index(const uint8_t *data,
         uint32_t this_sz = 0;
 
         for (j = 0; j < mag; ++j)
-          this_sz |= (*x++) << (j * 8);
+          this_sz |= ((uint32_t)(*x++)) << (j * 8);
         sizes[i] = this_sz;
       }
       *count = frames;

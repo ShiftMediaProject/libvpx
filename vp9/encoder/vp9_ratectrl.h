@@ -26,6 +26,7 @@ extern "C" {
 
 #define MIN_GF_INTERVAL     4
 #define MAX_GF_INTERVAL     16
+#define FIXED_GF_INTERVAL   8    // Used in some testing modes only
 #define ONEHALFONLY_RESIZE  0
 
 typedef enum {
@@ -160,6 +161,8 @@ typedef struct {
 
   uint64_t avg_source_sad;
   int high_source_sad;
+  int count_last_scene_change;
+  int avg_frame_low_motion;
 } RATE_CONTROL;
 
 struct VP9_COMP;

@@ -187,18 +187,20 @@ INTRA_PRED_TEST(C, TestIntraPred4, vpx_dc_predictor_4x4_c,
                 vpx_d153_predictor_4x4_c, vpx_d207_predictor_4x4_c,
                 vpx_d63_predictor_4x4_c, vpx_tm_predictor_4x4_c)
 
-#if HAVE_SSE && CONFIG_USE_X86INC
-INTRA_PRED_TEST(SSE, TestIntraPred4, vpx_dc_predictor_4x4_sse,
-                vpx_dc_left_predictor_4x4_sse, vpx_dc_top_predictor_4x4_sse,
-                vpx_dc_128_predictor_4x4_sse, vpx_v_predictor_4x4_sse, NULL,
-                NULL, NULL, NULL, NULL, NULL, NULL, vpx_tm_predictor_4x4_sse)
-#endif  // HAVE_SSE && CONFIG_USE_X86INC
+#if HAVE_SSE2 && CONFIG_USE_X86INC
+INTRA_PRED_TEST(SSE2, TestIntraPred4, vpx_dc_predictor_4x4_sse2,
+                vpx_dc_left_predictor_4x4_sse2, vpx_dc_top_predictor_4x4_sse2,
+                vpx_dc_128_predictor_4x4_sse2, vpx_v_predictor_4x4_sse2,
+                vpx_h_predictor_4x4_sse2, vpx_d45_predictor_4x4_sse2, NULL,
+                NULL, NULL, vpx_d207_predictor_4x4_sse2, NULL,
+                vpx_tm_predictor_4x4_sse2)
+#endif  // HAVE_SSE2 && CONFIG_USE_X86INC
 
 #if HAVE_SSSE3 && CONFIG_USE_X86INC
 INTRA_PRED_TEST(SSSE3, TestIntraPred4, NULL, NULL, NULL, NULL, NULL,
-                vpx_h_predictor_4x4_ssse3, vpx_d45_predictor_4x4_ssse3, NULL,
-                NULL, vpx_d153_predictor_4x4_ssse3,
-                vpx_d207_predictor_4x4_ssse3, vpx_d63_predictor_4x4_ssse3, NULL)
+                NULL, NULL, NULL, NULL,
+                vpx_d153_predictor_4x4_ssse3, NULL,
+                vpx_d63_predictor_4x4_ssse3, NULL)
 #endif  // HAVE_SSSE3 && CONFIG_USE_X86INC
 
 #if HAVE_DSPR2
@@ -235,23 +237,19 @@ INTRA_PRED_TEST(C, TestIntraPred8, vpx_dc_predictor_8x8_c,
                 vpx_d153_predictor_8x8_c, vpx_d207_predictor_8x8_c,
                 vpx_d63_predictor_8x8_c, vpx_tm_predictor_8x8_c)
 
-#if HAVE_SSE && CONFIG_USE_X86INC
-INTRA_PRED_TEST(SSE, TestIntraPred8, vpx_dc_predictor_8x8_sse,
-                vpx_dc_left_predictor_8x8_sse, vpx_dc_top_predictor_8x8_sse,
-                vpx_dc_128_predictor_8x8_sse, vpx_v_predictor_8x8_sse, NULL,
-                NULL, NULL, NULL, NULL, NULL, NULL, NULL)
-#endif  // HAVE_SSE && CONFIG_USE_X86INC
-
 #if HAVE_SSE2 && CONFIG_USE_X86INC
-INTRA_PRED_TEST(SSE2, TestIntraPred8, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
-                NULL, NULL, NULL, NULL, NULL, vpx_tm_predictor_8x8_sse2)
+INTRA_PRED_TEST(SSE2, TestIntraPred8, vpx_dc_predictor_8x8_sse2,
+                vpx_dc_left_predictor_8x8_sse2, vpx_dc_top_predictor_8x8_sse2,
+                vpx_dc_128_predictor_8x8_sse2, vpx_v_predictor_8x8_sse2,
+                vpx_h_predictor_8x8_sse2, vpx_d45_predictor_8x8_sse2, NULL,
+                NULL, NULL, NULL, NULL, vpx_tm_predictor_8x8_sse2)
 #endif  // HAVE_SSE2 && CONFIG_USE_X86INC
 
 #if HAVE_SSSE3 && CONFIG_USE_X86INC
 INTRA_PRED_TEST(SSSE3, TestIntraPred8, NULL, NULL, NULL, NULL, NULL,
-                vpx_h_predictor_8x8_ssse3, vpx_d45_predictor_8x8_ssse3, NULL,
-                NULL, vpx_d153_predictor_8x8_ssse3,
-                vpx_d207_predictor_8x8_ssse3, vpx_d63_predictor_8x8_ssse3, NULL)
+                NULL, NULL, NULL, NULL,
+                vpx_d153_predictor_8x8_ssse3, vpx_d207_predictor_8x8_ssse3,
+                vpx_d63_predictor_8x8_ssse3, NULL)
 #endif  // HAVE_SSSE3 && CONFIG_USE_X86INC
 
 #if HAVE_DSPR2
@@ -293,13 +291,13 @@ INTRA_PRED_TEST(SSE2, TestIntraPred16, vpx_dc_predictor_16x16_sse2,
                 vpx_dc_left_predictor_16x16_sse2,
                 vpx_dc_top_predictor_16x16_sse2,
                 vpx_dc_128_predictor_16x16_sse2, vpx_v_predictor_16x16_sse2,
-                NULL, NULL, NULL, NULL, NULL, NULL, NULL,
+                vpx_h_predictor_16x16_sse2, NULL, NULL, NULL, NULL, NULL, NULL,
                 vpx_tm_predictor_16x16_sse2)
 #endif  // HAVE_SSE2 && CONFIG_USE_X86INC
 
 #if HAVE_SSSE3 && CONFIG_USE_X86INC
 INTRA_PRED_TEST(SSSE3, TestIntraPred16, NULL, NULL, NULL, NULL, NULL,
-                vpx_h_predictor_16x16_ssse3, vpx_d45_predictor_16x16_ssse3,
+                NULL, vpx_d45_predictor_16x16_ssse3,
                 NULL, NULL, vpx_d153_predictor_16x16_ssse3,
                 vpx_d207_predictor_16x16_ssse3, vpx_d63_predictor_16x16_ssse3,
                 NULL)
@@ -340,28 +338,19 @@ INTRA_PRED_TEST(C, TestIntraPred32, vpx_dc_predictor_32x32_c,
                 vpx_d63_predictor_32x32_c, vpx_tm_predictor_32x32_c)
 
 #if HAVE_SSE2 && CONFIG_USE_X86INC
-#if ARCH_X86_64
 INTRA_PRED_TEST(SSE2, TestIntraPred32, vpx_dc_predictor_32x32_sse2,
                 vpx_dc_left_predictor_32x32_sse2,
                 vpx_dc_top_predictor_32x32_sse2,
                 vpx_dc_128_predictor_32x32_sse2, vpx_v_predictor_32x32_sse2,
-                NULL, NULL, NULL, NULL, NULL, NULL, NULL,
-                vpx_tm_predictor_32x32_sse2)
-#else
-INTRA_PRED_TEST(SSE2, TestIntraPred32, vpx_dc_predictor_32x32_sse2,
-                vpx_dc_left_predictor_32x32_sse2,
-                vpx_dc_top_predictor_32x32_sse2,
-                vpx_dc_128_predictor_32x32_sse2, vpx_v_predictor_32x32_sse2,
-                NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL)
-#endif  // ARCH_X86_64
+                vpx_h_predictor_32x32_sse2, NULL, NULL, NULL, NULL, NULL,
+                NULL, vpx_tm_predictor_32x32_sse2)
 #endif  // HAVE_SSE2 && CONFIG_USE_X86INC
 
 #if HAVE_SSSE3 && CONFIG_USE_X86INC
 INTRA_PRED_TEST(SSSE3, TestIntraPred32, NULL, NULL, NULL, NULL, NULL,
-                vpx_h_predictor_32x32_ssse3, vpx_d45_predictor_32x32_ssse3,
-                NULL, NULL, vpx_d153_predictor_32x32_ssse3,
-                vpx_d207_predictor_32x32_ssse3, vpx_d63_predictor_32x32_ssse3,
-                NULL)
+                NULL, vpx_d45_predictor_32x32_ssse3, NULL, NULL,
+                vpx_d153_predictor_32x32_ssse3, vpx_d207_predictor_32x32_ssse3,
+                vpx_d63_predictor_32x32_ssse3, NULL)
 #endif  // HAVE_SSSE3 && CONFIG_USE_X86INC
 
 #if HAVE_NEON
