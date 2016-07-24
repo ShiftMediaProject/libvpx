@@ -123,6 +123,7 @@
     <ClInclude Include="..\vp9\decoder\vp9_detokenize.h" />
     <ClInclude Include="..\vp9\decoder\vp9_dsubexp.h" />
     <ClInclude Include="..\vp9\decoder\vp9_dthread.h" />
+    <ClInclude Include="..\vp9\encoder\vp9_aq_360.h" />
     <ClInclude Include="..\vp9\encoder\vp9_aq_complexity.h" />
     <ClInclude Include="..\vp9\encoder\vp9_aq_cyclicrefresh.h" />
     <ClInclude Include="..\vp9\encoder\vp9_aq_variance.h" />
@@ -141,6 +142,7 @@
     <ClInclude Include="..\vp9\encoder\vp9_lookahead.h" />
     <ClInclude Include="..\vp9\encoder\vp9_mbgraph.h" />
     <ClInclude Include="..\vp9\encoder\vp9_mcomp.h" />
+    <ClInclude Include="..\vp9\encoder\vp9_noise_estimate.h" />
     <ClInclude Include="..\vp9\encoder\vp9_picklpf.h" />
     <ClInclude Include="..\vp9\encoder\vp9_pickmode.h" />
     <ClInclude Include="..\vp9\encoder\vp9_quantize.h" />
@@ -307,10 +309,10 @@
     <ClCompile Include="..\vp9\decoder\vp9_detokenize.c" />
     <ClCompile Include="..\vp9\decoder\vp9_dsubexp.c" />
     <ClCompile Include="..\vp9\decoder\vp9_dthread.c" />
+    <ClCompile Include="..\vp9\encoder\vp9_aq_360.c" />
     <ClCompile Include="..\vp9\encoder\vp9_aq_complexity.c" />
     <ClCompile Include="..\vp9\encoder\vp9_aq_cyclicrefresh.c" />
     <ClCompile Include="..\vp9\encoder\vp9_aq_variance.c" />
-    <ClCompile Include="..\vp9\encoder\vp9_avg.c" />
     <ClCompile Include="..\vp9\encoder\vp9_bitstream.c" />
     <ClCompile Include="..\vp9\encoder\vp9_blockiness.c" />
     <ClCompile Include="..\vp9\encoder\vp9_context_tree.c" />
@@ -326,6 +328,7 @@
     <ClCompile Include="..\vp9\encoder\vp9_lookahead.c" />
     <ClCompile Include="..\vp9\encoder\vp9_mbgraph.c" />
     <ClCompile Include="..\vp9\encoder\vp9_mcomp.c" />
+    <ClCompile Include="..\vp9\encoder\vp9_noise_estimate.c" />
     <ClCompile Include="..\vp9\encoder\vp9_picklpf.c" />
     <ClCompile Include="..\vp9\encoder\vp9_pickmode.c" />
     <ClCompile Include="..\vp9\encoder\vp9_quantize.c" />
@@ -341,9 +344,9 @@
     <ClCompile Include="..\vp9\encoder\vp9_temporal_filter.c" />
     <ClCompile Include="..\vp9\encoder\vp9_tokenize.c" />
     <ClCompile Include="..\vp9\encoder\vp9_treewriter.c" />
-    <ClCompile Include="..\vp9\encoder\x86\vp9_avg_intrin_sse2.c" />
-    <ClCompile Include="..\vp9\encoder\x86\vp9_dct_sse2.c" />
+    <ClCompile Include="..\vp9\encoder\x86\vp9_dct_intrin_sse2.c" />
     <ClCompile Include="..\vp9\encoder\x86\vp9_dct_ssse3.c" />
+    <ClCompile Include="..\vp9\encoder\x86\vp9_diamond_search_sad_avx.c" />
     <ClCompile Include="..\vp9\encoder\x86\vp9_error_intrin_avx2.c" />
     <ClCompile Include="..\vp9\encoder\x86\vp9_highbd_block_error_intrin_sse2.c" />
     <ClCompile Include="..\vp9\encoder\x86\vp9_quantize_sse2.c" />
@@ -355,6 +358,8 @@
     <ClCompile Include="..\vpx\src\vpx_encoder.c" />
     <ClCompile Include="..\vpx\src\vpx_image.c" />
     <ClCompile Include="..\vpx\src\vpx_psnr.c" />
+    <ClCompile Include="..\vpx_dsp\add_noise.c" />
+    <ClCompile Include="..\vpx_dsp\avg.c" />
     <ClCompile Include="..\vpx_dsp\bitreader.c" />
     <ClCompile Include="..\vpx_dsp\bitreader_buffer.c" />
     <ClCompile Include="..\vpx_dsp\bitwriter.c" />
@@ -370,6 +375,7 @@
     <ClCompile Include="..\vpx_dsp\variance.c" />
     <ClCompile Include="..\vpx_dsp\vpx_convolve.c" />
     <ClCompile Include="..\vpx_dsp\vpx_dsp_rtcd.c" />
+    <ClCompile Include="..\vpx_dsp\x86\avg_intrin_sse2.c" />
     <ClCompile Include="..\vpx_dsp\x86\fwd_txfm_avx2.c" />
     <ClCompile Include="..\vpx_dsp\x86\fwd_txfm_sse2.c" />
     <ClCompile Include="..\vpx_dsp\x86\halfpix_variance_sse2.c" />
@@ -386,7 +392,6 @@
     <ClCompile Include="..\vpx_dsp\x86\sad_avx2.c" />
     <ClCompile Include="..\vpx_dsp\x86\variance_avx2.c" />
     <ClCompile Include="..\vpx_dsp\x86\variance_impl_avx2.c" />
-    <ClCompile Include="..\vpx_dsp\x86\variance_mmx.c" />
     <ClCompile Include="..\vpx_dsp\x86\variance_sse2.c" />
     <ClCompile Include="..\vpx_dsp\x86\vpx_asm_stubs.c" />
     <ClCompile Include="..\vpx_dsp\x86\vpx_subpixel_8t_intrin_avx2.c" />
@@ -434,10 +439,7 @@
     <YASM Include="..\vp8\encoder\x86\quantize_mmx.asm" />
     <YASM Include="..\vp8\encoder\x86\temporal_filter_apply_sse2.asm" />
     <YASM Include="..\vp9\common\x86\vp9_mfqe_sse2.asm" />
-    <YASM Include="..\vp9\encoder\x86\vp9_dct_mmx.asm" />
-    <YASM Include="..\vp9\encoder\x86\vp9_dct_ssse3_x86_64.asm">
-      <ExcludedFromBuild Condition="'$(Platform)'=='Win32'">true</ExcludedFromBuild>
-    </YASM>
+    <YASM Include="..\vp9\encoder\x86\vp9_dct_sse2.asm" />
     <YASM Include="..\vp9\encoder\x86\vp9_error_sse2.asm" />
     <YASM Include="..\vp9\encoder\x86\vp9_highbd_error_avx.asm" />
     <YASM Include="..\vp9\encoder\x86\vp9_highbd_error_sse2.asm" />
@@ -445,6 +447,10 @@
       <ExcludedFromBuild Condition="'$(Platform)'=='Win32'">true</ExcludedFromBuild>
     </YASM>
     <YASM Include="..\vp9\encoder\x86\vp9_temporal_filter_apply_sse2.asm" />
+    <YASM Include="..\vpx_dsp\x86\add_noise_sse2.asm" />
+    <YASM Include="..\vpx_dsp\x86\avg_ssse3_x86_64.asm">
+      <ExcludedFromBuild Condition="'$(Platform)'=='Win32'">true</ExcludedFromBuild>
+    </YASM>
     <YASM Include="..\vpx_dsp\x86\fwd_txfm_ssse3_x86_64.asm">
       <ExcludedFromBuild Condition="'$(Platform)'=='Win32'">true</ExcludedFromBuild>
     </YASM>
@@ -460,7 +466,6 @@
       <ExcludedFromBuild Condition="'$(Platform)'=='Win32'">true</ExcludedFromBuild>
     </YASM>
     <YASM Include="..\vpx_dsp\x86\inv_wht_sse2.asm" />
-    <YASM Include="..\vpx_dsp\x86\loopfilter_mmx.asm" />
     <YASM Include="..\vpx_dsp\x86\quantize_avx_x86_64.asm">
       <ExcludedFromBuild Condition="'$(Platform)'=='Win32'">true</ExcludedFromBuild>
     </YASM>
@@ -468,7 +473,6 @@
       <ExcludedFromBuild Condition="'$(Platform)'=='Win32'">true</ExcludedFromBuild>
     </YASM>
     <YASM Include="..\vpx_dsp\x86\sad4d_sse2.asm" />
-    <YASM Include="..\vpx_dsp\x86\sad_mmx.asm" />
     <YASM Include="..\vpx_dsp\x86\sad_sse2.asm" />
     <YASM Include="..\vpx_dsp\x86\sad_sse3.asm" />
     <YASM Include="..\vpx_dsp\x86\sad_sse4.asm" />
@@ -478,7 +482,6 @@
     </YASM>
     <YASM Include="..\vpx_dsp\x86\subpel_variance_sse2.asm" />
     <YASM Include="..\vpx_dsp\x86\subtract_sse2.asm" />
-    <YASM Include="..\vpx_dsp\x86\variance_impl_mmx.asm" />
     <YASM Include="..\vpx_dsp\x86\vpx_convolve_copy_sse2.asm" />
     <YASM Include="..\vpx_dsp\x86\vpx_high_subpixel_8t_sse2.asm" />
     <YASM Include="..\vpx_dsp\x86\vpx_high_subpixel_bilinear_sse2.asm" />

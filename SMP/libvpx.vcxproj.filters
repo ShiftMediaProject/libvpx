@@ -630,6 +630,12 @@
     <ClInclude Include="..\vpx_util\vpx_thread.h">
       <Filter>Header Files\libvpx\vpx_util</Filter>
     </ClInclude>
+    <ClInclude Include="..\vp9\encoder\vp9_aq_360.h">
+      <Filter>Header Files\libvpx\vp9\encoder</Filter>
+    </ClInclude>
+    <ClInclude Include="..\vp9\encoder\vp9_noise_estimate.h">
+      <Filter>Header Files\libvpx\vp9\encoder</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\vpx\src\vpx_encoder.c">
@@ -971,9 +977,6 @@
     <ClCompile Include="..\vp9\encoder\vp9_ratectrl.c">
       <Filter>Source Files\libvpx\vp9\encoder</Filter>
     </ClCompile>
-    <ClCompile Include="..\vp9\encoder\x86\vp9_dct_sse2.c">
-      <Filter>Source Files\libvpx\vp9\encoder\x86</Filter>
-    </ClCompile>
     <ClCompile Include="..\vp9\decoder\vp9_dsubexp.c">
       <Filter>Source Files\libvpx\vp9\decoder</Filter>
     </ClCompile>
@@ -1022,9 +1025,6 @@
     <ClCompile Include="..\vp9\encoder\vp9_aq_variance.c">
       <Filter>Source Files\libvpx\vp9\encoder</Filter>
     </ClCompile>
-    <ClCompile Include="..\vp9\encoder\vp9_avg.c">
-      <Filter>Source Files\libvpx\vp9\encoder</Filter>
-    </ClCompile>
     <ClCompile Include="..\vp9\encoder\vp9_cost.c">
       <Filter>Source Files\libvpx\vp9\encoder</Filter>
     </ClCompile>
@@ -1057,9 +1057,6 @@
     </ClCompile>
     <ClCompile Include="..\vp9\encoder\vp9_svc_layercontext.c">
       <Filter>Source Files\libvpx\vp9\encoder</Filter>
-    </ClCompile>
-    <ClCompile Include="..\vp9\encoder\x86\vp9_avg_intrin_sse2.c">
-      <Filter>Source Files\libvpx\vp9\encoder\x86</Filter>
     </ClCompile>
     <ClCompile Include="..\vp9\encoder\x86\vp9_quantize_sse2.c">
       <Filter>Source Files\libvpx\vp9\encoder\x86</Filter>
@@ -1181,9 +1178,6 @@
     <ClCompile Include="..\vpx_dsp\x86\variance_impl_avx2.c">
       <Filter>Source Files\libvpx\vpx_dsp\x86</Filter>
     </ClCompile>
-    <ClCompile Include="..\vpx_dsp\x86\variance_mmx.c">
-      <Filter>Source Files\libvpx\vpx_dsp\x86</Filter>
-    </ClCompile>
     <ClCompile Include="..\vpx_dsp\x86\variance_sse2.c">
       <Filter>Source Files\libvpx\vpx_dsp\x86</Filter>
     </ClCompile>
@@ -1198,6 +1192,27 @@
     </ClCompile>
     <ClCompile Include="..\vpx_util\vpx_thread.c">
       <Filter>Source Files\libvpx\vpx_util</Filter>
+    </ClCompile>
+    <ClCompile Include="..\vp9\encoder\vp9_aq_360.c">
+      <Filter>Source Files\libvpx\vp9\encoder</Filter>
+    </ClCompile>
+    <ClCompile Include="..\vp9\encoder\vp9_noise_estimate.c">
+      <Filter>Source Files\libvpx\vp9\encoder</Filter>
+    </ClCompile>
+    <ClCompile Include="..\vp9\encoder\x86\vp9_dct_intrin_sse2.c">
+      <Filter>Source Files\libvpx\vp9\encoder\x86</Filter>
+    </ClCompile>
+    <ClCompile Include="..\vp9\encoder\x86\vp9_diamond_search_sad_avx.c">
+      <Filter>Source Files\libvpx\vp9\encoder\x86</Filter>
+    </ClCompile>
+    <ClCompile Include="..\vpx_dsp\add_noise.c">
+      <Filter>Source Files\libvpx\vpx_dsp</Filter>
+    </ClCompile>
+    <ClCompile Include="..\vpx_dsp\avg.c">
+      <Filter>Source Files\libvpx\vpx_dsp</Filter>
+    </ClCompile>
+    <ClCompile Include="..\vpx_dsp\x86\avg_intrin_sse2.c">
+      <Filter>Source Files\libvpx\vpx_dsp\x86</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -1287,13 +1302,7 @@
     <YASM Include="..\vp9\common\x86\vp9_mfqe_sse2.asm">
       <Filter>Source Files\libvpx\vp9\common\x86</Filter>
     </YASM>
-    <YASM Include="..\vp9\encoder\x86\vp9_dct_mmx.asm">
-      <Filter>Source Files\libvpx\vp9\encoder\x86</Filter>
-    </YASM>
     <YASM Include="..\vp9\encoder\x86\vp9_quantize_ssse3_x86_64.asm">
-      <Filter>Source Files\libvpx\vp9\encoder\x86</Filter>
-    </YASM>
-    <YASM Include="..\vp9\encoder\x86\vp9_dct_ssse3_x86_64.asm">
       <Filter>Source Files\libvpx\vp9\encoder\x86</Filter>
     </YASM>
     <YASM Include="..\vp8\common\x86\copy_sse2.asm">
@@ -1350,16 +1359,10 @@
     <YASM Include="..\vpx_dsp\x86\inv_wht_sse2.asm">
       <Filter>Source Files\libvpx\vpx_dsp\x86</Filter>
     </YASM>
-    <YASM Include="..\vpx_dsp\x86\loopfilter_mmx.asm">
-      <Filter>Source Files\libvpx\vpx_dsp\x86</Filter>
-    </YASM>
     <YASM Include="..\vpx_dsp\x86\quantize_avx_x86_64.asm">
       <Filter>Source Files\libvpx\vpx_dsp\x86</Filter>
     </YASM>
     <YASM Include="..\vpx_dsp\x86\quantize_ssse3_x86_64.asm">
-      <Filter>Source Files\libvpx\vpx_dsp\x86</Filter>
-    </YASM>
-    <YASM Include="..\vpx_dsp\x86\sad_mmx.asm">
       <Filter>Source Files\libvpx\vpx_dsp\x86</Filter>
     </YASM>
     <YASM Include="..\vpx_dsp\x86\sad_sse2.asm">
@@ -1386,9 +1389,6 @@
     <YASM Include="..\vpx_dsp\x86\subtract_sse2.asm">
       <Filter>Source Files\libvpx\vpx_dsp\x86</Filter>
     </YASM>
-    <YASM Include="..\vpx_dsp\x86\variance_impl_mmx.asm">
-      <Filter>Source Files\libvpx\vpx_dsp\x86</Filter>
-    </YASM>
     <YASM Include="..\vpx_dsp\x86\vpx_convolve_copy_sse2.asm">
       <Filter>Source Files\libvpx\vpx_dsp\x86</Filter>
     </YASM>
@@ -1402,6 +1402,15 @@
       <Filter>Source Files\libvpx\vpx_dsp\x86</Filter>
     </YASM>
     <YASM Include="..\vpx_dsp\x86\vpx_subpixel_8t_ssse3.asm">
+      <Filter>Source Files\libvpx\vpx_dsp\x86</Filter>
+    </YASM>
+    <YASM Include="..\vp9\encoder\x86\vp9_dct_sse2.asm">
+      <Filter>Source Files\libvpx\vp9\encoder\x86</Filter>
+    </YASM>
+    <YASM Include="..\vpx_dsp\x86\add_noise_sse2.asm">
+      <Filter>Source Files\libvpx\vpx_dsp\x86</Filter>
+    </YASM>
+    <YASM Include="..\vpx_dsp\x86\avg_ssse3_x86_64.asm">
       <Filter>Source Files\libvpx\vpx_dsp\x86</Filter>
     </YASM>
   </ItemGroup>
