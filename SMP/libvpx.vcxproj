@@ -123,6 +123,7 @@
     <ClInclude Include="..\vp9\decoder\vp9_detokenize.h" />
     <ClInclude Include="..\vp9\decoder\vp9_dsubexp.h" />
     <ClInclude Include="..\vp9\decoder\vp9_dthread.h" />
+    <ClInclude Include="..\vp9\encoder\vp9_alt_ref_aq.h" />
     <ClInclude Include="..\vp9\encoder\vp9_aq_360.h" />
     <ClInclude Include="..\vp9\encoder\vp9_aq_complexity.h" />
     <ClInclude Include="..\vp9\encoder\vp9_aq_cyclicrefresh.h" />
@@ -167,7 +168,9 @@
     <ClInclude Include="..\vpx_dsp\bitwriter_buffer.h" />
     <ClInclude Include="..\vpx_dsp\fwd_txfm.h" />
     <ClInclude Include="..\vpx_dsp\inv_txfm.h" />
+    <ClInclude Include="..\vpx_dsp\postproc.h" />
     <ClInclude Include="..\vpx_dsp\prob.h" />
+    <ClInclude Include="..\vpx_dsp\psnr.h" />
     <ClInclude Include="..\vpx_dsp\quantize.h" />
     <ClInclude Include="..\vpx_dsp\txfm_common.h" />
     <ClInclude Include="..\vpx_dsp\variance.h" />
@@ -175,6 +178,7 @@
     <ClInclude Include="..\vpx_dsp\vpx_dsp_common.h" />
     <ClInclude Include="..\vpx_dsp\vpx_filter.h" />
     <ClInclude Include="..\vpx_dsp\x86\convolve.h" />
+    <ClInclude Include="..\vpx_dsp\x86\fdct.h" />
     <ClInclude Include="..\vpx_dsp\x86\fwd_dct32x32_impl_avx2.h" />
     <ClInclude Include="..\vpx_dsp\x86\fwd_dct32x32_impl_sse2.h" />
     <ClInclude Include="..\vpx_dsp\x86\fwd_txfm_impl_sse2.h" />
@@ -309,6 +313,7 @@
     <ClCompile Include="..\vp9\decoder\vp9_detokenize.c" />
     <ClCompile Include="..\vp9\decoder\vp9_dsubexp.c" />
     <ClCompile Include="..\vp9\decoder\vp9_dthread.c" />
+    <ClCompile Include="..\vp9\encoder\vp9_alt_ref_aq.c" />
     <ClCompile Include="..\vp9\encoder\vp9_aq_360.c" />
     <ClCompile Include="..\vp9\encoder\vp9_aq_complexity.c" />
     <ClCompile Include="..\vp9\encoder\vp9_aq_cyclicrefresh.c" />
@@ -357,28 +362,29 @@
     <ClCompile Include="..\vpx\src\vpx_decoder.c" />
     <ClCompile Include="..\vpx\src\vpx_encoder.c" />
     <ClCompile Include="..\vpx\src\vpx_image.c" />
-    <ClCompile Include="..\vpx\src\vpx_psnr.c" />
     <ClCompile Include="..\vpx_dsp\add_noise.c" />
     <ClCompile Include="..\vpx_dsp\avg.c" />
     <ClCompile Include="..\vpx_dsp\bitreader.c" />
     <ClCompile Include="..\vpx_dsp\bitreader_buffer.c" />
     <ClCompile Include="..\vpx_dsp\bitwriter.c" />
     <ClCompile Include="..\vpx_dsp\bitwriter_buffer.c" />
+    <ClCompile Include="..\vpx_dsp\deblock.c" />
     <ClCompile Include="..\vpx_dsp\fwd_txfm.c" />
     <ClCompile Include="..\vpx_dsp\intrapred.c" />
     <ClCompile Include="..\vpx_dsp\inv_txfm.c" />
     <ClCompile Include="..\vpx_dsp\loopfilter.c" />
     <ClCompile Include="..\vpx_dsp\prob.c" />
+    <ClCompile Include="..\vpx_dsp\psnr.c" />
     <ClCompile Include="..\vpx_dsp\quantize.c" />
     <ClCompile Include="..\vpx_dsp\sad.c" />
     <ClCompile Include="..\vpx_dsp\subtract.c" />
+    <ClCompile Include="..\vpx_dsp\sum_squares.c" />
     <ClCompile Include="..\vpx_dsp\variance.c" />
     <ClCompile Include="..\vpx_dsp\vpx_convolve.c" />
     <ClCompile Include="..\vpx_dsp\vpx_dsp_rtcd.c" />
     <ClCompile Include="..\vpx_dsp\x86\avg_intrin_sse2.c" />
     <ClCompile Include="..\vpx_dsp\x86\fwd_txfm_avx2.c" />
     <ClCompile Include="..\vpx_dsp\x86\fwd_txfm_sse2.c" />
-    <ClCompile Include="..\vpx_dsp\x86\halfpix_variance_sse2.c" />
     <ClCompile Include="..\vpx_dsp\x86\highbd_loopfilter_sse2.c" />
     <ClCompile Include="..\vpx_dsp\x86\highbd_quantize_intrin_sse2.c" />
     <ClCompile Include="..\vpx_dsp\x86\highbd_variance_sse2.c" />
@@ -390,6 +396,7 @@
     <ClCompile Include="..\vpx_dsp\x86\quantize_sse2.c" />
     <ClCompile Include="..\vpx_dsp\x86\sad4d_avx2.c" />
     <ClCompile Include="..\vpx_dsp\x86\sad_avx2.c" />
+    <ClCompile Include="..\vpx_dsp\x86\sum_squares_sse2.c" />
     <ClCompile Include="..\vpx_dsp\x86\variance_avx2.c" />
     <ClCompile Include="..\vpx_dsp\x86\variance_impl_avx2.c" />
     <ClCompile Include="..\vpx_dsp\x86\variance_sse2.c" />
@@ -417,22 +424,17 @@
     <YASM Include="..\vp8\common\x86\dequantize_mmx.asm" />
     <YASM Include="..\vp8\common\x86\idctllm_mmx.asm" />
     <YASM Include="..\vp8\common\x86\idctllm_sse2.asm" />
-    <YASM Include="..\vp8\common\x86\iwalsh_mmx.asm" />
     <YASM Include="..\vp8\common\x86\iwalsh_sse2.asm" />
     <YASM Include="..\vp8\common\x86\loopfilter_block_sse2_x86_64.asm">
       <ExcludedFromBuild Condition="'$(Platform)'=='Win32'">true</ExcludedFromBuild>
     </YASM>
     <YASM Include="..\vp8\common\x86\loopfilter_sse2.asm" />
     <YASM Include="..\vp8\common\x86\mfqe_sse2.asm" />
-    <YASM Include="..\vp8\common\x86\postproc_mmx.asm" />
-    <YASM Include="..\vp8\common\x86\postproc_sse2.asm" />
     <YASM Include="..\vp8\common\x86\recon_mmx.asm" />
     <YASM Include="..\vp8\common\x86\recon_sse2.asm" />
     <YASM Include="..\vp8\common\x86\subpixel_mmx.asm" />
     <YASM Include="..\vp8\common\x86\subpixel_sse2.asm" />
     <YASM Include="..\vp8\common\x86\subpixel_ssse3.asm" />
-    <YASM Include="..\vp8\common\x86\vp8_loopfilter_mmx.asm" />
-    <YASM Include="..\vp8\encoder\x86\dct_mmx.asm" />
     <YASM Include="..\vp8\encoder\x86\dct_sse2.asm" />
     <YASM Include="..\vp8\encoder\x86\encodeopt.asm" />
     <YASM Include="..\vp8\encoder\x86\fwalsh_sse2.asm" />
@@ -451,10 +453,10 @@
     <YASM Include="..\vpx_dsp\x86\avg_ssse3_x86_64.asm">
       <ExcludedFromBuild Condition="'$(Platform)'=='Win32'">true</ExcludedFromBuild>
     </YASM>
+    <YASM Include="..\vpx_dsp\x86\deblock_sse2.asm" />
     <YASM Include="..\vpx_dsp\x86\fwd_txfm_ssse3_x86_64.asm">
       <ExcludedFromBuild Condition="'$(Platform)'=='Win32'">true</ExcludedFromBuild>
     </YASM>
-    <YASM Include="..\vpx_dsp\x86\halfpix_variance_impl_sse2.asm" />
     <YASM Include="..\vpx_dsp\x86\highbd_intrapred_sse2.asm" />
     <YASM Include="..\vpx_dsp\x86\highbd_sad4d_sse2.asm" />
     <YASM Include="..\vpx_dsp\x86\highbd_sad_sse2.asm" />
