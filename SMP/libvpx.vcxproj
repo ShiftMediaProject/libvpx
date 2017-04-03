@@ -418,7 +418,6 @@
     <None Include="libvpx.def" />
   </ItemGroup>
   <ItemGroup>
-    <YASM Include="..\third_party\x86inc\x86inc.asm" />
     <YASM Include="..\vp8\common\x86\copy_sse2.asm" />
     <YASM Include="..\vp8\common\x86\copy_sse3.asm" />
     <YASM Include="..\vp8\common\x86\dequantize_mmx.asm" />
@@ -492,7 +491,6 @@
     <YASM Include="..\vpx_dsp\x86\vpx_subpixel_bilinear_sse2.asm" />
     <YASM Include="..\vpx_dsp\x86\vpx_subpixel_bilinear_ssse3.asm" />
     <YASM Include="..\vpx_ports\emms.asm" />
-    <YASM Include="..\vpx_ports\x86_abi_support.asm" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <ProjectGuid>{8293418A-603A-4119-B7B4-1E6204606BA9}</ProjectGuid>
@@ -583,7 +581,7 @@
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
   <ImportGroup Label="ExtensionSettings">
-    <Import Project="$(VCTargetsPath)\BuildCustomizations\vsyasm.props" />
+    <Import Project="$(VCTargetsPath)\BuildCustomizations\yasm.props" />
   </ImportGroup>
   <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
@@ -737,7 +735,8 @@ cd $(ProjectDir)
 )</Command>
     </PreBuildEvent>
     <YASM>
-      <IncludePaths>.\;..\;x86;%(IncludePaths)</IncludePaths>
+      <IncludePaths>$(ProjectDir);$(ProjectDir)\..\;%(IncludePaths)</IncludePaths>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
     </YASM>
     <CustomBuildStep>
       <Message>Custom Clean Step</Message>
@@ -811,7 +810,8 @@ cd $(ProjectDir)
 )</Command>
     </PreBuildEvent>
     <YASM>
-      <IncludePaths>.\;..\;x86_64\%(IncludePaths)</IncludePaths>
+      <IncludePaths>$(ProjectDir);$(ProjectDir)\..\;%(IncludePaths)</IncludePaths>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
     </YASM>
     <CustomBuildStep>
       <Message>Custom Clean Step</Message>
@@ -887,7 +887,8 @@ cd $(ProjectDir)
 )</Command>
     </PreBuildEvent>
     <YASM>
-      <IncludePaths>.\;..\;x86;%(IncludePaths)</IncludePaths>
+      <IncludePaths>$(ProjectDir);$(ProjectDir)\..\;%(IncludePaths)</IncludePaths>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
     </YASM>
     <CustomBuildStep>
       <Message>Custom Clean Step</Message>
@@ -962,7 +963,8 @@ cd $(ProjectDir)
 )</Command>
     </PreBuildEvent>
     <YASM>
-      <IncludePaths>.\;..\;x86_64\%(IncludePaths)</IncludePaths>
+      <IncludePaths>$(ProjectDir);$(ProjectDir)\..\;%(IncludePaths)</IncludePaths>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
     </YASM>
     <CustomBuildStep>
       <Message>Custom Clean Step</Message>
@@ -1050,7 +1052,7 @@ cd $(ProjectDir)
 )</Command>
     </PreBuildEvent>
     <YASM>
-      <IncludePaths>.\;..\;x86;%(IncludePaths)</IncludePaths>
+      <IncludePaths>$(ProjectDir);$(ProjectDir)\..\;%(IncludePaths)</IncludePaths>
     </YASM>
     <CustomBuildStep>
       <Message>Custom Clean Step</Message>
@@ -1138,7 +1140,7 @@ cd $(ProjectDir)
 )</Command>
     </PreBuildEvent>
     <YASM>
-      <IncludePaths>.\;..\;x86;%(IncludePaths)</IncludePaths>
+      <IncludePaths>$(ProjectDir);$(ProjectDir)\..\;%(IncludePaths)</IncludePaths>
     </YASM>
     <CustomBuildStep>
       <Message>Custom Clean Step</Message>
@@ -1226,7 +1228,7 @@ cd $(ProjectDir)
 )</Command>
     </PreBuildEvent>
     <YASM>
-      <IncludePaths>.\;..\;x86_64\%(IncludePaths)</IncludePaths>
+      <IncludePaths>$(ProjectDir);$(ProjectDir)\..\;%(IncludePaths)</IncludePaths>
     </YASM>
     <CustomBuildStep>
       <Message>Custom Clean Step</Message>
@@ -1314,7 +1316,7 @@ cd $(ProjectDir)
 )</Command>
     </PreBuildEvent>
     <YASM>
-      <IncludePaths>.\;..\;x86_64\%(IncludePaths)</IncludePaths>
+      <IncludePaths>$(ProjectDir);$(ProjectDir)\..\;%(IncludePaths)</IncludePaths>
     </YASM>
     <CustomBuildStep>
       <Message>Custom Clean Step</Message>
@@ -1402,7 +1404,7 @@ cd $(ProjectDir)
 )</Command>
     </PreBuildEvent>
     <YASM>
-      <IncludePaths>.\;..\;x86;%(IncludePaths)</IncludePaths>
+      <IncludePaths>$(ProjectDir);$(ProjectDir)\..\;%(IncludePaths)</IncludePaths>
     </YASM>
     <CustomBuildStep>
       <Message>Custom Clean Step</Message>
@@ -1489,7 +1491,7 @@ cd $(ProjectDir)
 )</Command>
     </PreBuildEvent>
     <YASM>
-      <IncludePaths>.\;..\;x86_64\%(IncludePaths)</IncludePaths>
+      <IncludePaths>$(ProjectDir);$(ProjectDir)\..\;%(IncludePaths)</IncludePaths>
     </YASM>
     <CustomBuildStep>
       <Message>Custom Clean Step</Message>
@@ -1506,6 +1508,6 @@ del /f /q $(OutDir)\licenses\libvpx.txt
   </ItemDefinitionGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
-    <Import Project="$(VCTargetsPath)\BuildCustomizations\vsyasm.targets" />
+    <Import Project="$(VCTargetsPath)\BuildCustomizations\yasm.targets" />
   </ImportGroup>
 </Project>
