@@ -10,6 +10,8 @@
 
 
 %include "vpx_ports/x86_abi_support.asm"
+
+section .text
 %define _t0 0
 %define _t1 _t0 + 16
 %define _p3 _t1 + 16

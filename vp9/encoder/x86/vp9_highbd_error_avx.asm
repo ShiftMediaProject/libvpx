@@ -257,5 +257,3 @@ cglobal highbd_block_error_8bit, 4, 5, 8, uqc, dqc, size, ssz
   movq   [sszd], xm6
 %endif
   RET
-
-END

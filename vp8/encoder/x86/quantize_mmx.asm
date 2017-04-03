@@ -11,6 +11,7 @@
 
 %include "vpx_ports/x86_abi_support.asm"
 
+section .text
 ;int vp8_fast_quantize_b_impl_mmx(short *coeff_ptr, short *zbin_ptr,
 ;                           short *qcoeff_ptr,short *dequant_ptr,
 ;                           short *scan_mask, short *round_ptr,

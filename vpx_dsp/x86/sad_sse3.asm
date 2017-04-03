@@ -10,6 +10,7 @@
 
 %include "vpx_ports/x86_abi_support.asm"
 
+section .text
 %macro STACK_FRAME_CREATE_X3 0
 %if ABI_IS_32BIT
   %define     src_ptr       rsi

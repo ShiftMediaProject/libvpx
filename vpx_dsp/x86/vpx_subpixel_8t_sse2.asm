@@ -11,6 +11,7 @@
 
 %include "vpx_ports/x86_abi_support.asm"
 
+section .text
 ;Note: tap3 and tap4 have to be applied and added after other taps to avoid
 ;overflow.
 

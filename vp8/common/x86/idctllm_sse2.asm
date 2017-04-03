@@ -11,6 +11,7 @@
 
 %include "vpx_ports/x86_abi_support.asm"
 
+section .text
 ;void vp8_idct_dequant_0_2x_sse2
 ; (
 ;   short *qcoeff       - 0

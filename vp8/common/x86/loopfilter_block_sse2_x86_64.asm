@@ -11,6 +11,7 @@
 
 %include "vpx_ports/x86_abi_support.asm"
 
+section .text
 %macro LF_ABS 2
         ; %1 value not preserved
         ; %2 value preserved

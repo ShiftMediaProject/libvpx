@@ -11,6 +11,7 @@
 
 %include "vpx_ports/x86_abi_support.asm"
 
+section .text
 %macro PROCESS_16X2X3 1
 %if %1
         movdqa          xmm0,       XMMWORD PTR [rsi]

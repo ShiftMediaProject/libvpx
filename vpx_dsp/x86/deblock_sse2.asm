@@ -11,6 +11,7 @@
 
 %include "vpx_ports/x86_abi_support.asm"
 
+section .text
 ;macro in deblock functions
 %macro FIRST_2_ROWS 0
         movdqa      xmm4,       xmm0

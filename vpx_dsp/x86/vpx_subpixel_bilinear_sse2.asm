@@ -10,6 +10,7 @@
 
 %include "vpx_ports/x86_abi_support.asm"
 
+section .text
 %macro GET_PARAM_4 0
     mov         rdx, arg(5)                 ;filter ptr
     mov         rsi, arg(0)                 ;src_ptr

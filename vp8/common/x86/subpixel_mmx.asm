@@ -12,7 +12,7 @@
 %include "vpx_ports/x86_abi_support.asm"
 extern sym(vp8_bilinear_filters_x86_8)
 
-
+section .text
 %define BLOCK_HEIGHT_WIDTH 4
 %define vp8_filter_weight 128
 %define VP8_FILTER_SHIFT  7
