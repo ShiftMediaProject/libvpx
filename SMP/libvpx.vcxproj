@@ -618,14 +618,12 @@
     <TargetName>vpxd</TargetName>
     <IntDir>$(SolutionDir)obj\$(Configuration)\$(Platform)\$(ProjectName)\</IntDir>
     <OutDir>$(ProjectDir)..\..\..\msvc\</OutDir>
-    <LinkIncremental>false</LinkIncremental>
     <CustomBuildAfterTargets>Clean</CustomBuildAfterTargets>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='DebugDLL|x64'">
     <TargetName>vpxd</TargetName>
     <OutDir>$(ProjectDir)..\..\..\msvc\</OutDir>
     <IntDir>$(SolutionDir)obj\$(Configuration)\$(Platform)\$(ProjectName)\</IntDir>
-    <LinkIncremental>false</LinkIncremental>
     <CustomBuildAfterTargets>Clean</CustomBuildAfterTargets>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseDLL|Win32'">
@@ -685,6 +683,7 @@
       <AdditionalIncludeDirectories>.\;..\;.\x86;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <DisableSpecificWarnings>4996;4244;4018;4744;4742;4752;%(DisableSpecificWarnings)</DisableSpecificWarnings>
       <ProgramDataBaseFileName>$(OutDir)\lib\x86\$(TargetName).pdb</ProgramDataBaseFileName>
+      <MinimalRebuild>false</MinimalRebuild>
     </ClCompile>
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
@@ -696,9 +695,9 @@
       <AdditionalOptions>/ignore:4221 %(AdditionalOptions)</AdditionalOptions>
     </Lib>
     <PostBuildEvent>
-      <Command>mkdir $(OutDir)\include
-mkdir $(OutDir)\include\vpx
-copy ..\vpx\*.h $(OutDir)\include\vpx
+      <Command>mkdir "$(OutDir)"\include
+mkdir "$(OutDir)"\include\vpx
+copy ..\vpx\*.h "$(OutDir)"\include\vpx
 mkdir $(OutDir)\licenses
 copy ..\LICENSE $(OutDir)\licenses\libvpx.txt</Command>
     </PostBuildEvent>
@@ -727,8 +726,8 @@ del ..\vp8_rtcd.h
 if exist ..\vp9_rtcd.h (
 del ..\vp9_rtcd.h
 )
-if exist $(OutDir)\include\vpx (
-rd /s /q $(OutDir)\include\vpx
+if exist "$(OutDir)"\include\vpx (
+rd /s /q "$(OutDir)"\include\vpx
 cd ../
 cd $(ProjectDir)
 )</Command>
@@ -742,8 +741,8 @@ cd $(ProjectDir)
     </CustomBuildStep>
     <CustomBuildStep>
       <Outputs>force_clean</Outputs>
-      <Command>if exist $(OutDir)\include\vpx (
-rmdir /s /q $(OutDir)\include\vpx
+      <Command>if exist "$(OutDir)"\include\vpx (
+rmdir /s /q "$(OutDir)"\include\vpx
 )
 if exist $(OutDir)\licenses\libvpx.txt (
 del /f /q $(OutDir)\licenses\libvpx.txt
@@ -759,6 +758,7 @@ del /f /q $(OutDir)\licenses\libvpx.txt
       <AdditionalIncludeDirectories>.\;..\;.\x86_64;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <DisableSpecificWarnings>4996;4244;4018;4744;4742;4752;%(DisableSpecificWarnings)</DisableSpecificWarnings>
       <ProgramDataBaseFileName>$(OutDir)\lib\x64\$(TargetName).pdb</ProgramDataBaseFileName>
+      <MinimalRebuild>false</MinimalRebuild>
     </ClCompile>
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
@@ -770,9 +770,9 @@ del /f /q $(OutDir)\licenses\libvpx.txt
       <AdditionalOptions>/ignore:4221 %(AdditionalOptions)</AdditionalOptions>
     </Lib>
     <PostBuildEvent>
-      <Command>mkdir $(OutDir)\include
-mkdir $(OutDir)\include\vpx
-copy ..\vpx\*.h $(OutDir)\include\vpx
+      <Command>mkdir "$(OutDir)"\include
+mkdir "$(OutDir)"\include\vpx
+copy ..\vpx\*.h "$(OutDir)"\include\vpx
 mkdir $(OutDir)\licenses
 copy ..\LICENSE $(OutDir)\licenses\libvpx.txt</Command>
     </PostBuildEvent>
@@ -801,8 +801,8 @@ del ..\vp8_rtcd.h
 if exist ..\vp9_rtcd.h (
 del ..\vp9_rtcd.h
 )
-if exist $(OutDir)\include\vpx (
-rd /s /q $(OutDir)\include\vpx
+if exist "$(OutDir)"\include\vpx (
+rd /s /q "$(OutDir)"\include\vpx
 cd ../
 cd $(ProjectDir)
 )</Command>
@@ -816,8 +816,8 @@ cd $(ProjectDir)
     </CustomBuildStep>
     <CustomBuildStep>
       <Outputs>force_clean</Outputs>
-      <Command>if exist $(OutDir)\include\vpx (
-rmdir /s /q $(OutDir)\include\vpx
+      <Command>if exist "$(OutDir)"\include\vpx (
+rmdir /s /q "$(OutDir)"\include\vpx
 )
 if exist $(OutDir)\licenses\libvpx.txt (
 del /f /q $(OutDir)\licenses\libvpx.txt
@@ -833,6 +833,7 @@ del /f /q $(OutDir)\licenses\libvpx.txt
       <AdditionalIncludeDirectories>.\;..\;.\x86;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <DisableSpecificWarnings>4996;4244;4018;4744;4742;4752;%(DisableSpecificWarnings)</DisableSpecificWarnings>
       <ProgramDataBaseFileName>$(IntDir)$(TargetName).pdb</ProgramDataBaseFileName>
+      <MinimalRebuild>false</MinimalRebuild>
     </ClCompile>
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
@@ -846,9 +847,9 @@ del /f /q $(OutDir)\licenses\libvpx.txt
       <MinimumRequiredVersion>5.1</MinimumRequiredVersion>
     </Link>
     <PostBuildEvent>
-      <Command>mkdir $(OutDir)\include
-mkdir $(OutDir)\include\vpx
-copy ..\vpx\*.h $(OutDir)\include\vpx
+      <Command>mkdir "$(OutDir)"\include
+mkdir "$(OutDir)"\include\vpx
+copy ..\vpx\*.h "$(OutDir)"\include\vpx
 mkdir $(OutDir)\licenses
 copy ..\LICENSE $(OutDir)\licenses\libvpx.txt</Command>
     </PostBuildEvent>
@@ -877,8 +878,8 @@ del ..\vp8_rtcd.h
 if exist ..\vp9_rtcd.h (
 del ..\vp9_rtcd.h
 )
-if exist $(OutDir)\include\vpx (
-rd /s /q $(OutDir)\include\vpx
+if exist "$(OutDir)"\include\vpx (
+rd /s /q "$(OutDir)"\include\vpx
 cd ../
 cd $(ProjectDir)
 )</Command>
@@ -892,8 +893,8 @@ cd $(ProjectDir)
     </CustomBuildStep>
     <CustomBuildStep>
       <Outputs>force_clean</Outputs>
-      <Command>if exist $(OutDir)\include\vpx (
-rmdir /s /q $(OutDir)\include\vpx
+      <Command>if exist "$(OutDir)"\include\vpx (
+rmdir /s /q "$(OutDir)"\include\vpx
 )
 if exist $(OutDir)\licenses\libvpx.txt (
 del /f /q $(OutDir)\licenses\libvpx.txt
@@ -909,6 +910,7 @@ del /f /q $(OutDir)\licenses\libvpx.txt
       <AdditionalIncludeDirectories>.\;..\;.\x86_64;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <DisableSpecificWarnings>4996;4244;4018;4744;4742;4752;%(DisableSpecificWarnings)</DisableSpecificWarnings>
       <ProgramDataBaseFileName>$(IntDir)$(TargetName).pdb</ProgramDataBaseFileName>
+      <MinimalRebuild>false</MinimalRebuild>
     </ClCompile>
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
@@ -921,9 +923,9 @@ del /f /q $(OutDir)\licenses\libvpx.txt
       <MinimumRequiredVersion>6.0</MinimumRequiredVersion>
     </Link>
     <PostBuildEvent>
-      <Command>mkdir $(OutDir)\include
-mkdir $(OutDir)\include\vpx
-copy ..\vpx\*.h $(OutDir)\include\vpx
+      <Command>mkdir "$(OutDir)"\include
+mkdir "$(OutDir)"\include\vpx
+copy ..\vpx\*.h "$(OutDir)"\include\vpx
 mkdir $(OutDir)\licenses
 copy ..\LICENSE $(OutDir)\licenses\libvpx.txt</Command>
     </PostBuildEvent>
@@ -952,8 +954,8 @@ del ..\vp8_rtcd.h
 if exist ..\vp9_rtcd.h (
 del ..\vp9_rtcd.h
 )
-if exist $(OutDir)\include\vpx (
-rd /s /q $(OutDir)\include\vpx
+if exist "$(OutDir)"\include\vpx (
+rd /s /q "$(OutDir)"\include\vpx
 cd ../
 cd $(ProjectDir)
 )</Command>
@@ -967,8 +969,8 @@ cd $(ProjectDir)
     </CustomBuildStep>
     <CustomBuildStep>
       <Outputs>force_clean</Outputs>
-      <Command>if exist $(OutDir)\include\vpx (
-rmdir /s /q $(OutDir)\include\vpx
+      <Command>if exist "$(OutDir)"\include\vpx (
+rmdir /s /q "$(OutDir)"\include\vpx
 )
 if exist $(OutDir)\licenses\libvpx.txt (
 del /f /q $(OutDir)\licenses\libvpx.txt
@@ -1006,9 +1008,9 @@ del /f /q $(OutDir)\licenses\libvpx.txt
       <AdditionalOptions>/ignore:4221 %(AdditionalOptions)</AdditionalOptions>
     </Lib>
     <PostBuildEvent>
-      <Command>mkdir $(OutDir)\include
-mkdir $(OutDir)\include\vpx
-copy ..\vpx\*.h $(OutDir)\include\vpx
+      <Command>mkdir "$(OutDir)"\include
+mkdir "$(OutDir)"\include\vpx
+copy ..\vpx\*.h "$(OutDir)"\include\vpx
 mkdir $(OutDir)\licenses
 copy ..\LICENSE $(OutDir)\licenses\libvpx.txt</Command>
     </PostBuildEvent>
@@ -1037,8 +1039,8 @@ del ..\vp8_rtcd.h
 if exist ..\vp9_rtcd.h (
 del ..\vp9_rtcd.h
 )
-if exist $(OutDir)\include\vpx (
-rd /s /q $(OutDir)\include\vpx
+if exist "$(OutDir)"\include\vpx (
+rd /s /q "$(OutDir)"\include\vpx
 cd ../
 cd $(ProjectDir)
 )</Command>
@@ -1051,8 +1053,8 @@ cd $(ProjectDir)
     </CustomBuildStep>
     <CustomBuildStep>
       <Outputs>force_clean</Outputs>
-      <Command>if exist $(OutDir)\include\vpx (
-rmdir /s /q $(OutDir)\include\vpx
+      <Command>if exist "$(OutDir)"\include\vpx (
+rmdir /s /q "$(OutDir)"\include\vpx
 )
 if exist $(OutDir)\licenses\libvpx.txt (
 del /f /q $(OutDir)\licenses\libvpx.txt
@@ -1090,9 +1092,9 @@ del /f /q $(OutDir)\licenses\libvpx.txt
       <AdditionalOptions>/ignore:4221 %(AdditionalOptions)</AdditionalOptions>
     </Lib>
     <PostBuildEvent>
-      <Command>mkdir $(OutDir)\include
-mkdir $(OutDir)\include\vpx
-copy ..\vpx\*.h $(OutDir)\include\vpx
+      <Command>mkdir "$(OutDir)"\include
+mkdir "$(OutDir)"\include\vpx
+copy ..\vpx\*.h "$(OutDir)"\include\vpx
 mkdir $(OutDir)\licenses
 copy ..\LICENSE $(OutDir)\licenses\libvpx.txt</Command>
     </PostBuildEvent>
@@ -1121,8 +1123,8 @@ del ..\vp8_rtcd.h
 if exist ..\vp9_rtcd.h (
 del ..\vp9_rtcd.h
 )
-if exist $(OutDir)\include\vpx (
-rd /s /q $(OutDir)\include\vpx
+if exist "$(OutDir)"\include\vpx (
+rd /s /q "$(OutDir)"\include\vpx
 cd ../
 cd $(ProjectDir)
 )</Command>
@@ -1135,8 +1137,8 @@ cd $(ProjectDir)
     </CustomBuildStep>
     <CustomBuildStep>
       <Outputs>force_clean</Outputs>
-      <Command>if exist $(OutDir)\include\vpx (
-rmdir /s /q $(OutDir)\include\vpx
+      <Command>if exist "$(OutDir)"\include\vpx (
+rmdir /s /q "$(OutDir)"\include\vpx
 )
 if exist $(OutDir)\licenses\libvpx.txt (
 del /f /q $(OutDir)\licenses\libvpx.txt
@@ -1174,9 +1176,9 @@ del /f /q $(OutDir)\licenses\libvpx.txt
       <AdditionalOptions>/ignore:4221 %(AdditionalOptions)</AdditionalOptions>
     </Lib>
     <PostBuildEvent>
-      <Command>mkdir $(OutDir)\include
-mkdir $(OutDir)\include\vpx
-copy ..\vpx\*.h $(OutDir)\include\vpx
+      <Command>mkdir "$(OutDir)"\include
+mkdir "$(OutDir)"\include\vpx
+copy ..\vpx\*.h "$(OutDir)"\include\vpx
 mkdir $(OutDir)\licenses
 copy ..\LICENSE $(OutDir)\licenses\libvpx.txt</Command>
     </PostBuildEvent>
@@ -1205,8 +1207,8 @@ del ..\vp8_rtcd.h
 if exist ..\vp9_rtcd.h (
 del ..\vp9_rtcd.h
 )
-if exist $(OutDir)\include\vpx (
-rd /s /q $(OutDir)\include\vpx
+if exist "$(OutDir)"\include\vpx (
+rd /s /q "$(OutDir)"\include\vpx
 cd ../
 cd $(ProjectDir)
 )</Command>
@@ -1219,8 +1221,8 @@ cd $(ProjectDir)
     </CustomBuildStep>
     <CustomBuildStep>
       <Outputs>force_clean</Outputs>
-      <Command>if exist $(OutDir)\include\vpx (
-rmdir /s /q $(OutDir)\include\vpx
+      <Command>if exist "$(OutDir)"\include\vpx (
+rmdir /s /q "$(OutDir)"\include\vpx
 )
 if exist $(OutDir)\licenses\libvpx.txt (
 del /f /q $(OutDir)\licenses\libvpx.txt
@@ -1258,9 +1260,9 @@ del /f /q $(OutDir)\licenses\libvpx.txt
       <AdditionalOptions>/ignore:4221 %(AdditionalOptions)</AdditionalOptions>
     </Lib>
     <PostBuildEvent>
-      <Command>mkdir $(OutDir)\include
-mkdir $(OutDir)\include\vpx
-copy ..\vpx\*.h $(OutDir)\include\vpx
+      <Command>mkdir "$(OutDir)"\include
+mkdir "$(OutDir)"\include\vpx
+copy ..\vpx\*.h "$(OutDir)"\include\vpx
 mkdir $(OutDir)\licenses
 copy ..\LICENSE $(OutDir)\licenses\libvpx.txt</Command>
     </PostBuildEvent>
@@ -1289,8 +1291,8 @@ del ..\vp8_rtcd.h
 if exist ..\vp9_rtcd.h (
 del ..\vp9_rtcd.h
 )
-if exist $(OutDir)\include\vpx (
-rd /s /q $(OutDir)\include\vpx
+if exist "$(OutDir)"\include\vpx (
+rd /s /q "$(OutDir)"\include\vpx
 cd ../
 cd $(ProjectDir)
 )</Command>
@@ -1303,8 +1305,8 @@ cd $(ProjectDir)
     </CustomBuildStep>
     <CustomBuildStep>
       <Outputs>force_clean</Outputs>
-      <Command>if exist $(OutDir)\include\vpx (
-rmdir /s /q $(OutDir)\include\vpx
+      <Command>if exist "$(OutDir)"\include\vpx (
+rmdir /s /q "$(OutDir)"\include\vpx
 )
 if exist $(OutDir)\licenses\libvpx.txt (
 del /f /q $(OutDir)\licenses\libvpx.txt
@@ -1342,9 +1344,9 @@ del /f /q $(OutDir)\licenses\libvpx.txt
       <MinimumRequiredVersion>5.1</MinimumRequiredVersion>
     </Link>
     <PostBuildEvent>
-      <Command>mkdir $(OutDir)\include
-mkdir $(OutDir)\include\vpx
-copy ..\vpx\*.h $(OutDir)\include\vpx
+      <Command>mkdir "$(OutDir)"\include
+mkdir "$(OutDir)"\include\vpx
+copy ..\vpx\*.h "$(OutDir)"\include\vpx
 mkdir $(OutDir)\licenses
 copy ..\LICENSE $(OutDir)\licenses\libvpx.txt</Command>
     </PostBuildEvent>
@@ -1373,8 +1375,8 @@ del ..\vp8_rtcd.h
 if exist ..\vp9_rtcd.h (
 del ..\vp9_rtcd.h
 )
-if exist $(OutDir)\include\vpx (
-rd /s /q $(OutDir)\include\vpx
+if exist "$(OutDir)"\include\vpx (
+rd /s /q "$(OutDir)"\include\vpx
 cd ../
 cd $(ProjectDir)
 )</Command>
@@ -1387,8 +1389,8 @@ cd $(ProjectDir)
     </CustomBuildStep>
     <CustomBuildStep>
       <Outputs>force_clean</Outputs>
-      <Command>if exist $(OutDir)\include\vpx (
-rmdir /s /q $(OutDir)\include\vpx
+      <Command>if exist "$(OutDir)"\include\vpx (
+rmdir /s /q "$(OutDir)"\include\vpx
 )
 if exist $(OutDir)\licenses\libvpx.txt (
 del /f /q $(OutDir)\licenses\libvpx.txt
@@ -1425,9 +1427,9 @@ del /f /q $(OutDir)\licenses\libvpx.txt
       <MinimumRequiredVersion>6.0</MinimumRequiredVersion>
     </Link>
     <PostBuildEvent>
-      <Command>mkdir $(OutDir)\include
-mkdir $(OutDir)\include\vpx
-copy ..\vpx\*.h $(OutDir)\include\vpx
+      <Command>mkdir "$(OutDir)"\include
+mkdir "$(OutDir)"\include\vpx
+copy ..\vpx\*.h "$(OutDir)"\include\vpx
 mkdir $(OutDir)\licenses
 copy ..\LICENSE $(OutDir)\licenses\libvpx.txt</Command>
     </PostBuildEvent>
@@ -1456,8 +1458,8 @@ del ..\vp8_rtcd.h
 if exist ..\vp9_rtcd.h (
 del ..\vp9_rtcd.h
 )
-if exist $(OutDir)\include\vpx (
-rd /s /q $(OutDir)\include\vpx
+if exist "$(OutDir)"\include\vpx (
+rd /s /q "$(OutDir)"\include\vpx
 cd ../
 cd $(ProjectDir)
 )</Command>
@@ -1470,8 +1472,8 @@ cd $(ProjectDir)
     </CustomBuildStep>
     <CustomBuildStep>
       <Outputs>force_clean</Outputs>
-      <Command>if exist $(OutDir)\include\vpx (
-rmdir /s /q $(OutDir)\include\vpx
+      <Command>if exist "$(OutDir)"\include\vpx (
+rmdir /s /q "$(OutDir)"\include\vpx
 )
 if exist $(OutDir)\licenses\libvpx.txt (
 del /f /q $(OutDir)\licenses\libvpx.txt
