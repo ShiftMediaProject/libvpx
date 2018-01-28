@@ -9,16 +9,17 @@
 #ifndef VPX_CONFIG_H
 #define VPX_CONFIG_H
 #define RESTRICT    
-#define INLINE      __forceinline
+#define INLINE      __inline
 #define ARCH_ARM 0
 #define ARCH_MIPS 0
-#if defined( __x86_64 ) || defined( _M_X64 )
+#if defined(__x86_64) || defined(_M_X64)
 #define ARCH_X86 0
 #define ARCH_X86_64 1
 #else
 #define ARCH_X86 1
 #define ARCH_X86_64 0
 #endif
+#define ARCH_PPC 0
 #define HAVE_NEON 0
 #define HAVE_NEON_ASM 0
 #define HAVE_MIPS32 0
@@ -33,6 +34,13 @@
 #define HAVE_SSE4_1 1
 #define HAVE_AVX 1
 #define HAVE_AVX2 1
+#if _MSC_VER >= 1910
+#define HAVE_AVX512 1
+#else
+#define HAVE_AVX512 0
+#endif
+#define HAVE_VSX 0
+#define HAVE_MMI 0
 #define HAVE_VPX_PORTS 1
 #define HAVE_PTHREAD_H 0
 #define HAVE_UNISTD_H 0
@@ -48,7 +56,7 @@
 #define CONFIG_RVCT 0
 #define CONFIG_GCC 0
 #define CONFIG_MSVS 1
-#define CONFIG_PIC 0
+#define CONFIG_PIC 1
 #define CONFIG_BIG_ENDIAN 0
 #define CONFIG_CODEC_SRCS 0
 #define CONFIG_DEBUG_LIBS 0
@@ -68,9 +76,9 @@
 #define CONFIG_ENCODERS 1
 #define CONFIG_DECODERS 1
 #if _DLL
-#define CONFIG_STATIC_MSVCRT 0
-#else
 #define CONFIG_STATIC_MSVCRT 1
+#else
+#define CONFIG_STATIC_MSVCRT 0
 #endif
 #define CONFIG_SPATIAL_RESAMPLING 1
 #define CONFIG_REALTIME_ONLY 0
@@ -99,8 +107,8 @@
 #define CONFIG_BETTER_HW_COMPATIBILITY 0
 #define CONFIG_EXPERIMENTAL 0
 #define CONFIG_SIZE_LIMIT 0
+#define CONFIG_ALWAYS_ADJUST_BPM 0
 #define CONFIG_SPATIAL_SVC 0
 #define CONFIG_FP_MB_STATS 0
 #define CONFIG_EMULATE_HARDWARE 0
-#define CONFIG_MISC_FIXES 0
 #endif /* VPX_CONFIG_H */
