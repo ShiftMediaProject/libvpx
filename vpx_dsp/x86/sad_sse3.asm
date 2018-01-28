@@ -166,6 +166,8 @@ section .text
         paddw           mm7,       mm3
 %endmacro
 
+SECTION .text
+
 ;void int vpx_sad16x16x3_sse3(
 ;    unsigned char *src_ptr,
 ;    int  src_stride,

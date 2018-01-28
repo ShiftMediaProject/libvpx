@@ -45,6 +45,9 @@ section .text
         paddd           %1, xmm1
         SUM_ACROSS_Q    %1
 %endmacro
+
+SECTION .text
+
 ;void ssim_parms_sse2(
 ;    unsigned char *s,
 ;    int sp,

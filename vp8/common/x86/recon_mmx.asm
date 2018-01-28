@@ -11,7 +11,8 @@
 
 %include "vpx_ports/x86_abi_support.asm"
 
-section .text
+SECTION .text
+
 ;void copy_mem8x8_mmx(
 ;    unsigned char *src,
 ;    int src_stride,

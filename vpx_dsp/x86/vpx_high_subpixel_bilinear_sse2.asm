@@ -172,6 +172,8 @@ section .text
 %endm
 %endif
 
+SECTION .text
+
 global sym(vpx_highbd_filter_block1d4_v2_sse2) PRIVATE
 sym(vpx_highbd_filter_block1d4_v2_sse2):
     push        rbp
