@@ -87,7 +87,6 @@
     <ClInclude Include="..\vp8\common\swapyv12buffer.h" />
     <ClInclude Include="..\vp8\common\treecoder.h" />
     <ClInclude Include="..\vp8\common\vp8_skin_detection.h" />
-    <ClInclude Include="..\vp8\common\x86\filter_x86.h" />
     <ClInclude Include="..\vp8\decoder\dboolhuff.h" />
     <ClInclude Include="..\vp8\decoder\decodemv.h" />
     <ClInclude Include="..\vp8\decoder\decoderthreading.h" />
@@ -157,6 +156,7 @@
     <ClInclude Include="..\vp9\encoder\vp9_aq_variance.h" />
     <ClInclude Include="..\vp9\encoder\vp9_bitstream.h" />
     <ClInclude Include="..\vp9\encoder\vp9_block.h" />
+    <ClInclude Include="..\vp9\encoder\vp9_blockiness.h" />
     <ClInclude Include="..\vp9\encoder\vp9_context_tree.h" />
     <ClInclude Include="..\vp9\encoder\vp9_cost.h" />
     <ClInclude Include="..\vp9\encoder\vp9_denoiser.h" />
@@ -173,6 +173,7 @@
     <ClInclude Include="..\vp9\encoder\vp9_mcomp.h" />
     <ClInclude Include="..\vp9\encoder\vp9_multi_thread.h" />
     <ClInclude Include="..\vp9\encoder\vp9_noise_estimate.h" />
+    <ClInclude Include="..\vp9\encoder\vp9_partition_models.h" />
     <ClInclude Include="..\vp9\encoder\vp9_picklpf.h" />
     <ClInclude Include="..\vp9\encoder\vp9_pickmode.h" />
     <ClInclude Include="..\vp9\encoder\vp9_quantize.h" />
@@ -211,6 +212,7 @@
     <ClInclude Include="..\vpx_dsp\x86\bitdepth_conversion_sse2.h" />
     <ClInclude Include="..\vpx_dsp\x86\convolve.h" />
     <ClInclude Include="..\vpx_dsp\x86\convolve_avx2.h" />
+    <ClInclude Include="..\vpx_dsp\x86\convolve_sse2.h" />
     <ClInclude Include="..\vpx_dsp\x86\convolve_ssse3.h" />
     <ClInclude Include="..\vpx_dsp\x86\fwd_dct32x32_impl_avx2.h" />
     <ClInclude Include="..\vpx_dsp\x86\fwd_dct32x32_impl_sse2.h" />
@@ -221,13 +223,13 @@
     <ClInclude Include="..\vpx_dsp\x86\inv_txfm_sse2.h" />
     <ClInclude Include="..\vpx_dsp\x86\inv_txfm_ssse3.h" />
     <ClInclude Include="..\vpx_dsp\x86\mem_sse2.h" />
-    <ClInclude Include="..\vpx_dsp\x86\quantize_x86.h" />
+    <ClInclude Include="..\vpx_dsp\x86\quantize_sse2.h" />
+    <ClInclude Include="..\vpx_dsp\x86\quantize_ssse3.h" />
     <ClInclude Include="..\vpx_dsp\x86\transpose_sse2.h" />
     <ClInclude Include="..\vpx_dsp\x86\txfm_common_sse2.h" />
     <ClInclude Include="..\vpx_mem\include\vpx_mem_intrnl.h" />
     <ClInclude Include="..\vpx_mem\vpx_mem.h" />
     <ClInclude Include="..\vpx_ports\bitops.h" />
-    <ClInclude Include="..\vpx_ports\config.h" />
     <ClInclude Include="..\vpx_ports\emmintrin_compat.h" />
     <ClInclude Include="..\vpx_ports\mem.h" />
     <ClInclude Include="..\vpx_ports\mem_ops.h" />
@@ -284,7 +286,7 @@
     <ClCompile Include="..\vp8\common\treecoder.c" />
     <ClCompile Include="..\vp8\common\vp8_loopfilter.c" />
     <ClCompile Include="..\vp8\common\vp8_skin_detection.c" />
-    <ClCompile Include="..\vp8\common\x86\filter_x86.c" />
+    <ClCompile Include="..\vp8\common\x86\bilinear_filter_sse2.c" />
     <ClCompile Include="..\vp8\common\x86\idct_blk_mmx.c" />
     <ClCompile Include="..\vp8\common\x86\idct_blk_sse2.c" />
     <ClCompile Include="..\vp8\common\x86\loopfilter_x86.c" />
@@ -347,6 +349,9 @@
     <ClCompile Include="..\vp9\common\vp9_seg_common.c" />
     <ClCompile Include="..\vp9\common\vp9_thread_common.c" />
     <ClCompile Include="..\vp9\common\vp9_tile_common.c" />
+    <ClCompile Include="..\vp9\common\x86\vp9_highbd_iht16x16_add_sse4.c" />
+    <ClCompile Include="..\vp9\common\x86\vp9_highbd_iht4x4_add_sse4.c" />
+    <ClCompile Include="..\vp9\common\x86\vp9_highbd_iht8x8_add_sse4.c" />
     <ClCompile Include="..\vp9\common\x86\vp9_idct_intrin_sse2.c" />
     <ClCompile Include="..\vp9\decoder\vp9_decodeframe.c" />
     <ClCompile Include="..\vp9\decoder\vp9_decodemv.c" />
@@ -398,10 +403,10 @@
     <ClCompile Include="..\vp9\encoder\x86\vp9_error_avx2.c" />
     <ClCompile Include="..\vp9\encoder\x86\vp9_frame_scale_ssse3.c" />
     <ClCompile Include="..\vp9\encoder\x86\vp9_highbd_block_error_intrin_sse2.c" />
+    <ClCompile Include="..\vp9\encoder\x86\vp9_quantize_avx2.c" />
     <ClCompile Include="..\vp9\encoder\x86\vp9_quantize_sse2.c" />
     <ClCompile Include="..\vp9\vp9_cx_iface.c" />
     <ClCompile Include="..\vp9\vp9_dx_iface.c" />
-    <ClCompile Include="..\vpx\src\svc_encodeframe.c" />
     <ClCompile Include="..\vpx\src\vpx_codec.c" />
     <ClCompile Include="..\vpx\src\vpx_decoder.c" />
     <ClCompile Include="..\vpx\src\vpx_encoder.c" />
@@ -452,6 +457,7 @@
     <ClCompile Include="..\vpx_dsp\x86\loopfilter_sse2.c">
       <ObjectFileName>$(IntDir)\vpx_%(Filename).obj</ObjectFileName>
     </ClCompile>
+    <ClCompile Include="..\vpx_dsp\x86\post_proc_sse2.c" />
     <ClCompile Include="..\vpx_dsp\x86\quantize_avx.c" />
     <ClCompile Include="..\vpx_dsp\x86\quantize_sse2.c" />
     <ClCompile Include="..\vpx_dsp\x86\quantize_ssse3.c" />
@@ -464,7 +470,7 @@
     <ClCompile Include="..\vpx_dsp\x86\sum_squares_sse2.c" />
     <ClCompile Include="..\vpx_dsp\x86\variance_avx2.c" />
     <ClCompile Include="..\vpx_dsp\x86\variance_sse2.c" />
-    <ClCompile Include="..\vpx_dsp\x86\vpx_asm_stubs.c" />
+    <ClCompile Include="..\vpx_dsp\x86\vpx_subpixel_4t_intrin_sse2.c" />
     <ClCompile Include="..\vpx_dsp\x86\vpx_subpixel_8t_intrin_avx2.c" />
     <ClCompile Include="..\vpx_dsp\x86\vpx_subpixel_8t_intrin_ssse3.c" />
     <ClCompile Include="..\vpx_mem\vpx_mem.c" />
@@ -500,8 +506,8 @@
     <YASM Include="..\vp8\common\x86\subpixel_mmx.asm" />
     <YASM Include="..\vp8\common\x86\subpixel_sse2.asm" />
     <YASM Include="..\vp8\common\x86\subpixel_ssse3.asm" />
+    <YASM Include="..\vp8\encoder\x86\block_error_sse2.asm" />
     <YASM Include="..\vp8\encoder\x86\dct_sse2.asm" />
-    <YASM Include="..\vp8\encoder\x86\encodeopt.asm" />
     <YASM Include="..\vp8\encoder\x86\fwalsh_sse2.asm" />
     <YASM Include="..\vp8\encoder\x86\temporal_filter_apply_sse2.asm" />
     <YASM Include="..\vp9\common\x86\vp9_mfqe_sse2.asm" />
@@ -544,7 +550,8 @@
     <YASM Include="..\vpx_dsp\x86\vpx_subpixel_8t_ssse3.asm" />
     <YASM Include="..\vpx_dsp\x86\vpx_subpixel_bilinear_sse2.asm" />
     <YASM Include="..\vpx_dsp\x86\vpx_subpixel_bilinear_ssse3.asm" />
-    <YASM Include="..\vpx_ports\emms.asm" />
+    <YASM Include="..\vpx_ports\emms_mmx.asm" />
+    <YASM Include="..\vpx_ports\float_control_word.asm" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <ProjectGuid>{8293418A-603A-4119-B7B4-1E6204606BA9}</ProjectGuid>
@@ -934,6 +941,7 @@
       <AdditionalIncludeDirectories>.\;..\;.\x86;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <ProgramDataBaseFileName>$(OutDir)\lib\x86\$(TargetName).pdb</ProgramDataBaseFileName>
       <MinimalRebuild>false</MinimalRebuild>
+      <DisableSpecificWarnings>4752;%(DisableSpecificWarnings)</DisableSpecificWarnings>
     </ClCompile>
     <Lib>
       <TargetMachine>MachineX86</TargetMachine>
@@ -1008,6 +1016,7 @@ del /f /q $(OutDir)\licenses\libvpx.txt
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <CompileAsWinRT>false</CompileAsWinRT>
       <SDLCheck>false</SDLCheck>
+      <DisableSpecificWarnings>4752;%(DisableSpecificWarnings)</DisableSpecificWarnings>
     </ClCompile>
     <Lib>
       <TargetMachine>MachineX86</TargetMachine>
@@ -1079,6 +1088,7 @@ del /f /q $(OutDir)\licenses\libvpx.txt
       <AdditionalIncludeDirectories>.\;..\;.\x86_64;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <ProgramDataBaseFileName>$(OutDir)\lib\x64\$(TargetName).pdb</ProgramDataBaseFileName>
       <MinimalRebuild>false</MinimalRebuild>
+      <DisableSpecificWarnings>4752;%(DisableSpecificWarnings)</DisableSpecificWarnings>
     </ClCompile>
     <Lib>
       <TargetMachine>MachineX64</TargetMachine>
@@ -1153,6 +1163,7 @@ del /f /q $(OutDir)\licenses\libvpx.txt
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <CompileAsWinRT>false</CompileAsWinRT>
       <SDLCheck>false</SDLCheck>
+      <DisableSpecificWarnings>4752;%(DisableSpecificWarnings)</DisableSpecificWarnings>
     </ClCompile>
     <Lib>
       <TargetMachine>MachineX64</TargetMachine>
@@ -1224,6 +1235,7 @@ del /f /q $(OutDir)\licenses\libvpx.txt
       <AdditionalIncludeDirectories>.\;..\;.\x86;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <ProgramDataBaseFileName>$(IntDir)$(TargetName).pdb</ProgramDataBaseFileName>
       <MinimalRebuild>false</MinimalRebuild>
+      <DisableSpecificWarnings>4752;%(DisableSpecificWarnings)</DisableSpecificWarnings>
     </ClCompile>
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
@@ -1303,6 +1315,7 @@ del /f /q $(OutDir)\licenses\libvpx.txt
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <CompileAsWinRT>false</CompileAsWinRT>
       <SDLCheck>false</SDLCheck>
+      <DisableSpecificWarnings>4752;%(DisableSpecificWarnings)</DisableSpecificWarnings>
     </ClCompile>
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
@@ -1381,6 +1394,7 @@ del /f /q $(OutDir)\licenses\libvpx.txt
       <AdditionalIncludeDirectories>.\;..\;.\x86_64;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <ProgramDataBaseFileName>$(IntDir)$(TargetName).pdb</ProgramDataBaseFileName>
       <MinimalRebuild>false</MinimalRebuild>
+      <DisableSpecificWarnings>4752;%(DisableSpecificWarnings)</DisableSpecificWarnings>
     </ClCompile>
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
@@ -1459,6 +1473,7 @@ del /f /q $(OutDir)\licenses\libvpx.txt
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <CompileAsWinRT>false</CompileAsWinRT>
       <SDLCheck>false</SDLCheck>
+      <DisableSpecificWarnings>4752;%(DisableSpecificWarnings)</DisableSpecificWarnings>
     </ClCompile>
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
@@ -1543,6 +1558,7 @@ del /f /q $(OutDir)\licenses\libvpx.txt
       <AdditionalIncludeDirectories>.\;..\;.\x86;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <InterproceduralOptimization>SingleFile</InterproceduralOptimization>
       <ProgramDataBaseFileName>$(OutDir)\lib\x86\$(TargetName).pdb</ProgramDataBaseFileName>
+      <DisableSpecificWarnings>4752;%(DisableSpecificWarnings)</DisableSpecificWarnings>
     </ClCompile>
     <Lib>
       <TargetMachine>MachineX86</TargetMachine>
@@ -1623,6 +1639,7 @@ del /f /q $(OutDir)\licenses\libvpx.txt
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <CompileAsWinRT>false</CompileAsWinRT>
       <SDLCheck>false</SDLCheck>
+      <DisableSpecificWarnings>4752;%(DisableSpecificWarnings)</DisableSpecificWarnings>
     </ClCompile>
     <Lib>
       <TargetMachine>MachineX86</TargetMachine>
@@ -1700,6 +1717,7 @@ del /f /q $(OutDir)\licenses\libvpx.txt
       <AdditionalIncludeDirectories>.\;..\;.\x86_64;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <InterproceduralOptimization>SingleFile</InterproceduralOptimization>
       <ProgramDataBaseFileName>$(OutDir)\lib\x64\$(TargetName).pdb</ProgramDataBaseFileName>
+      <DisableSpecificWarnings>4752;%(DisableSpecificWarnings)</DisableSpecificWarnings>
     </ClCompile>
     <Lib>
       <TargetMachine>MachineX64</TargetMachine>
@@ -1780,6 +1798,7 @@ del /f /q $(OutDir)\licenses\libvpx.txt
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <CompileAsWinRT>false</CompileAsWinRT>
       <SDLCheck>false</SDLCheck>
+      <DisableSpecificWarnings>4752;%(DisableSpecificWarnings)</DisableSpecificWarnings>
     </ClCompile>
     <Lib>
       <TargetMachine>MachineX64</TargetMachine>
@@ -1856,6 +1875,7 @@ del /f /q $(OutDir)\licenses\libvpx.txt
       <EnableFiberSafeOptimizations>true</EnableFiberSafeOptimizations>
       <AdditionalIncludeDirectories>.\;..\;.\x86;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <ProgramDataBaseFileName>$(IntDir)$(TargetName).pdb</ProgramDataBaseFileName>
+      <DisableSpecificWarnings>4752;%(DisableSpecificWarnings)</DisableSpecificWarnings>
     </ClCompile>
     <Link>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
@@ -1942,6 +1962,7 @@ del /f /q $(OutDir)\licenses\libvpx.txt
       <CompileAsWinRT>false</CompileAsWinRT>
       <WarningLevel>Level3</WarningLevel>
       <SDLCheck>false</SDLCheck>
+      <DisableSpecificWarnings>4752;%(DisableSpecificWarnings)</DisableSpecificWarnings>
     </ClCompile>
     <Link>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
@@ -2027,6 +2048,7 @@ del /f /q $(OutDir)\licenses\libvpx.txt
       <EnableFiberSafeOptimizations>true</EnableFiberSafeOptimizations>
       <AdditionalIncludeDirectories>.\;..\;.\x86_64;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <ProgramDataBaseFileName>$(IntDir)$(TargetName).pdb</ProgramDataBaseFileName>
+      <DisableSpecificWarnings>4752;%(DisableSpecificWarnings)</DisableSpecificWarnings>
     </ClCompile>
     <Link>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
@@ -2112,6 +2134,7 @@ del /f /q $(OutDir)\licenses\libvpx.txt
       <CompileAsWinRT>false</CompileAsWinRT>
       <WarningLevel>Level3</WarningLevel>
       <SDLCheck>false</SDLCheck>
+      <DisableSpecificWarnings>4752;%(DisableSpecificWarnings)</DisableSpecificWarnings>
     </ClCompile>
     <Link>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
