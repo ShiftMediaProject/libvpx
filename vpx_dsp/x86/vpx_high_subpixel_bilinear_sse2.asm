@@ -27,7 +27,7 @@ section .text
     pshufd      xmm3, xmm3, 0
 
     mov         rdx, 0x00010001
-    movsxd      rcx, DWORD PTR arg(6)       ;bps
+    movsxd      rcx, DWORD PTR arg(6)       ;bd
     movq        xmm5, rdx
     movq        xmm2, rcx
     pshufd      xmm5, xmm5, 0b
@@ -83,7 +83,7 @@ section .text
     pshufd      xmm4, xmm4, 0
 
     mov         rdx, 0x00010001
-    movsxd      rcx, DWORD PTR arg(6)       ;bps
+    movsxd      rcx, DWORD PTR arg(6)       ;bd
     movq        xmm8, rdx
     movq        xmm5, rcx
     pshufd      xmm8, xmm8, 0b
