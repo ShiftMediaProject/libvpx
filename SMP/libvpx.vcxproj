@@ -149,6 +149,7 @@
     <ClInclude Include="..\vp9\decoder\vp9_decoder.h" />
     <ClInclude Include="..\vp9\decoder\vp9_detokenize.h" />
     <ClInclude Include="..\vp9\decoder\vp9_dsubexp.h" />
+    <ClInclude Include="..\vp9\decoder\vp9_job_queue.h" />
     <ClInclude Include="..\vp9\encoder\vp9_alt_ref_aq.h" />
     <ClInclude Include="..\vp9\encoder\vp9_aq_360.h" />
     <ClInclude Include="..\vp9\encoder\vp9_aq_complexity.h" />
@@ -244,6 +245,7 @@
     <ClInclude Include="..\vpx_util\endian_inl.h" />
     <ClInclude Include="..\vpx_util\vpx_atomics.h" />
     <ClInclude Include="..\vpx_util\vpx_thread.h" />
+    <ClInclude Include="..\vpx_util\vpx_timestamp.h" />
     <ClInclude Include="..\vpx_util\vpx_write_yuv_frame.h" />
     <ClInclude Include="vpx_config.h" />
     <ClInclude Include="vpx_version.h" />
@@ -259,7 +261,6 @@
   <ItemGroup>
     <ClCompile Include="..\vp8\common\alloccommon.c" />
     <ClCompile Include="..\vp8\common\blockd.c" />
-    <ClCompile Include="..\vp8\common\copy_c.c" />
     <ClCompile Include="..\vp8\common\debugmodes.c" />
     <ClCompile Include="..\vp8\common\dequantize.c" />
     <ClCompile Include="..\vp8\common\entropy.c" />
@@ -299,6 +300,7 @@
     <ClCompile Include="..\vp8\decoder\threading.c" />
     <ClCompile Include="..\vp8\encoder\bitstream.c" />
     <ClCompile Include="..\vp8\encoder\boolhuff.c" />
+    <ClCompile Include="..\vp8\encoder\copy_c.c" />
     <ClCompile Include="..\vp8\encoder\dct.c" />
     <ClCompile Include="..\vp8\encoder\denoising.c" />
     <ClCompile Include="..\vp8\encoder\encodeframe.c" />
@@ -358,6 +360,7 @@
     <ClCompile Include="..\vp9\decoder\vp9_decoder.c" />
     <ClCompile Include="..\vp9\decoder\vp9_detokenize.c" />
     <ClCompile Include="..\vp9\decoder\vp9_dsubexp.c" />
+    <ClCompile Include="..\vp9\decoder\vp9_job_queue.c" />
     <ClCompile Include="..\vp9\encoder\vp9_alt_ref_aq.c" />
     <ClCompile Include="..\vp9\encoder\vp9_aq_360.c" />
     <ClCompile Include="..\vp9\encoder\vp9_aq_complexity.c" />
@@ -396,9 +399,9 @@
     <ClCompile Include="..\vp9\encoder\vp9_temporal_filter.c" />
     <ClCompile Include="..\vp9\encoder\vp9_tokenize.c" />
     <ClCompile Include="..\vp9\encoder\vp9_treewriter.c" />
+    <ClCompile Include="..\vp9\encoder\x86\highbd_temporal_filter_sse4.c" />
     <ClCompile Include="..\vp9\encoder\x86\temporal_filter_sse4.c" />
     <ClCompile Include="..\vp9\encoder\x86\vp9_dct_intrin_sse2.c" />
-    <ClCompile Include="..\vp9\encoder\x86\vp9_dct_ssse3.c" />
     <ClCompile Include="..\vp9\encoder\x86\vp9_diamond_search_sad_avx.c" />
     <ClCompile Include="..\vp9\encoder\x86\vp9_error_avx2.c" />
     <ClCompile Include="..\vp9\encoder\x86\vp9_frame_scale_ssse3.c" />
@@ -490,8 +493,6 @@
     <None Include="libvpx.def" />
   </ItemGroup>
   <ItemGroup>
-    <YASM Include="..\vp8\common\x86\copy_sse2.asm" />
-    <YASM Include="..\vp8\common\x86\copy_sse3.asm" />
     <YASM Include="..\vp8\common\x86\dequantize_mmx.asm" />
     <YASM Include="..\vp8\common\x86\idctllm_mmx.asm" />
     <YASM Include="..\vp8\common\x86\idctllm_sse2.asm" />
@@ -507,6 +508,8 @@
     <YASM Include="..\vp8\common\x86\subpixel_sse2.asm" />
     <YASM Include="..\vp8\common\x86\subpixel_ssse3.asm" />
     <YASM Include="..\vp8\encoder\x86\block_error_sse2.asm" />
+    <YASM Include="..\vp8\encoder\x86\copy_sse2.asm" />
+    <YASM Include="..\vp8\encoder\x86\copy_sse3.asm" />
     <YASM Include="..\vp8\encoder\x86\dct_sse2.asm" />
     <YASM Include="..\vp8\encoder\x86\fwalsh_sse2.asm" />
     <YASM Include="..\vp8\encoder\x86\temporal_filter_apply_sse2.asm" />

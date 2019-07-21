@@ -696,6 +696,12 @@
     <ClInclude Include="..\vpx_dsp\x86\quantize_ssse3.h">
       <Filter>Header Files\libvpx\vpx_dsp\x86</Filter>
     </ClInclude>
+    <ClInclude Include="..\vp9\decoder\vp9_job_queue.h">
+      <Filter>Header Files\libvpx\vp9\decoder</Filter>
+    </ClInclude>
+    <ClInclude Include="..\vpx_util\vpx_timestamp.h">
+      <Filter>Header Files\libvpx\vpx_util</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\vpx\src\vpx_encoder.c">
@@ -1109,14 +1115,8 @@
     <ClCompile Include="..\vp9\encoder\x86\vp9_quantize_sse2.c">
       <Filter>Source Files\libvpx\vp9\encoder\x86</Filter>
     </ClCompile>
-    <ClCompile Include="..\vp9\encoder\x86\vp9_dct_ssse3.c">
-      <Filter>Source Files\libvpx\vp9\encoder\x86</Filter>
-    </ClCompile>
     <ClCompile Include="..\vp9\encoder\x86\vp9_highbd_block_error_intrin_sse2.c">
       <Filter>Source Files\libvpx\vp9\encoder\x86</Filter>
-    </ClCompile>
-    <ClCompile Include="..\vp8\common\copy_c.c">
-      <Filter>Source Files\libvpx\vp8\common</Filter>
     </ClCompile>
     <ClCompile Include="..\vp8\common\vp8_loopfilter.c">
       <Filter>Source Files\libvpx\vp8\common</Filter>
@@ -1361,6 +1361,15 @@
     <ClCompile Include="..\vpx_dsp\x86\vpx_subpixel_4t_intrin_sse2.c">
       <Filter>Source Files\libvpx\vpx_dsp\x86</Filter>
     </ClCompile>
+    <ClCompile Include="..\vp8\encoder\copy_c.c">
+      <Filter>Source Files\libvpx\vp8\encoder</Filter>
+    </ClCompile>
+    <ClCompile Include="..\vp9\decoder\vp9_job_queue.c">
+      <Filter>Source Files\libvpx\vp9\decoder</Filter>
+    </ClCompile>
+    <ClCompile Include="..\vp9\encoder\x86\highbd_temporal_filter_sse4.c">
+      <Filter>Source Files\libvpx\vp9\encoder\x86</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <None Include="libvpx.def">
@@ -1418,12 +1427,6 @@
     </YASM>
     <YASM Include="..\vp9\encoder\x86\vp9_quantize_ssse3_x86_64.asm">
       <Filter>Source Files\libvpx\vp9\encoder\x86</Filter>
-    </YASM>
-    <YASM Include="..\vp8\common\x86\copy_sse2.asm">
-      <Filter>Source Files\libvpx\vp8\common\x86</Filter>
-    </YASM>
-    <YASM Include="..\vp8\common\x86\copy_sse3.asm">
-      <Filter>Source Files\libvpx\vp8\common\x86</Filter>
     </YASM>
     <YASM Include="..\vpx_dsp\x86\vpx_subpixel_bilinear_sse2.asm">
       <Filter>Source Files\libvpx\vpx_dsp\x86</Filter>
@@ -1523,6 +1526,12 @@
     </YASM>
     <YASM Include="..\vpx_ports\float_control_word.asm">
       <Filter>Source Files\libvpx\vpx_ports</Filter>
+    </YASM>
+    <YASM Include="..\vp8\encoder\x86\copy_sse2.asm">
+      <Filter>Source Files\libvpx\vp8\encoder\x86</Filter>
+    </YASM>
+    <YASM Include="..\vp8\encoder\x86\copy_sse3.asm">
+      <Filter>Source Files\libvpx\vp8\encoder\x86</Filter>
     </YASM>
   </ItemGroup>
 </Project>
