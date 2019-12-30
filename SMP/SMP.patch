@@ -168,7 +168,7 @@ index c57149657..7ca2bb9aa 100644
  ;overflow.
  
 diff --git a/vpx_dsp/x86/vpx_high_subpixel_bilinear_sse2.asm b/vpx_dsp/x86/vpx_high_subpixel_bilinear_sse2.asm
-index 87bf75ebb..5da4c77d1 100644
+index ec18d370e..f62a28baa 100644
 --- a/vpx_dsp/x86/vpx_high_subpixel_bilinear_sse2.asm
 +++ b/vpx_dsp/x86/vpx_high_subpixel_bilinear_sse2.asm
 @@ -10,6 +10,7 @@

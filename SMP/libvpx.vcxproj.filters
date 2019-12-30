@@ -1370,6 +1370,9 @@
     <ClCompile Include="..\vp9\encoder\x86\highbd_temporal_filter_sse4.c">
       <Filter>Source Files\libvpx\vp9\encoder\x86</Filter>
     </ClCompile>
+    <ClCompile Include="..\vp9\vp9_iface_common.c">
+      <Filter>Source Files\libvpx\vp9</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <None Include="libvpx.def">

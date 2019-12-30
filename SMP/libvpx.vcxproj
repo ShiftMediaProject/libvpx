@@ -410,6 +410,7 @@
     <ClCompile Include="..\vp9\encoder\x86\vp9_quantize_sse2.c" />
     <ClCompile Include="..\vp9\vp9_cx_iface.c" />
     <ClCompile Include="..\vp9\vp9_dx_iface.c" />
+    <ClCompile Include="..\vp9\vp9_iface_common.c" />
     <ClCompile Include="..\vpx\src\vpx_codec.c" />
     <ClCompile Include="..\vpx\src\vpx_decoder.c" />
     <ClCompile Include="..\vpx\src\vpx_encoder.c" />
