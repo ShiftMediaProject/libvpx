@@ -702,6 +702,12 @@
     <ClInclude Include="..\vpx_util\vpx_timestamp.h">
       <Filter>Header Files\libvpx\vpx_util</Filter>
     </ClInclude>
+    <ClInclude Include="..\vpx_ports\compiler_attributes.h">
+      <Filter>Header Files\libvpx\vpx_ports</Filter>
+    </ClInclude>
+    <ClInclude Include="..\vpx_ports\static_assert.h">
+      <Filter>Header Files\libvpx\vpx_ports</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\vpx\src\vpx_encoder.c">
