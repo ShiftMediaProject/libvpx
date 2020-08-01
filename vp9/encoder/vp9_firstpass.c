@@ -389,6 +389,29 @@ static int get_search_range(const VP9_COMP *cpi) {
   return sr;
 }
 
+// Reduce limits to keep the motion search within MV_MAX of ref_mv. Not doing
+// this can be problematic for big videos (8K) and may cause assert failure
+// (or memory violation) in mv_cost. Limits are only modified if they would
+// be non-empty. Returns 1 if limits are non-empty.
+static int intersect_limits_with_mv_max(MvLimits *mv_limits, const MV *ref_mv) {
+  const int row_min =
+      VPXMAX(mv_limits->row_min, (ref_mv->row + 7 - MV_MAX) >> 3);
+  const int row_max =
+      VPXMIN(mv_limits->row_max, (ref_mv->row - 1 + MV_MAX) >> 3);
+  const int col_min =
+      VPXMAX(mv_limits->col_min, (ref_mv->col + 7 - MV_MAX) >> 3);
+  const int col_max =
+      VPXMIN(mv_limits->col_max, (ref_mv->col - 1 + MV_MAX) >> 3);
+  if (row_min > row_max || col_min > col_max) {
+    return 0;
+  }
+  mv_limits->row_min = row_min;
+  mv_limits->row_max = row_max;
+  mv_limits->col_min = col_min;
+  mv_limits->col_max = col_max;
+  return 1;
+}
+
 static void first_pass_motion_search(VP9_COMP *cpi, MACROBLOCK *x,
                                      const MV *ref_mv, MV *best_mv,
                                      int *best_motion_err) {
@@ -403,8 +426,13 @@ static void first_pass_motion_search(VP9_COMP *cpi, MACROBLOCK *x,
   int step_param = 3;
   int further_steps = (MAX_MVSEARCH_STEPS - 1) - step_param;
   const int sr = get_search_range(cpi);
+  const MvLimits tmp_mv_limits = x->mv_limits;
   step_param += sr;
   further_steps -= sr;
+
+  if (!intersect_limits_with_mv_max(&x->mv_limits, ref_mv)) {
+    return;
+  }
 
   // Override the default variance function to use MSE.
   v_fn_ptr.vf = get_block_variance_fn(bsize);
@@ -451,6 +479,7 @@ static void first_pass_motion_search(VP9_COMP *cpi, MACROBLOCK *x,
       }
     }
   }
+  x->mv_limits = tmp_mv_limits;
 }
 
 static BLOCK_SIZE get_bsize(const VP9_COMMON *cm, int mb_row, int mb_col) {
@@ -1366,7 +1395,7 @@ void vp9_first_pass(VP9_COMP *cpi, const struct lookahead_entry *source) {
 #endif
 
   set_first_pass_params(cpi);
-  vp9_set_quantizer(cm, find_fp_qindex(cm->bit_depth));
+  vp9_set_quantizer(cpi, find_fp_qindex(cm->bit_depth));
 
   vp9_setup_block_planes(&x->e_mbd, cm->subsampling_x, cm->subsampling_y);
 
@@ -1478,7 +1507,8 @@ void vp9_first_pass(VP9_COMP *cpi, const struct lookahead_entry *source) {
     fclose(recon_file);
   }
 
-  ++cm->current_video_frame;
+  // In the first pass, every frame is considered as a show frame.
+  update_frame_indexes(cm, /*show_frame=*/1);
   if (cpi->use_svc) vp9_inc_frame_in_layer(cpi);
 }
 
@@ -2458,6 +2488,25 @@ typedef struct RANGE {
   int max;
 } RANGE;
 
+/* get_gop_coding_frame_num() depends on several fields in RATE_CONTROL *rc as
+ * follows.
+ * Static fields:
+ * (The following fields will remain unchanged after initialization of encoder.)
+ *   rc->static_scene_max_gf_interval
+ *   rc->min_gf_interval
+ *
+ * Dynamic fields:
+ * (The following fields will be updated before or after coding each frame.)
+ *   rc->frames_to_key
+ *   rc->frames_since_key
+ *   rc->source_alt_ref_active
+ *
+ * Special case: if CONFIG_RATE_CTRL is true, the external arf indexes will
+ * determine the arf position.
+ *
+ * TODO(angiebird): Separate the dynamic fields and static fields into two
+ * structs.
+ */
 static int get_gop_coding_frame_num(
     int *use_alt_ref, const FRAME_INFO *frame_info,
     const FIRST_PASS_INFO *first_pass_info, const RATE_CONTROL *rc,
@@ -2700,12 +2749,26 @@ static void define_gf_group(VP9_COMP *cpi, int gf_start_show_idx) {
     gop_intra_factor = 1.0;
   }
 
+#if CONFIG_RATE_CTRL
   {
-    gop_coding_frames = get_gop_coding_frame_num(
-        &use_alt_ref, frame_info, first_pass_info, rc, gf_start_show_idx,
-        &active_gf_interval, gop_intra_factor, cpi->oxcf.lag_in_frames);
-    use_alt_ref &= allow_alt_ref;
+    const GOP_COMMAND *gop_command = &cpi->encode_command.gop_command;
+    assert(allow_alt_ref == 1);
+    if (gop_command->use) {
+      gop_coding_frames = gop_command_coding_frame_count(gop_command);
+      use_alt_ref = gop_command->use_alt_ref;
+    } else {
+      gop_coding_frames = get_gop_coding_frame_num(
+          &use_alt_ref, frame_info, first_pass_info, rc, gf_start_show_idx,
+          &active_gf_interval, gop_intra_factor, cpi->oxcf.lag_in_frames);
+      use_alt_ref &= allow_alt_ref;
+    }
   }
+#else
+  gop_coding_frames = get_gop_coding_frame_num(
+      &use_alt_ref, frame_info, first_pass_info, rc, gf_start_show_idx,
+      &active_gf_interval, gop_intra_factor, cpi->oxcf.lag_in_frames);
+  use_alt_ref &= allow_alt_ref;
+#endif
 
   // Was the group length constrained by the requirement for a new KF?
   rc->constrained_gf_group = (gop_coding_frames >= rc->frames_to_key) ? 1 : 0;
@@ -3627,56 +3690,105 @@ void vp9_twopass_postencode_update(VP9_COMP *cpi) {
 }
 
 #if CONFIG_RATE_CTRL
+void vp9_get_next_group_of_picture(const VP9_COMP *cpi, int *first_is_key_frame,
+                                   int *use_alt_ref, int *coding_frame_count,
+                                   int *first_show_idx,
+                                   int *last_gop_use_alt_ref) {
+  const GOP_COMMAND *gop_command = &cpi->encode_command.gop_command;
+  // We make a copy of rc here because we want to get information from the
+  // encoder without changing its state.
+  // TODO(angiebird): Avoid copying rc here.
+  RATE_CONTROL rc = cpi->rc;
+  const int multi_layer_arf = 0;
+  const int allow_alt_ref = 1;
+  // We assume that current_video_frame is updated to the show index of the
+  // frame we are about to called. Note that current_video_frame is updated at
+  // the end of encode_frame_to_data_rate().
+  // TODO(angiebird): Avoid this kind of fragile style.
+  *first_show_idx = cpi->common.current_video_frame;
+  *last_gop_use_alt_ref = rc.source_alt_ref_active;
+
+  *first_is_key_frame = 0;
+  if (rc.frames_to_key == 0) {
+    rc.frames_to_key = vp9_get_frames_to_next_key(
+        &cpi->oxcf, &cpi->frame_info, &cpi->twopass.first_pass_info,
+        *first_show_idx, rc.min_gf_interval);
+    rc.frames_since_key = 0;
+    *first_is_key_frame = 1;
+  }
+
+  if (gop_command->use) {
+    *coding_frame_count = gop_command_coding_frame_count(gop_command);
+    *use_alt_ref = gop_command->use_alt_ref;
+    assert(*coding_frame_count < rc.frames_to_key);
+  } else {
+    *coding_frame_count = vp9_get_gop_coding_frame_count(
+        &cpi->oxcf, &cpi->frame_info, &cpi->twopass.first_pass_info, &rc,
+        *first_show_idx, multi_layer_arf, allow_alt_ref, *first_is_key_frame,
+        *last_gop_use_alt_ref, use_alt_ref);
+  }
+}
+
+int vp9_get_gop_coding_frame_count(const VP9EncoderConfig *oxcf,
+                                   const FRAME_INFO *frame_info,
+                                   const FIRST_PASS_INFO *first_pass_info,
+                                   const RATE_CONTROL *rc, int show_idx,
+                                   int multi_layer_arf, int allow_alt_ref,
+                                   int first_is_key_frame,
+                                   int last_gop_use_alt_ref, int *use_alt_ref) {
+  int frame_count;
+  double gop_intra_factor;
+  const int arf_active_or_kf = last_gop_use_alt_ref || first_is_key_frame;
+  RANGE active_gf_interval = get_active_gf_inverval_range(
+      frame_info, rc, arf_active_or_kf, show_idx, /*active_worst_quality=*/0,
+      /*last_boosted_qindex=*/0);
+
+  const int arf_layers = get_arf_layers(multi_layer_arf, oxcf->enable_auto_arf,
+                                        active_gf_interval.max);
+  if (multi_layer_arf) {
+    gop_intra_factor = 1.0 + 0.25 * arf_layers;
+  } else {
+    gop_intra_factor = 1.0;
+  }
+
+  frame_count = get_gop_coding_frame_num(
+      use_alt_ref, frame_info, first_pass_info, rc, show_idx,
+      &active_gf_interval, gop_intra_factor, oxcf->lag_in_frames);
+  *use_alt_ref &= allow_alt_ref;
+  return frame_count;
+}
+
 // Under CONFIG_RATE_CTRL, once the first_pass_info is ready, the number of
 // coding frames (including show frame and alt ref) can be determined.
-int vp9_get_coding_frame_num(const struct VP9EncoderConfig *oxcf,
+int vp9_get_coding_frame_num(const VP9EncoderConfig *oxcf,
                              const FRAME_INFO *frame_info,
                              const FIRST_PASS_INFO *first_pass_info,
                              int multi_layer_arf, int allow_alt_ref) {
   int coding_frame_num = 0;
   RATE_CONTROL rc;
-  RANGE active_gf_interval;
-  int arf_layers;
-  double gop_intra_factor;
-  int use_alt_ref;
-  int gop_coding_frames;
+  int gop_coding_frame_count;
   int gop_show_frames;
   int show_idx = 0;
-  int arf_active_or_kf = 1;
-  rc.static_scene_max_gf_interval = 250;
+  int last_gop_use_alt_ref = 0;
   vp9_rc_init(oxcf, 1, &rc);
 
   while (show_idx < first_pass_info->num_frames) {
+    int use_alt_ref;
+    int first_is_key_frame = 0;
     if (rc.frames_to_key == 0) {
       rc.frames_to_key = vp9_get_frames_to_next_key(
           oxcf, frame_info, first_pass_info, show_idx, rc.min_gf_interval);
-      arf_active_or_kf = 1;
-    } else {
+      rc.frames_since_key = 0;
+      first_is_key_frame = 1;
     }
 
-    {
-      int dummy = 0;
-      active_gf_interval = get_active_gf_inverval_range(
-          frame_info, &rc, arf_active_or_kf, show_idx, dummy, dummy);
-    }
-
-    arf_layers = get_arf_layers(multi_layer_arf, oxcf->enable_auto_arf,
-                                active_gf_interval.max);
-    if (multi_layer_arf) {
-      gop_intra_factor = 1.0 + 0.25 * arf_layers;
-    } else {
-      gop_intra_factor = 1.0;
-    }
-
-    gop_coding_frames = get_gop_coding_frame_num(
-        &use_alt_ref, frame_info, first_pass_info, &rc, show_idx,
-        &active_gf_interval, gop_intra_factor, oxcf->lag_in_frames);
-
-    use_alt_ref &= allow_alt_ref;
+    gop_coding_frame_count = vp9_get_gop_coding_frame_count(
+        oxcf, frame_info, first_pass_info, &rc, show_idx, multi_layer_arf,
+        allow_alt_ref, first_is_key_frame, last_gop_use_alt_ref, &use_alt_ref);
 
     rc.source_alt_ref_active = use_alt_ref;
-    arf_active_or_kf = use_alt_ref;
-    gop_show_frames = gop_coding_frames - use_alt_ref;
+    last_gop_use_alt_ref = use_alt_ref;
+    gop_show_frames = gop_coding_frame_count - use_alt_ref;
     rc.frames_to_key -= gop_show_frames;
     rc.frames_since_key += gop_show_frames;
     show_idx += gop_show_frames;
@@ -3684,7 +3796,31 @@ int vp9_get_coding_frame_num(const struct VP9EncoderConfig *oxcf,
   }
   return coding_frame_num;
 }
-#endif
+
+void vp9_get_key_frame_map(const VP9EncoderConfig *oxcf,
+                           const FRAME_INFO *frame_info,
+                           const FIRST_PASS_INFO *first_pass_info,
+                           int *key_frame_map) {
+  int show_idx = 0;
+  RATE_CONTROL rc;
+  vp9_rc_init(oxcf, 1, &rc);
+
+  // key_frame_map points to an int array with size equal to
+  // first_pass_info->num_frames, which is also the number of show frames in the
+  // video.
+  memset(key_frame_map, 0,
+         sizeof(*key_frame_map) * first_pass_info->num_frames);
+  while (show_idx < first_pass_info->num_frames) {
+    int key_frame_group_size;
+    key_frame_map[show_idx] = 1;
+    key_frame_group_size = vp9_get_frames_to_next_key(
+        oxcf, frame_info, first_pass_info, show_idx, rc.min_gf_interval);
+    assert(key_frame_group_size > 0);
+    show_idx += key_frame_group_size;
+  }
+  assert(show_idx == first_pass_info->num_frames);
+}
+#endif  // CONFIG_RATE_CTRL
 
 FIRSTPASS_STATS vp9_get_frame_stats(const TWO_PASS *twopass) {
   return twopass->this_frame_stats;

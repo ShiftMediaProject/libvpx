@@ -58,7 +58,6 @@ LIBVPX_TEST_SRCS-$(CONFIG_VP9_ENCODER) += svc_test.cc
 LIBVPX_TEST_SRCS-$(CONFIG_VP9_ENCODER) += svc_test.h
 LIBVPX_TEST_SRCS-$(CONFIG_VP9_ENCODER) += svc_end_to_end_test.cc
 LIBVPX_TEST_SRCS-$(CONFIG_VP9_ENCODER) += timestamp_test.cc
-LIBVPX_TEST_SRCS-$(CONFIG_RATE_CTRL)   += simple_encode_test.cc
 
 LIBVPX_TEST_SRCS-yes                   += decode_test_driver.cc
 LIBVPX_TEST_SRCS-yes                   += decode_test_driver.h
@@ -193,6 +192,10 @@ LIBVPX_TEST_SRCS-yes += vp9_denoiser_test.cc
 endif
 LIBVPX_TEST_SRCS-$(CONFIG_VP9_ENCODER) += vp9_arf_freq_test.cc
 
+ifeq ($(CONFIG_VP9_ENCODER),yes)
+SIMPLE_ENCODE_TEST_SRCS-$(CONFIG_RATE_CTRL) := simple_encode_test.cc
+endif
+
 endif # VP9
 
 ## Multi-codec / unconditional whitebox tests.
@@ -202,6 +205,8 @@ LIBVPX_TEST_SRCS-$(CONFIG_ENCODERS) += sum_squares_test.cc
 
 TEST_INTRA_PRED_SPEED_SRCS-yes := test_intra_pred_speed.cc
 TEST_INTRA_PRED_SPEED_SRCS-yes += ../md5_utils.h ../md5_utils.c
+
+RC_INTERFACE_TEST_SRCS-$(CONFIG_VP9_ENCODER) := ratectrl_rtc_test.cc
 
 endif # CONFIG_SHARED
 

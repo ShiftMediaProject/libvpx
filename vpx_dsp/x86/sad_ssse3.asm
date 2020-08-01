@@ -155,7 +155,7 @@ SECTION .text
 ;    unsigned char *ref_ptr,
 ;    int  ref_stride,
 ;    int  *results)
-global sym(vpx_sad16x16x3_ssse3) PRIVATE
+globalsym(vpx_sad16x16x3_ssse3)
 sym(vpx_sad16x16x3_ssse3):
     push        rbp
     mov         rbp, rsp
@@ -268,7 +268,7 @@ sym(vpx_sad16x16x3_ssse3):
 ;    unsigned char *ref_ptr,
 ;    int  ref_stride,
 ;    int  *results)
-global sym(vpx_sad16x8x3_ssse3) PRIVATE
+globalsym(vpx_sad16x8x3_ssse3)
 sym(vpx_sad16x8x3_ssse3):
     push        rbp
     mov         rbp, rsp

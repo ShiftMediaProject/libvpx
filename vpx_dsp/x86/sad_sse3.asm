@@ -174,7 +174,7 @@ SECTION .text
 ;    unsigned char *ref_ptr,
 ;    int  ref_stride,
 ;    int  *results)
-global sym(vpx_sad16x16x3_sse3) PRIVATE
+globalsym(vpx_sad16x16x3_sse3)
 sym(vpx_sad16x16x3_sse3):
 
     STACK_FRAME_CREATE_X3
@@ -216,7 +216,7 @@ sym(vpx_sad16x16x3_sse3):
 ;    unsigned char *ref_ptr,
 ;    int  ref_stride,
 ;    int  *results)
-global sym(vpx_sad16x8x3_sse3) PRIVATE
+globalsym(vpx_sad16x8x3_sse3)
 sym(vpx_sad16x8x3_sse3):
 
     STACK_FRAME_CREATE_X3
@@ -254,7 +254,7 @@ sym(vpx_sad16x8x3_sse3):
 ;    unsigned char *ref_ptr,
 ;    int  ref_stride,
 ;    int  *results)
-global sym(vpx_sad8x16x3_sse3) PRIVATE
+globalsym(vpx_sad8x16x3_sse3)
 sym(vpx_sad8x16x3_sse3):
 
     STACK_FRAME_CREATE_X3
@@ -283,7 +283,7 @@ sym(vpx_sad8x16x3_sse3):
 ;    unsigned char *ref_ptr,
 ;    int  ref_stride,
 ;    int  *results)
-global sym(vpx_sad8x8x3_sse3) PRIVATE
+globalsym(vpx_sad8x8x3_sse3)
 sym(vpx_sad8x8x3_sse3):
 
     STACK_FRAME_CREATE_X3
@@ -308,7 +308,7 @@ sym(vpx_sad8x8x3_sse3):
 ;    unsigned char *ref_ptr,
 ;    int  ref_stride,
 ;    int  *results)
-global sym(vpx_sad4x4x3_sse3) PRIVATE
+globalsym(vpx_sad4x4x3_sse3)
 sym(vpx_sad4x4x3_sse3):
 
     STACK_FRAME_CREATE_X3
