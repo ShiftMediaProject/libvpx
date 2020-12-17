@@ -1,20 +1,20 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" ToolsVersion="12.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <PropertyGroup Label="Globals">
-    <ProjectGuid>{8293418A-603A-4119-B7B4-1E6204606BA9}</ProjectGuid>
+    <ProjectGuid>{A293418A-603A-4119-B7B4-1E6204606BA9}</ProjectGuid>
     <RootNamespace>vpx</RootNamespace>
   </PropertyGroup>
   <ImportGroup Label="PropertySheets">
-    <Import Project="smp.props" />
+    <Import Project="smp_winrt.props" />
     <Import Project="libvpx_files.props" />
   </ImportGroup>
   <ImportGroup Label="ExtensionSettings">
     <Import Project="$(VCTargetsPath)\BuildCustomizations\yasm.props" />
   </ImportGroup>
-  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='DebugWinRT|Win32'">
     <ClCompile>
       <AdditionalIncludeDirectories>.\;..\;.\x86;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <DisableSpecificWarnings>4752;4703%(DisableSpecificWarnings)</DisableSpecificWarnings>
+      <DisableSpecificWarnings>4752;4703;%(DisableSpecificWarnings)</DisableSpecificWarnings>
     </ClCompile>
     <Lib>
       <AdditionalOptions>/ignore:4221 %(AdditionalOptions)</AdditionalOptions>
@@ -73,10 +73,10 @@ del /f /q $(OutDir)\licenses\libvpx.txt
 )</Command>
     </CustomBuildStep>
   </ItemDefinitionGroup>
-  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='DebugWinRT|x64'">
     <ClCompile>
       <AdditionalIncludeDirectories>.\;..\;.\x86_64;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <DisableSpecificWarnings>4752;4703%(DisableSpecificWarnings)</DisableSpecificWarnings>
+      <DisableSpecificWarnings>4752;4703;%(DisableSpecificWarnings)</DisableSpecificWarnings>
     </ClCompile>
     <Lib>
       <AdditionalOptions>/ignore:4221 %(AdditionalOptions)</AdditionalOptions>
@@ -135,10 +135,10 @@ del /f /q $(OutDir)\licenses\libvpx.txt
 )</Command>
     </CustomBuildStep>
   </ItemDefinitionGroup>
-  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='DebugDLL|Win32'">
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='DebugDLLWinRT|Win32'">
     <ClCompile>
       <AdditionalIncludeDirectories>.\;..\;.\x86;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <DisableSpecificWarnings>4752;4703%(DisableSpecificWarnings)</DisableSpecificWarnings>
+      <DisableSpecificWarnings>4752;4703;%(DisableSpecificWarnings)</DisableSpecificWarnings>
     </ClCompile>
     <Link>
       <ModuleDefinitionFile>.\libvpx.def</ModuleDefinitionFile>
@@ -197,10 +197,10 @@ del /f /q $(OutDir)\licenses\libvpx.txt
 )</Command>
     </CustomBuildStep>
   </ItemDefinitionGroup>
-  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='DebugDLL|x64'">
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='DebugDLLWinRT|x64'">
     <ClCompile>
       <AdditionalIncludeDirectories>.\;..\;.\x86_64;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <DisableSpecificWarnings>4752;4703%(DisableSpecificWarnings)</DisableSpecificWarnings>
+      <DisableSpecificWarnings>4752;4703;%(DisableSpecificWarnings)</DisableSpecificWarnings>
     </ClCompile>
     <Link>
       <ModuleDefinitionFile>.\libvpx.def</ModuleDefinitionFile>
@@ -259,10 +259,10 @@ del /f /q $(OutDir)\licenses\libvpx.txt
 )</Command>
     </CustomBuildStep>
   </ItemDefinitionGroup>
-  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseWinRT|Win32'">
     <ClCompile>
       <AdditionalIncludeDirectories>.\;..\;.\x86;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <DisableSpecificWarnings>4752;4703%(DisableSpecificWarnings)</DisableSpecificWarnings>
+      <DisableSpecificWarnings>4752;4703;%(DisableSpecificWarnings)</DisableSpecificWarnings>
     </ClCompile>
     <Lib>
       <AdditionalOptions>/ignore:4221 %(AdditionalOptions)</AdditionalOptions>
@@ -321,10 +321,10 @@ del /f /q $(OutDir)\licenses\libvpx.txt
 )</Command>
     </CustomBuildStep>
   </ItemDefinitionGroup>
-  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseWinRT|x64'">
     <ClCompile>
       <AdditionalIncludeDirectories>.\;..\;.\x86_64;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <DisableSpecificWarnings>4752;4703%(DisableSpecificWarnings)</DisableSpecificWarnings>
+      <DisableSpecificWarnings>4752;4703;%(DisableSpecificWarnings)</DisableSpecificWarnings>
     </ClCompile>
     <Lib>
       <AdditionalOptions>/ignore:4221 %(AdditionalOptions)</AdditionalOptions>
@@ -383,10 +383,10 @@ del /f /q $(OutDir)\licenses\libvpx.txt
 )</Command>
     </CustomBuildStep>
   </ItemDefinitionGroup>
-  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseDLL|Win32'">
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseDLLWinRT|Win32'">
     <ClCompile>
       <AdditionalIncludeDirectories>.\;..\;.\x86;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <DisableSpecificWarnings>4752;4703%(DisableSpecificWarnings)</DisableSpecificWarnings>
+      <DisableSpecificWarnings>4752;4703;%(DisableSpecificWarnings)</DisableSpecificWarnings>
     </ClCompile>
     <Link>
       <ModuleDefinitionFile>.\libvpx.def</ModuleDefinitionFile>
@@ -445,10 +445,10 @@ del /f /q $(OutDir)\licenses\libvpx.txt
 )</Command>
     </CustomBuildStep>
   </ItemDefinitionGroup>
-  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseDLL|x64'">
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseDLLWinRT|x64'">
     <ClCompile>
       <AdditionalIncludeDirectories>.\;..\;.\x86_64;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <DisableSpecificWarnings>4752;4703%(DisableSpecificWarnings)</DisableSpecificWarnings>
+      <DisableSpecificWarnings>4752;4703;%(DisableSpecificWarnings)</DisableSpecificWarnings>
     </ClCompile>
     <Link>
       <ModuleDefinitionFile>.\libvpx.def</ModuleDefinitionFile>
