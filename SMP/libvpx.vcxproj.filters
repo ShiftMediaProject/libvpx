@@ -130,13 +130,13 @@
     <Filter Include="Header Files\libvpx\vpx_util">
       <UniqueIdentifier>{0f1488e1-b863-436b-a38e-233c1a2e23d6}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Header Files\libvpx\vpx\internal">
+      <UniqueIdentifier>{b0c7e733-ec6f-46fd-a3f9-aea2e4952d9f}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="vpx_config.h">
       <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="..\vpx\internal\vpx_codec_internal.h">
-      <Filter>Header Files\libvpx\vpx</Filter>
     </ClInclude>
     <ClInclude Include="..\vpx_mem\vpx_mem.h">
       <Filter>Header Files\libvpx\vpx_mem</Filter>
@@ -707,6 +707,42 @@
     </ClInclude>
     <ClInclude Include="..\vpx_ports\static_assert.h">
       <Filter>Header Files\libvpx\vpx_ports</Filter>
+    </ClInclude>
+    <ClInclude Include="..\vpx\internal\vpx_codec_internal.h">
+      <Filter>Header Files\libvpx\vpx\internal</Filter>
+    </ClInclude>
+    <ClInclude Include="..\vpx\vp8.h">
+      <Filter>Header Files\libvpx\vpx</Filter>
+    </ClInclude>
+    <ClInclude Include="..\vpx\vp8cx.h">
+      <Filter>Header Files\libvpx\vpx</Filter>
+    </ClInclude>
+    <ClInclude Include="..\vpx\vp8dx.h">
+      <Filter>Header Files\libvpx\vpx</Filter>
+    </ClInclude>
+    <ClInclude Include="..\vpx\vpx_codec.h">
+      <Filter>Header Files\libvpx\vpx</Filter>
+    </ClInclude>
+    <ClInclude Include="..\vpx\vpx_decoder.h">
+      <Filter>Header Files\libvpx\vpx</Filter>
+    </ClInclude>
+    <ClInclude Include="..\vpx\vpx_encoder.h">
+      <Filter>Header Files\libvpx\vpx</Filter>
+    </ClInclude>
+    <ClInclude Include="..\vpx\vpx_frame_buffer.h">
+      <Filter>Header Files\libvpx\vpx</Filter>
+    </ClInclude>
+    <ClInclude Include="..\vpx\vpx_image.h">
+      <Filter>Header Files\libvpx\vpx</Filter>
+    </ClInclude>
+    <ClInclude Include="..\vpx\vpx_integer.h">
+      <Filter>Header Files\libvpx\vpx</Filter>
+    </ClInclude>
+    <ClInclude Include="..\vpx\vpx_ext_ratectrl.h">
+      <Filter>Header Files\libvpx\vpx</Filter>
+    </ClInclude>
+    <ClInclude Include="..\vp9\encoder\vp9_ext_ratectrl.h">
+      <Filter>Header Files\libvpx\vp9\encoder</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -1378,6 +1414,9 @@
     </ClCompile>
     <ClCompile Include="..\vp9\vp9_iface_common.c">
       <Filter>Source Files\libvpx\vp9</Filter>
+    </ClCompile>
+    <ClCompile Include="..\vp9\encoder\vp9_ext_ratectrl.c">
+      <Filter>Source Files\libvpx\vp9\encoder</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

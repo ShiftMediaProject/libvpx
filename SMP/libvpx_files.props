@@ -101,6 +101,7 @@
     <ClInclude Include="..\vp9\encoder\vp9_encoder.h" />
     <ClInclude Include="..\vp9\encoder\vp9_ethread.h" />
     <ClInclude Include="..\vp9\encoder\vp9_extend.h" />
+    <ClInclude Include="..\vp9\encoder\vp9_ext_ratectrl.h" />
     <ClInclude Include="..\vp9\encoder\vp9_firstpass.h" />
     <ClInclude Include="..\vp9\encoder\vp9_job_queue.h" />
     <ClInclude Include="..\vp9\encoder\vp9_lookahead.h" />
@@ -126,6 +127,16 @@
     <ClInclude Include="..\vp9\encoder\vp9_treewriter.h" />
     <ClInclude Include="..\vp9\vp9_dx_iface.h" />
     <ClInclude Include="..\vp9\vp9_iface_common.h" />
+    <ClInclude Include="..\vpx\vp8.h" />
+    <ClInclude Include="..\vpx\vp8cx.h" />
+    <ClInclude Include="..\vpx\vp8dx.h" />
+    <ClInclude Include="..\vpx\vpx_codec.h" />
+    <ClInclude Include="..\vpx\vpx_decoder.h" />
+    <ClInclude Include="..\vpx\vpx_encoder.h" />
+    <ClInclude Include="..\vpx\vpx_ext_ratectrl.h" />
+    <ClInclude Include="..\vpx\vpx_frame_buffer.h" />
+    <ClInclude Include="..\vpx\vpx_image.h" />
+    <ClInclude Include="..\vpx\vpx_integer.h" />
     <ClInclude Include="..\vpx\internal\vpx_codec_internal.h" />
     <ClInclude Include="..\vpx_dsp\bitreader.h" />
     <ClInclude Include="..\vpx_dsp\bitreader_buffer.h" />
@@ -312,6 +323,7 @@
     <ClCompile Include="..\vp9\encoder\vp9_encodemv.c" />
     <ClCompile Include="..\vp9\encoder\vp9_encoder.c" />
     <ClCompile Include="..\vp9\encoder\vp9_ethread.c" />
+    <ClCompile Include="..\vp9\encoder\vp9_ext_ratectrl.c" />
     <ClCompile Include="..\vp9\encoder\vp9_extend.c" />
     <ClCompile Include="..\vp9\encoder\vp9_firstpass.c" />
     <ClCompile Include="..\vp9\encoder\vp9_frame_scale.c" />
