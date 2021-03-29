@@ -598,6 +598,7 @@ TEST_P(FwdTrans8x8HT, RoundTripErrorCheck) { RunRoundTripErrorCheck(); }
 
 TEST_P(FwdTrans8x8HT, ExtremalCheck) { RunExtremalCheck(); }
 
+#if HAVE_SSE2 && CONFIG_VP9_HIGHBITDEPTH && !CONFIG_EMULATE_HARDWARE
 class InvTrans8x8DCT : public FwdTrans8x8TestBase,
                        public ::testing::TestWithParam<Idct8x8Param> {
  public:
@@ -624,10 +625,12 @@ class InvTrans8x8DCT : public FwdTrans8x8TestBase,
   IdctFunc inv_txfm_;
   int thresh_;
 };
+GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(InvTrans8x8DCT);
 
 TEST_P(InvTrans8x8DCT, CompareReference) {
   CompareInvReference(ref_txfm_, thresh_);
 }
+#endif  // HAVE_SSE2 && CONFIG_VP9_HIGHBITDEPTH && !CONFIG_EMULATE_HARDWARE
 
 using std::make_tuple;
 

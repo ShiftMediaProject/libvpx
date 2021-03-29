@@ -32,7 +32,7 @@ typedef void (*IntraPredFunc)(uint8_t *dst, ptrdiff_t stride,
                               const uint8_t *above, const uint8_t *left);
 
 struct IntraPredParam {
-  IntraPredParam(IntraPredFunc pred = NULL, IntraPredFunc ref = NULL,
+  IntraPredParam(IntraPredFunc pred = nullptr, IntraPredFunc ref = nullptr,
                  int block_size_value = 0, int bit_depth_value = 0)
       : pred_fn(pred), ref_fn(ref), block_size(block_size_value),
         bit_depth(bit_depth_value) {}
@@ -446,8 +446,9 @@ typedef void (*HighbdIntraPred)(uint16_t *dst, ptrdiff_t stride,
                                 const uint16_t *above, const uint16_t *left,
                                 int bps);
 struct HighbdIntraPredParam {
-  HighbdIntraPredParam(HighbdIntraPred pred = NULL, HighbdIntraPred ref = NULL,
-                       int block_size_value = 0, int bit_depth_value = 0)
+  HighbdIntraPredParam(HighbdIntraPred pred = nullptr,
+                       HighbdIntraPred ref = nullptr, int block_size_value = 0,
+                       int bit_depth_value = 0)
       : pred_fn(pred), ref_fn(ref), block_size(block_size_value),
         bit_depth(bit_depth_value) {}
 
@@ -457,6 +458,7 @@ struct HighbdIntraPredParam {
   int bit_depth;
 };
 
+#if HAVE_SSSE3 || HAVE_NEON || HAVE_SSE2
 template <>
 void IntraPredTest<uint16_t, HighbdIntraPredParam>::Predict() {
   const int bit_depth = params_.bit_depth;
@@ -466,6 +468,7 @@ void IntraPredTest<uint16_t, HighbdIntraPredParam>::Predict() {
 }
 
 typedef IntraPredTest<uint16_t, HighbdIntraPredParam> VP9HighbdIntraPredTest;
+GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(VP9HighbdIntraPredTest);
 
 TEST_P(VP9HighbdIntraPredTest, HighbdIntraPredTests) {
   // max block size is 32
@@ -475,6 +478,7 @@ TEST_P(VP9HighbdIntraPredTest, HighbdIntraPredTests) {
   DECLARE_ALIGNED(16, uint16_t, ref_dst[3 * 32 * 32]);
   RunTest(left_col, above_data, dst, ref_dst);
 }
+#endif
 
 #if HAVE_SSSE3
 INSTANTIATE_TEST_SUITE_P(

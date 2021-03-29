@@ -271,8 +271,8 @@ class ResizingVideoSource : public ::libvpx_test::DummyVideoSource {
  protected:
   virtual void Next() {
     ++frame_;
-    unsigned int width;
-    unsigned int height;
+    unsigned int width = 0;
+    unsigned int height = 0;
     ScaleForFrameNumber(frame_, kInitialWidth, kInitialHeight, &width, &height,
                         flag_codec_, smaller_width_larger_size_);
     SetSize(width, height);
@@ -350,7 +350,7 @@ class ResizeInternalTest : public ResizeTest {
  protected:
 #if WRITE_COMPRESSED_STREAM
   ResizeInternalTest()
-      : ResizeTest(), frame0_psnr_(0.0), outfile_(NULL), out_frames_(0) {}
+      : ResizeTest(), frame0_psnr_(0.0), outfile_(nullptr), out_frames_(0) {}
 #else
   ResizeInternalTest() : ResizeTest(), frame0_psnr_(0.0) {}
 #endif
@@ -369,7 +369,7 @@ class ResizeInternalTest : public ResizeTest {
       if (!fseek(outfile_, 0, SEEK_SET))
         write_ivf_file_header(&cfg_, out_frames_, outfile_);
       fclose(outfile_);
-      outfile_ = NULL;
+      outfile_ = nullptr;
     }
 #endif
   }
@@ -672,11 +672,11 @@ TEST_P(ResizeRealtimeTest, TestInternalResizeDownUpChangeBitRate) {
     ASSERT_EQ(info->h, GetFrameHeight(idx));
     if (info->w != last_w || info->h != last_h) {
       resize_count++;
-      if (resize_count == 1) {
+      if (resize_count <= 2) {
         // Verify that resize down occurs.
         ASSERT_LT(info->w, last_w);
         ASSERT_LT(info->h, last_h);
-      } else if (resize_count == 2) {
+      } else if (resize_count > 2) {
         // Verify that resize up occurs.
         ASSERT_GT(info->w, last_w);
         ASSERT_GT(info->h, last_h);
@@ -687,8 +687,8 @@ TEST_P(ResizeRealtimeTest, TestInternalResizeDownUpChangeBitRate) {
   }
 
 #if CONFIG_VP9_DECODER
-  // Verify that we get 2 resize events in this test.
-  ASSERT_EQ(resize_count, 2) << "Resizing should occur twice.";
+  // Verify that we get 4 resize events in this test.
+  ASSERT_EQ(resize_count, 4) << "Resizing should occur twice.";
   EXPECT_EQ(static_cast<unsigned int>(0), GetMismatchFrames());
 #else
   printf("Warning: VP9 decoder unavailable, unable to check resize count!\n");
@@ -705,7 +705,7 @@ class ResizeCspTest : public ResizeTest {
  protected:
 #if WRITE_COMPRESSED_STREAM
   ResizeCspTest()
-      : ResizeTest(), frame0_psnr_(0.0), outfile_(NULL), out_frames_(0) {}
+      : ResizeTest(), frame0_psnr_(0.0), outfile_(nullptr), out_frames_(0) {}
 #else
   ResizeCspTest() : ResizeTest(), frame0_psnr_(0.0) {}
 #endif
@@ -724,7 +724,7 @@ class ResizeCspTest : public ResizeTest {
       if (!fseek(outfile_, 0, SEEK_SET))
         write_ivf_file_header(&cfg_, out_frames_, outfile_);
       fclose(outfile_);
-      outfile_ = NULL;
+      outfile_ = nullptr;
     }
 #endif
   }

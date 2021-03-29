@@ -35,12 +35,12 @@ template <typename Pixel>
 class AverageTestBase : public ::testing::Test {
  public:
   AverageTestBase(int width, int height)
-      : width_(width), height_(height), source_data_(NULL), source_stride_(0),
-        bit_depth_(8) {}
+      : width_(width), height_(height), source_data_(nullptr),
+        source_stride_(0), bit_depth_(8) {}
 
   virtual void TearDown() {
     vpx_free(source_data_);
-    source_data_ = NULL;
+    source_data_ = nullptr;
     libvpx_test::ClearSystemState();
   }
 
@@ -52,7 +52,7 @@ class AverageTestBase : public ::testing::Test {
   virtual void SetUp() {
     source_data_ = reinterpret_cast<Pixel *>(
         vpx_memalign(kDataAlignment, kDataBlockSize * sizeof(source_data_[0])));
-    ASSERT_TRUE(source_data_ != NULL);
+    ASSERT_NE(source_data_, nullptr);
     source_stride_ = (width_ + 31) & ~31;
     bit_depth_ = 8;
     rnd_.Reset(ACMRandom::DeterministicSeed());
@@ -152,6 +152,7 @@ class AverageTestHBD : public AverageTestBase<uint16_t>,
 };
 #endif  // CONFIG_VP9_HIGHBITDEPTH
 
+#if HAVE_NEON || HAVE_SSE2 || HAVE_MSA
 typedef void (*IntProRowFunc)(int16_t hbuf[16], uint8_t const *ref,
                               const int ref_stride, const int height);
 
@@ -161,7 +162,8 @@ class IntProRowTest : public AverageTestBase<uint8_t>,
                       public ::testing::WithParamInterface<IntProRowParam> {
  public:
   IntProRowTest()
-      : AverageTestBase(16, GET_PARAM(0)), hbuf_asm_(NULL), hbuf_c_(NULL) {
+      : AverageTestBase(16, GET_PARAM(0)), hbuf_asm_(nullptr),
+        hbuf_c_(nullptr) {
     asm_func_ = GET_PARAM(1);
     c_func_ = GET_PARAM(2);
   }
@@ -170,7 +172,7 @@ class IntProRowTest : public AverageTestBase<uint8_t>,
   virtual void SetUp() {
     source_data_ = reinterpret_cast<uint8_t *>(
         vpx_memalign(kDataAlignment, kDataBlockSize * sizeof(source_data_[0])));
-    ASSERT_TRUE(source_data_ != NULL);
+    ASSERT_NE(source_data_, nullptr);
 
     hbuf_asm_ = reinterpret_cast<int16_t *>(
         vpx_memalign(kDataAlignment, sizeof(*hbuf_asm_) * 16));
@@ -180,11 +182,11 @@ class IntProRowTest : public AverageTestBase<uint8_t>,
 
   virtual void TearDown() {
     vpx_free(source_data_);
-    source_data_ = NULL;
+    source_data_ = nullptr;
     vpx_free(hbuf_c_);
-    hbuf_c_ = NULL;
+    hbuf_c_ = nullptr;
     vpx_free(hbuf_asm_);
-    hbuf_asm_ = NULL;
+    hbuf_asm_ = nullptr;
   }
 
   void RunComparison() {
@@ -200,6 +202,7 @@ class IntProRowTest : public AverageTestBase<uint8_t>,
   int16_t *hbuf_asm_;
   int16_t *hbuf_c_;
 };
+GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(IntProRowTest);
 
 typedef int16_t (*IntProColFunc)(uint8_t const *ref, const int width);
 
@@ -226,6 +229,8 @@ class IntProColTest : public AverageTestBase<uint8_t>,
   int16_t sum_asm_;
   int16_t sum_c_;
 };
+GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(IntProColTest);
+#endif  // HAVE_NEON || HAVE_SSE2 || HAVE_MSA
 
 typedef int (*SatdFunc)(const tran_low_t *coeffs, int length);
 typedef std::tuple<int, SatdFunc> SatdTestParam;
@@ -239,7 +244,7 @@ class SatdTest : public ::testing::Test,
     rnd_.Reset(ACMRandom::DeterministicSeed());
     src_ = reinterpret_cast<tran_low_t *>(
         vpx_memalign(16, sizeof(*src_) * satd_size_));
-    ASSERT_TRUE(src_ != NULL);
+    ASSERT_NE(src_, nullptr);
   }
 
   virtual void TearDown() {
@@ -295,8 +300,8 @@ class BlockErrorTestFP
         vpx_memalign(16, sizeof(*coeff_) * txfm_size_));
     dqcoeff_ = reinterpret_cast<tran_low_t *>(
         vpx_memalign(16, sizeof(*dqcoeff_) * txfm_size_));
-    ASSERT_TRUE(coeff_ != NULL);
-    ASSERT_TRUE(dqcoeff_ != NULL);
+    ASSERT_NE(coeff_, nullptr);
+    ASSERT_NE(dqcoeff_, nullptr);
   }
 
   virtual void TearDown() {
@@ -378,6 +383,7 @@ TEST_P(AverageTestHBD, Random) {
 }
 #endif  // CONFIG_VP9_HIGHBITDEPTH
 
+#if HAVE_NEON || HAVE_SSE2 || HAVE_MSA
 TEST_P(IntProRowTest, MinValue) {
   FillConstant(0);
   RunComparison();
@@ -407,6 +413,7 @@ TEST_P(IntProColTest, Random) {
   FillRandom();
   RunComparison();
 }
+#endif
 
 TEST_P(SatdLowbdTest, MinValue) {
   const int kMin = -32640;

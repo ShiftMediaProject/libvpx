@@ -63,6 +63,7 @@ ifeq ($(CONFIG_VP8_ENCODER),yes)
   CODEC_SRCS-yes += $(addprefix $(VP8_PREFIX),$(call enabled,VP8_CX_SRCS))
   CODEC_EXPORTS-yes += $(addprefix $(VP8_PREFIX),$(VP8_CX_EXPORTS))
   INSTALL-LIBS-yes += include/vpx/vp8.h include/vpx/vp8cx.h
+  INSTALL-LIBS-yes += include/vpx/vpx_ext_ratectrl.h
   INSTALL_MAPS += include/vpx/% $(SRC_PATH_BARE)/$(VP8_PREFIX)/%
   CODEC_DOC_SECTIONS += vp8 vp8_encoder
 endif
@@ -87,13 +88,16 @@ ifeq ($(CONFIG_VP9_ENCODER),yes)
   CODEC_SRCS-yes += $(addprefix $(VP9_PREFIX),$(call enabled,VP9_CX_SRCS))
   CODEC_EXPORTS-yes += $(addprefix $(VP9_PREFIX),$(VP9_CX_EXPORTS))
   CODEC_SRCS-yes += $(VP9_PREFIX)vp9cx.mk vpx/vp8.h vpx/vp8cx.h
+  CODEC_SRCS-yes += vpx/vpx_ext_ratectrl.h
   INSTALL-LIBS-yes += include/vpx/vp8.h include/vpx/vp8cx.h
+  INSTALL-LIBS-yes += include/vpx/vpx_ext_ratectrl.h
   INSTALL_MAPS += include/vpx/% $(SRC_PATH_BARE)/$(VP9_PREFIX)/%
-  CODEC_DOC_SRCS += vpx/vp8.h vpx/vp8cx.h
+  CODEC_DOC_SRCS += vpx/vp8.h vpx/vp8cx.h vpx/vpx_ext_ratectrl.h
   CODEC_DOC_SECTIONS += vp9 vp9_encoder
 
   RC_RTC_SRCS := $(addprefix $(VP9_PREFIX),$(call enabled,VP9_CX_SRCS))
   RC_RTC_SRCS += $(VP9_PREFIX)vp9cx.mk vpx/vp8.h vpx/vp8cx.h
+  RC_RTC_SRCS += vpx/vpx_ext_ratectrl.h
   RC_RTC_SRCS += $(VP9_PREFIX)ratectrl_rtc.cc
   RC_RTC_SRCS += $(VP9_PREFIX)ratectrl_rtc.h
   INSTALL-SRCS-$(CONFIG_CODEC_SRCS) += $(VP9_PREFIX)ratectrl_rtc.cc
@@ -228,6 +232,7 @@ vpx.$(VCPROJ_SFX): $(CODEC_SRCS) vpx.def
             --ver=$(CONFIG_VS_VERSION) \
             --src-path-bare="$(SRC_PATH_BARE)" \
             --out=$@ $(CFLAGS) \
+            --as=$(AS) \
             $(filter $(SRC_PATH_BARE)/vp8/%.c, $(VCPROJ_SRCS)) \
             $(filter $(SRC_PATH_BARE)/vp8/%.h, $(VCPROJ_SRCS)) \
             $(filter $(SRC_PATH_BARE)/vp9/%.c, $(VCPROJ_SRCS)) \
@@ -258,6 +263,7 @@ vp9rc.$(VCPROJ_SFX): $(RC_RTC_SRCS)
             --ver=$(CONFIG_VS_VERSION) \
             --src-path-bare="$(SRC_PATH_BARE)" \
             --out=$@ $(CFLAGS) \
+            --as=$(AS) \
             $(filter $(SRC_PATH_BARE)/vp9/%.c, $(VCPROJ_SRCS)) \
             $(filter $(SRC_PATH_BARE)/vp9/%.cc, $(VCPROJ_SRCS)) \
             $(filter $(SRC_PATH_BARE)/vp9/%.h, $(VCPROJ_SRCS)) \
@@ -281,8 +287,20 @@ OBJS-yes += $(LIBVPX_OBJS)
 LIBS-$(if yes,$(CONFIG_STATIC)) += $(BUILD_PFX)libvpx.a $(BUILD_PFX)libvpx_g.a
 $(BUILD_PFX)libvpx_g.a: $(LIBVPX_OBJS)
 
+# Updating version info.
+# https://www.gnu.org/software/libtool/manual/libtool.html#Updating-version-info
+# For libtool: c=<current>, a=<age>, r=<revision>
+# libtool generates .so file as .so.[c-a].a.r, while -version-info c:r:a is
+# passed to libtool.
+#
+# libvpx library file is generated as libvpx.so.<MAJOR>.<MINOR>.<PATCH>
+# MAJOR = c-a, MINOR = a, PATCH = r
+#
+# To determine SO_VERSION_{MAJOR,MINOR,PATCH}, calculate c,a,r with current
+# SO_VERSION_* then follow the rules in the link to detemine the new version
+# (c1, a1, r1) and set MAJOR to [c1-a1], MINOR to a1 and PATCH to r1
 SO_VERSION_MAJOR := 6
-SO_VERSION_MINOR := 3
+SO_VERSION_MINOR := 4
 SO_VERSION_PATCH := 0
 ifeq ($(filter darwin%,$(TGT_OS)),$(TGT_OS))
 LIBVPX_SO               := libvpx.$(SO_VERSION_MAJOR).dylib
@@ -416,13 +434,13 @@ ifeq ($(VPX_ARCH_X86)$(VPX_ARCH_X86_64),yes)
 # YASM
 $(BUILD_PFX)vpx_config.asm: $(BUILD_PFX)vpx_config.h
 	@echo "    [CREATE] $@"
-	@egrep "#define [A-Z0-9_]+ [01]" $< \
+	@LC_ALL=C egrep "#define [A-Z0-9_]+ [01]" $< \
 	    | awk '{print $$2 " equ " $$3}' > $@
 else
 ADS2GAS=$(if $(filter yes,$(CONFIG_GCC)),| $(ASM_CONVERSION))
 $(BUILD_PFX)vpx_config.asm: $(BUILD_PFX)vpx_config.h
 	@echo "    [CREATE] $@"
-	@egrep "#define [A-Z0-9_]+ [01]" $< \
+	@LC_ALL=C egrep "#define [A-Z0-9_]+ [01]" $< \
 	    | awk '{print $$2 " EQU " $$3}' $(ADS2GAS) > $@
 	@echo "        END" $(ADS2GAS) >> $@
 CLEAN-OBJS += $(BUILD_PFX)vpx_config.asm
@@ -490,16 +508,17 @@ libvpx_test_srcs.txt:
 	@echo $(LIBVPX_TEST_SRCS) | xargs -n1 echo | LC_ALL=C sort -u > $@
 CLEAN-OBJS += libvpx_test_srcs.txt
 
+# Attempt to download the file using curl, retrying once if it fails for a
+# partial file (18).
 $(LIBVPX_TEST_DATA): $(SRC_PATH_BARE)/test/test-data.sha1
 	@echo "    [DOWNLOAD] $@"
-	# Attempt to download the file using curl, retrying once if it fails for a
-	# partial file (18).
 	$(qexec)( \
 	  trap 'rm -f $@' INT TERM; \
-	  curl="curl --retry 1 -L -o $@ $(call libvpx_test_data_url,$(@F))"; \
-	  $$curl; \
-	  case "$$?" in \
-	    18) $$curl -C -;; \
+	  curl="curl -S -s --retry 1 -L -o $@ $(call libvpx_test_data_url,$(@F))"; \
+	  $$curl; ret=$$?; \
+	  case "$$ret" in \
+	    18) $$curl -C - ;; \
+	    *) exit $$ret ;; \
 	  esac \
 	)
 
@@ -531,6 +550,7 @@ gtest.$(VCPROJ_SFX): $(SRC_PATH_BARE)/third_party/googletest/src/src/gtest-all.c
             --proj-guid=EC00E1EC-AF68-4D92-A255-181690D1C9B1 \
             --ver=$(CONFIG_VS_VERSION) \
             --src-path-bare="$(SRC_PATH_BARE)" \
+            --as=$(AS) \
             -D_VARIADIC_MAX=10 \
             --out=gtest.$(VCPROJ_SFX) $(SRC_PATH_BARE)/third_party/googletest/src/src/gtest-all.cc \
             -I. -I"$(SRC_PATH_BARE)/third_party/googletest/src/include" -I"$(SRC_PATH_BARE)/third_party/googletest/src"
@@ -547,6 +567,7 @@ test_libvpx.$(VCPROJ_SFX): $(LIBVPX_TEST_SRCS) vpx.$(VCPROJ_SFX) gtest.$(VCPROJ_
             --proj-guid=CD837F5F-52D8-4314-A370-895D614166A7 \
             --ver=$(CONFIG_VS_VERSION) \
             --src-path-bare="$(SRC_PATH_BARE)" \
+            --as=$(AS) \
             $(if $(CONFIG_STATIC_MSVCRT),--static-crt) \
             --out=$@ $(INTERNAL_CFLAGS) $(CFLAGS) \
             -I. -I"$(SRC_PATH_BARE)/third_party/googletest/src/include" \
@@ -569,6 +590,7 @@ test_intra_pred_speed.$(VCPROJ_SFX): $(TEST_INTRA_PRED_SPEED_SRCS) vpx.$(VCPROJ_
             --proj-guid=CD837F5F-52D8-4314-A370-895D614166A7 \
             --ver=$(CONFIG_VS_VERSION) \
             --src-path-bare="$(SRC_PATH_BARE)" \
+            --as=$(AS) \
             $(if $(CONFIG_STATIC_MSVCRT),--static-crt) \
             --out=$@ $(INTERNAL_CFLAGS) $(CFLAGS) \
             -I. -I"$(SRC_PATH_BARE)/third_party/googletest/src/include" \
@@ -587,6 +609,7 @@ test_rc_interface.$(VCPROJ_SFX): $(RC_INTERFACE_TEST_SRCS) vpx.$(VCPROJ_SFX) \
             -D_VARIADIC_MAX=10 \
             --proj-guid=30458F88-1BC6-4689-B41C-50F3737AAB27 \
             --ver=$(CONFIG_VS_VERSION) \
+            --as=$(AS) \
             --src-path-bare="$(SRC_PATH_BARE)" \
             $(if $(CONFIG_STATIC_MSVCRT),--static-crt) \
             --out=$@ $(INTERNAL_CFLAGS) $(CFLAGS) \

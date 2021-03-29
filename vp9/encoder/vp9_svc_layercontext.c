@@ -357,6 +357,7 @@ void vp9_restore_layer_context(VP9_COMP *const cpi) {
   if (is_one_pass_cbr_svc(cpi) && lc->speed > 0) {
     cpi->oxcf.speed = lc->speed;
   }
+  cpi->loopfilter_ctrl = lc->loopfilter_ctrl;
   // Reset the frames_since_key and frames_to_key counters to their values
   // before the layer restore. Keep these defined for the stream (not layer).
   if (cpi->svc.number_temporal_layers > 1 ||
@@ -955,7 +956,7 @@ int vp9_one_pass_cbr_svc_start_layer(VP9_COMP *const cpi) {
   if (cpi->common.frame_type != KEY_FRAME && !cpi->ext_refresh_last_frame &&
       !cpi->ext_refresh_golden_frame && !cpi->ext_refresh_alt_ref_frame)
     svc->non_reference_frame = 1;
-  // For non-flexible mode, where update_buffer_slot is used, need to check if
+  // For flexible mode, where update_buffer_slot is used, need to check if
   // all buffer slots are not refreshed.
   if (svc->temporal_layering_mode == VP9E_TEMPORAL_LAYERING_MODE_BYPASS) {
     if (svc->update_buffer_slot[svc->spatial_layer_id] != 0)

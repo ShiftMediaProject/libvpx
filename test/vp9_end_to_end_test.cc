@@ -257,7 +257,7 @@ TEST_P(EndToEndNV12, EndtoEndNV12Test) {
   video.reset(new libvpx_test::YUVVideoSource(test_video_param_.filename,
                                               test_video_param_.fmt, 352, 288,
                                               30, 1, 0, 100));
-  ASSERT_TRUE(video.get() != NULL);
+  ASSERT_NE(video.get(), nullptr);
 
   ASSERT_NO_FATAL_FAILURE(RunLoop(video.get()));
 }
@@ -280,7 +280,7 @@ TEST_P(EndToEndTestLarge, EndtoEndPSNRTest) {
         test_video_param_.filename, test_video_param_.fmt, kWidth, kHeight,
         kFramerate, 1, 0, kFrames));
   }
-  ASSERT_TRUE(video.get() != NULL);
+  ASSERT_NE(video.get(), nullptr);
 
   ASSERT_NO_FATAL_FAILURE(RunLoop(video.get()));
   const double psnr = GetAveragePsnr();
@@ -307,7 +307,7 @@ TEST_P(EndToEndTestLarge, EndtoEndPSNRDenoiserAQTest) {
         test_video_param_.filename, test_video_param_.fmt, kWidth, kHeight,
         kFramerate, 1, 0, kFrames));
   }
-  ASSERT_TRUE(video.get() != NULL);
+  ASSERT_NE(video.get(), nullptr);
 
   ASSERT_NO_FATAL_FAILURE(RunLoop(video.get()));
   const double psnr = GetAveragePsnr();
@@ -342,7 +342,7 @@ VP9_INSTANTIATE_TEST_SUITE(EndToEndTestLarge,
 VP9_INSTANTIATE_TEST_SUITE(EndToEndNV12,
                            ::testing::Values(::libvpx_test::kRealTime),
                            ::testing::ValuesIn(kTestVectorsNv12),
-                           ::testing::ValuesIn({ 6, 7, 8 }));
+                           ::testing::Values(6, 7, 8));
 
 VP9_INSTANTIATE_TEST_SUITE(EndToEndTestAdaptiveRDThresh,
                            ::testing::Values(5, 6, 7), ::testing::Values(8, 9));

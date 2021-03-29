@@ -90,12 +90,20 @@ static int img_read(vpx_image_t *img, FILE *file) {
   return 1;
 }
 
+// Assume every config in VP9EncoderConfig is less than 100 characters.
+#define ENCODE_CONFIG_BUF_SIZE 100
+struct EncodeConfig {
+  char name[ENCODE_CONFIG_BUF_SIZE];
+  char value[ENCODE_CONFIG_BUF_SIZE];
+};
+
 class SimpleEncode::EncodeImpl {
  public:
   VP9_COMP *cpi;
   vpx_img_fmt_t img_fmt;
   vpx_image_t tmp_img;
   std::vector<FIRSTPASS_STATS> first_pass_stats;
+  std::vector<EncodeConfig> encode_config_list;
 };
 
 static VP9_COMP *init_encoder(const VP9EncoderConfig *oxcf,
@@ -167,7 +175,8 @@ static RefFrameType mv_ref_frame_to_ref_frame_type(
 
 static void update_motion_vector_info(
     const MOTION_VECTOR_INFO *input_motion_vector_info, const int num_rows_4x4,
-    const int num_cols_4x4, MotionVectorInfo *output_motion_vector_info) {
+    const int num_cols_4x4, MotionVectorInfo *output_motion_vector_info,
+    int motion_vector_scale) {
   const int num_units_4x4 = num_rows_4x4 * num_cols_4x4;
   for (int i = 0; i < num_units_4x4; ++i) {
     const MV_REFERENCE_FRAME *in_ref_frame =
@@ -185,16 +194,34 @@ static void update_motion_vector_info(
         mv_ref_frame_to_ref_frame_type(in_ref_frame[1]);
     output_motion_vector_info[i].mv_row[0] =
         (double)input_motion_vector_info[i].mv[0].as_mv.row /
-        kMotionVectorPrecision;
+        motion_vector_scale;
     output_motion_vector_info[i].mv_column[0] =
         (double)input_motion_vector_info[i].mv[0].as_mv.col /
-        kMotionVectorPrecision;
+        motion_vector_scale;
     output_motion_vector_info[i].mv_row[1] =
         (double)input_motion_vector_info[i].mv[1].as_mv.row /
-        kMotionVectorPrecision;
+        motion_vector_scale;
     output_motion_vector_info[i].mv_column[1] =
         (double)input_motion_vector_info[i].mv[1].as_mv.col /
-        kMotionVectorPrecision;
+        motion_vector_scale;
+  }
+}
+
+static void update_tpl_stats_info(const TplDepStats *input_tpl_stats_info,
+                                  const int show_frame_count,
+                                  TplStatsInfo *output_tpl_stats_info) {
+  int frame_idx;
+  for (frame_idx = 0; frame_idx < show_frame_count; ++frame_idx) {
+    output_tpl_stats_info[frame_idx].intra_cost =
+        input_tpl_stats_info[frame_idx].intra_cost;
+    output_tpl_stats_info[frame_idx].inter_cost =
+        input_tpl_stats_info[frame_idx].inter_cost;
+    output_tpl_stats_info[frame_idx].mc_flow =
+        input_tpl_stats_info[frame_idx].mc_flow;
+    output_tpl_stats_info[frame_idx].mc_dep_cost =
+        input_tpl_stats_info[frame_idx].mc_dep_cost;
+    output_tpl_stats_info[frame_idx].mc_ref_cost =
+        input_tpl_stats_info[frame_idx].mc_ref_cost;
   }
 }
 
@@ -471,12 +498,13 @@ static bool init_encode_frame_result(EncodeFrameResult *encode_frame_result,
   encode_frame_result->coding_data.reset(
       new (std::nothrow) uint8_t[max_coding_data_byte_size]);
 
-  encode_frame_result->num_rows_4x4 = get_num_unit_4x4(frame_width);
-  encode_frame_result->num_cols_4x4 = get_num_unit_4x4(frame_height);
+  encode_frame_result->num_rows_4x4 = get_num_unit_4x4(frame_height);
+  encode_frame_result->num_cols_4x4 = get_num_unit_4x4(frame_width);
   encode_frame_result->partition_info.resize(encode_frame_result->num_rows_4x4 *
                                              encode_frame_result->num_cols_4x4);
   encode_frame_result->motion_vector_info.resize(
       encode_frame_result->num_rows_4x4 * encode_frame_result->num_cols_4x4);
+  encode_frame_result->tpl_stats_info.resize(MAX_LAG_BUFFERS);
 
   if (encode_frame_result->coding_data.get() == nullptr) {
     return false;
@@ -485,8 +513,20 @@ static bool init_encode_frame_result(EncodeFrameResult *encode_frame_result,
                            frame_height, img_fmt);
 }
 
+static void encode_frame_result_update_rq_history(
+    const RATE_QINDEX_HISTORY *rq_history,
+    EncodeFrameResult *encode_frame_result) {
+  encode_frame_result->recode_count = rq_history->recode_count;
+  for (int i = 0; i < encode_frame_result->recode_count; ++i) {
+    const int q_index = rq_history->q_index_history[i];
+    const int rate = rq_history->rate_history[i];
+    encode_frame_result->q_index_history.push_back(q_index);
+    encode_frame_result->rate_history.push_back(rate);
+  }
+}
+
 static void update_encode_frame_result(
-    EncodeFrameResult *encode_frame_result,
+    EncodeFrameResult *encode_frame_result, const int show_frame_count,
     const ENCODE_FRAME_RESULT *encode_frame_info) {
   encode_frame_result->coding_data_bit_size =
       encode_frame_result->coding_data_byte_size * 8;
@@ -511,9 +551,16 @@ static void update_encode_frame_result(
   update_motion_vector_info(encode_frame_info->motion_vector_info,
                             encode_frame_result->num_rows_4x4,
                             encode_frame_result->num_cols_4x4,
-                            &encode_frame_result->motion_vector_info[0]);
+                            &encode_frame_result->motion_vector_info[0],
+                            kMotionVectorSubPixelPrecision);
   update_frame_counts(&encode_frame_info->frame_counts,
                       &encode_frame_result->frame_counts);
+  if (encode_frame_result->frame_type == kFrameTypeAltRef) {
+    update_tpl_stats_info(encode_frame_info->tpl_stats_info, show_frame_count,
+                          &encode_frame_result->tpl_stats_info[0]);
+  }
+  encode_frame_result_update_rq_history(&encode_frame_info->rq_history,
+                                        encode_frame_result);
 }
 
 static void IncreaseGroupOfPictureIndex(GroupOfPicture *group_of_picture) {
@@ -695,6 +742,60 @@ static void UpdateGroupOfPicture(const VP9_COMP *cpi, int start_coding_index,
                     start_ref_frame_info, group_of_picture);
 }
 
+#define SET_STRUCT_VALUE(config, structure, ret, field) \
+  if (strcmp(config.name, #field) == 0) {               \
+    structure->field = atoi(config.value);              \
+    ret = 1;                                            \
+  }
+
+static void UpdateEncodeConfig(const EncodeConfig &config,
+                               VP9EncoderConfig *oxcf) {
+  int ret = 0;
+  SET_STRUCT_VALUE(config, oxcf, ret, key_freq);
+  SET_STRUCT_VALUE(config, oxcf, ret, two_pass_vbrmin_section);
+  SET_STRUCT_VALUE(config, oxcf, ret, two_pass_vbrmax_section);
+  SET_STRUCT_VALUE(config, oxcf, ret, under_shoot_pct);
+  SET_STRUCT_VALUE(config, oxcf, ret, over_shoot_pct);
+  SET_STRUCT_VALUE(config, oxcf, ret, max_threads);
+  SET_STRUCT_VALUE(config, oxcf, ret, frame_parallel_decoding_mode);
+  SET_STRUCT_VALUE(config, oxcf, ret, tile_columns);
+  SET_STRUCT_VALUE(config, oxcf, ret, arnr_max_frames);
+  SET_STRUCT_VALUE(config, oxcf, ret, arnr_strength);
+  SET_STRUCT_VALUE(config, oxcf, ret, lag_in_frames);
+  SET_STRUCT_VALUE(config, oxcf, ret, encode_breakout);
+  SET_STRUCT_VALUE(config, oxcf, ret, enable_tpl_model);
+  SET_STRUCT_VALUE(config, oxcf, ret, enable_auto_arf);
+  if (strcmp(config.name, "rc_mode") == 0) {
+    int rc_mode = atoi(config.value);
+    if (rc_mode >= VPX_VBR && rc_mode <= VPX_Q) {
+      oxcf->rc_mode = (enum vpx_rc_mode)rc_mode;
+      ret = 1;
+    } else {
+      fprintf(stderr, "Invalid rc_mode value: %d\n", rc_mode);
+    }
+  }
+  SET_STRUCT_VALUE(config, oxcf, ret, cq_level);
+  if (ret == 0) {
+    fprintf(stderr, "Ignored unsupported encode_config %s\n", config.name);
+  }
+}
+
+static VP9EncoderConfig GetEncodeConfig(
+    int frame_width, int frame_height, vpx_rational_t frame_rate,
+    int target_bitrate, int encode_speed, vpx_enc_pass enc_pass,
+    const std::vector<EncodeConfig> &encode_config_list) {
+  VP9EncoderConfig oxcf =
+      vp9_get_encoder_config(frame_width, frame_height, frame_rate,
+                             target_bitrate, encode_speed, enc_pass);
+  for (const auto &config : encode_config_list) {
+    UpdateEncodeConfig(config, &oxcf);
+  }
+  if (enc_pass == VPX_RC_FIRST_PASS) {
+    oxcf.lag_in_frames = 0;
+  }
+  return oxcf;
+}
+
 SimpleEncode::SimpleEncode(int frame_width, int frame_height,
                            int frame_rate_num, int frame_rate_den,
                            int target_bitrate, int num_frames,
@@ -706,6 +807,7 @@ SimpleEncode::SimpleEncode(int frame_width, int frame_height,
   frame_rate_den_ = frame_rate_den;
   target_bitrate_ = target_bitrate;
   num_frames_ = num_frames;
+  encode_speed_ = 0;
 
   frame_coding_index_ = 0;
   show_frame_count_ = 0;
@@ -727,16 +829,55 @@ SimpleEncode::SimpleEncode(int frame_width, int frame_height,
   InitRefFrameInfo(&ref_frame_info_);
 }
 
+void SimpleEncode::SetEncodeSpeed(int encode_speed) {
+  encode_speed_ = encode_speed;
+}
+
+StatusCode SimpleEncode::SetEncodeConfig(const char *name, const char *value) {
+  if (name == nullptr || value == nullptr) {
+    fprintf(stderr, "SetEncodeConfig: null pointer, name %p value %p\n", name,
+            value);
+    return StatusError;
+  }
+  EncodeConfig config;
+  snprintf(config.name, ENCODE_CONFIG_BUF_SIZE, "%s", name);
+  snprintf(config.value, ENCODE_CONFIG_BUF_SIZE, "%s", value);
+  impl_ptr_->encode_config_list.push_back(config);
+  return StatusOk;
+}
+
+StatusCode SimpleEncode::DumpEncodeConfigs(int pass, FILE *fp) {
+  if (fp == nullptr) {
+    fprintf(stderr, "DumpEncodeConfigs: null pointer, fp %p\n", fp);
+    return StatusError;
+  }
+  vpx_enc_pass enc_pass;
+  if (pass == 1) {
+    enc_pass = VPX_RC_FIRST_PASS;
+  } else {
+    enc_pass = VPX_RC_LAST_PASS;
+  }
+  const vpx_rational_t frame_rate =
+      make_vpx_rational(frame_rate_num_, frame_rate_den_);
+  const VP9EncoderConfig oxcf =
+      GetEncodeConfig(frame_width_, frame_height_, frame_rate, target_bitrate_,
+                      encode_speed_, enc_pass, impl_ptr_->encode_config_list);
+  vp9_dump_encoder_config(&oxcf, fp);
+  return StatusOk;
+}
+
 void SimpleEncode::ComputeFirstPassStats() {
   vpx_rational_t frame_rate =
       make_vpx_rational(frame_rate_num_, frame_rate_den_);
-  const VP9EncoderConfig oxcf =
-      vp9_get_encoder_config(frame_width_, frame_height_, frame_rate,
-                             target_bitrate_, VPX_RC_FIRST_PASS);
+  const VP9EncoderConfig oxcf = GetEncodeConfig(
+      frame_width_, frame_height_, frame_rate, target_bitrate_, encode_speed_,
+      VPX_RC_FIRST_PASS, impl_ptr_->encode_config_list);
   VP9_COMP *cpi = init_encoder(&oxcf, impl_ptr_->img_fmt);
   struct lookahead_ctx *lookahead = cpi->lookahead;
   int i;
   int use_highbitdepth = 0;
+  const int num_rows_16x16 = get_num_unit_16x16(frame_height_);
+  const int num_cols_16x16 = get_num_unit_16x16(frame_width_);
 #if CONFIG_VP9_HIGHBITDEPTH
   use_highbitdepth = cpi->common.use_highbitdepth;
 #endif
@@ -769,6 +910,12 @@ void SimpleEncode::ComputeFirstPassStats() {
         // vp9_get_compressed_data only generates first pass stats not
         // compresses data
         assert(size == 0);
+        // Get vp9 first pass motion vector info.
+        std::vector<MotionVectorInfo> mv_info(num_rows_16x16 * num_cols_16x16);
+        update_motion_vector_info(cpi->fp_motion_vector_info, num_rows_16x16,
+                                  num_cols_16x16, mv_info.data(),
+                                  kMotionVectorFullPixelPrecision);
+        fp_motion_vector_info_.push_back(mv_info);
       }
       impl_ptr_->first_pass_stats.push_back(vp9_get_frame_stats(&cpi->twopass));
     }
@@ -806,8 +953,16 @@ std::vector<std::vector<double>> SimpleEncode::ObserveFirstPassStats() {
   return output_stats;
 }
 
-void SimpleEncode::SetExternalGroupOfPicturesMap(std::vector<int> gop_map) {
-  gop_map_ = gop_map;
+std::vector<std::vector<MotionVectorInfo>>
+SimpleEncode::ObserveFirstPassMotionVectors() {
+  return fp_motion_vector_info_;
+}
+
+void SimpleEncode::SetExternalGroupOfPicturesMap(int *gop_map,
+                                                 int gop_map_size) {
+  for (int i = 0; i < gop_map_size; ++i) {
+    gop_map_.push_back(gop_map[i]);
+  }
   // The following will check and modify gop_map_ to make sure the
   // gop_map_ satisfies the constraints.
   // 1) Each key frame position should be at the start of a gop.
@@ -848,10 +1003,10 @@ T *GetVectorData(const std::vector<T> &v) {
 
 static GOP_COMMAND GetGopCommand(const std::vector<int> &gop_map,
                                  int start_show_index) {
-  assert(static_cast<size_t>(start_show_index) < gop_map.size());
-  assert((gop_map[start_show_index] & kGopMapFlagStart) != 0);
   GOP_COMMAND gop_command;
   if (gop_map.size() > 0) {
+    assert(static_cast<size_t>(start_show_index) < gop_map.size());
+    assert((gop_map[start_show_index] & kGopMapFlagStart) != 0);
     int end_show_index = start_show_index + 1;
     // gop_map[end_show_index] & kGopMapFlagStart == 0 means this is
     // the start of a gop.
@@ -876,9 +1031,10 @@ void SimpleEncode::StartEncode() {
   assert(impl_ptr_->first_pass_stats.size() > 0);
   vpx_rational_t frame_rate =
       make_vpx_rational(frame_rate_num_, frame_rate_den_);
-  VP9EncoderConfig oxcf =
-      vp9_get_encoder_config(frame_width_, frame_height_, frame_rate,
-                             target_bitrate_, VPX_RC_LAST_PASS);
+  VP9EncoderConfig oxcf = GetEncodeConfig(
+      frame_width_, frame_height_, frame_rate, target_bitrate_, encode_speed_,
+      VPX_RC_LAST_PASS, impl_ptr_->encode_config_list);
+
   vpx_fixed_buf_t stats;
   stats.buf = GetVectorData(impl_ptr_->first_pass_stats);
   stats.sz = sizeof(impl_ptr_->first_pass_stats[0]) *
@@ -1046,7 +1202,10 @@ void SimpleEncode::EncodeFrame(EncodeFrameResult *encode_frame_result) {
       abort();
     }
 
-    update_encode_frame_result(encode_frame_result, &encode_frame_info);
+    const GroupOfPicture group_of_picture = this->ObserveGroupOfPicture();
+    const int show_frame_count = group_of_picture.show_frame_count;
+    update_encode_frame_result(encode_frame_result, show_frame_count,
+                               &encode_frame_info);
     PostUpdateState(*encode_frame_result);
   } else {
     // TODO(angiebird): Clean up encode_frame_result.
@@ -1061,6 +1220,15 @@ void SimpleEncode::EncodeFrameWithQuantizeIndex(
                                              quantize_index);
   EncodeFrame(encode_frame_result);
   encode_command_reset_external_quantize_index(&impl_ptr_->cpi->encode_command);
+}
+
+void SimpleEncode::EncodeFrameWithTargetFrameBits(
+    EncodeFrameResult *encode_frame_result, int target_frame_bits,
+    double percent_diff) {
+  encode_command_set_target_frame_bits(&impl_ptr_->cpi->encode_command,
+                                       target_frame_bits, percent_diff);
+  EncodeFrame(encode_frame_result);
+  encode_command_reset_target_frame_bits(&impl_ptr_->cpi->encode_command);
 }
 
 static int GetCodingFrameNumFromGopMap(const std::vector<int> &gop_map) {
@@ -1086,9 +1254,9 @@ int SimpleEncode::GetCodingFrameNum() const {
   const int allow_alt_ref = 1;
   vpx_rational_t frame_rate =
       make_vpx_rational(frame_rate_num_, frame_rate_den_);
-  const VP9EncoderConfig oxcf =
-      vp9_get_encoder_config(frame_width_, frame_height_, frame_rate,
-                             target_bitrate_, VPX_RC_LAST_PASS);
+  const VP9EncoderConfig oxcf = GetEncodeConfig(
+      frame_width_, frame_height_, frame_rate, target_bitrate_, encode_speed_,
+      VPX_RC_LAST_PASS, impl_ptr_->encode_config_list);
   FRAME_INFO frame_info = vp9_get_frame_info(&oxcf);
   FIRST_PASS_INFO first_pass_info;
   fps_init_first_pass_info(&first_pass_info,
@@ -1099,12 +1267,13 @@ int SimpleEncode::GetCodingFrameNum() const {
 }
 
 std::vector<int> SimpleEncode::ComputeKeyFrameMap() const {
-  assert(impl_ptr_->first_pass_stats.size() == num_frames_);
+  // The last entry of first_pass_stats is the overall stats.
+  assert(impl_ptr_->first_pass_stats.size() == num_frames_ + 1);
   vpx_rational_t frame_rate =
       make_vpx_rational(frame_rate_num_, frame_rate_den_);
-  const VP9EncoderConfig oxcf =
-      vp9_get_encoder_config(frame_width_, frame_height_, frame_rate,
-                             target_bitrate_, VPX_RC_LAST_PASS);
+  const VP9EncoderConfig oxcf = GetEncodeConfig(
+      frame_width_, frame_height_, frame_rate, target_bitrate_, encode_speed_,
+      VPX_RC_LAST_PASS, impl_ptr_->encode_config_list);
   FRAME_INFO frame_info = vp9_get_frame_info(&oxcf);
   FIRST_PASS_INFO first_pass_info;
   fps_init_first_pass_info(&first_pass_info,

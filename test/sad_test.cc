@@ -26,6 +26,10 @@
 #include "vpx_ports/msvc.h"
 #include "vpx_ports/vpx_timer.h"
 
+// const[expr] should be sufficient for DECLARE_ALIGNED but early
+// implementations of c++11 appear to have some issues with it.
+#define kDataAlignment 32
+
 template <typename Function>
 struct TestParams {
   TestParams(int w, int h, Function f, int bd = -1)
@@ -99,17 +103,17 @@ class SADTestBase : public ::testing::TestWithParam<ParamType> {
 
   virtual void TearDown() {
     vpx_free(source_data8_);
-    source_data8_ = NULL;
+    source_data8_ = nullptr;
     vpx_free(reference_data8_);
-    reference_data8_ = NULL;
+    reference_data8_ = nullptr;
     vpx_free(second_pred8_);
-    second_pred8_ = NULL;
+    second_pred8_ = nullptr;
     vpx_free(source_data16_);
-    source_data16_ = NULL;
+    source_data16_ = nullptr;
     vpx_free(reference_data16_);
-    reference_data16_ = NULL;
+    reference_data16_ = nullptr;
     vpx_free(second_pred16_);
-    second_pred16_ = NULL;
+    second_pred16_ = nullptr;
 
     libvpx_test::ClearSystemState();
   }
@@ -117,9 +121,6 @@ class SADTestBase : public ::testing::TestWithParam<ParamType> {
  protected:
   // Handle blocks up to 4 blocks 64x64 with stride up to 128
   // crbug.com/webm/1660
-  // const[expr] should be sufficient for DECLARE_ALIGNED but early
-  // implementations of c++11 appear to have some issues with it.
-  enum { kDataAlignment = 32 };
   static const int kDataBlockSize = 64 * 128;
   static const int kDataBufferSize = 4 * kDataBlockSize;
 

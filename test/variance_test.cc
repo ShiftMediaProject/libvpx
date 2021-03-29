@@ -253,7 +253,7 @@ void SumOfSquaresTest::RefTest() {
 
 template <typename Func>
 struct TestParams {
-  TestParams(int log2w = 0, int log2h = 0, Func function = NULL,
+  TestParams(int log2w = 0, int log2h = 0, Func function = nullptr,
              int bit_depth_value = 0)
       : log2width(log2w), log2height(log2h), func(function) {
     use_high_bit_depth = (bit_depth_value > 0);
@@ -297,8 +297,8 @@ class MainTestClass
         use_high_bit_depth() ? sizeof(uint16_t) : sizeof(uint8_t);
     src_ = reinterpret_cast<uint8_t *>(vpx_memalign(16, block_size() * unit));
     ref_ = new uint8_t[block_size() * unit];
-    ASSERT_TRUE(src_ != NULL);
-    ASSERT_TRUE(ref_ != NULL);
+    ASSERT_NE(src_, nullptr);
+    ASSERT_NE(ref_, nullptr);
 #if CONFIG_VP9_HIGHBITDEPTH
     if (use_high_bit_depth()) {
       // TODO(skal): remove!
@@ -319,8 +319,8 @@ class MainTestClass
 
     vpx_free(src_);
     delete[] ref_;
-    src_ = NULL;
-    ref_ = NULL;
+    src_ = nullptr;
+    ref_ = nullptr;
     libvpx_test::ClearSystemState();
   }
 
@@ -573,9 +573,9 @@ class SubpelVarianceTest
           (block_size() + width() + height() + 1) * sizeof(uint16_t))));
 #endif  // CONFIG_VP9_HIGHBITDEPTH
     }
-    ASSERT_TRUE(src_ != NULL);
-    ASSERT_TRUE(sec_ != NULL);
-    ASSERT_TRUE(ref_ != NULL);
+    ASSERT_NE(src_, nullptr);
+    ASSERT_NE(sec_, nullptr);
+    ASSERT_NE(ref_, nullptr);
   }
 
   virtual void TearDown() {
@@ -807,14 +807,11 @@ INSTANTIATE_TEST_SUITE_P(
         SubpelAvgVarianceParams(2, 2, &vpx_sub_pixel_avg_variance4x4_c, 0)));
 
 #if CONFIG_VP9_HIGHBITDEPTH
-typedef MainTestClass<vpx_variance_fn_t> VpxHBDMseTest;
 typedef MainTestClass<vpx_variance_fn_t> VpxHBDVarianceTest;
 typedef SubpelVarianceTest<vpx_subpixvariance_fn_t> VpxHBDSubpelVarianceTest;
 typedef SubpelVarianceTest<vpx_subp_avg_variance_fn_t>
     VpxHBDSubpelAvgVarianceTest;
 
-TEST_P(VpxHBDMseTest, RefMse) { RefTestMse(); }
-TEST_P(VpxHBDMseTest, MaxMse) { MaxTestMse(); }
 TEST_P(VpxHBDVarianceTest, Zero) { ZeroTest(); }
 TEST_P(VpxHBDVarianceTest, Ref) { RefTest(); }
 TEST_P(VpxHBDVarianceTest, RefStride) { RefStrideTest(); }
@@ -825,6 +822,9 @@ TEST_P(VpxHBDSubpelVarianceTest, ExtremeRef) { ExtremeRefTest(); }
 TEST_P(VpxHBDSubpelAvgVarianceTest, Ref) { RefTest(); }
 
 /* TODO(debargha): This test does not support the highbd version
+typedef MainTestClass<vpx_variance_fn_t> VpxHBDMseTest;
+TEST_P(VpxHBDMseTest, RefMse) { RefTestMse(); }
+TEST_P(VpxHBDMseTest, MaxMse) { MaxTestMse(); }
 INSTANTIATE_TEST_SUITE_P(
     C, VpxHBDMseTest,
     ::testing::Values(MseParams(4, 4, &vpx_highbd_12_mse16x16_c),
@@ -840,6 +840,7 @@ INSTANTIATE_TEST_SUITE_P(
                       MseParams(4, 4, &vpx_highbd_8_mse8x16_c),
                       MseParams(4, 4, &vpx_highbd_8_mse8x8_c)));
 */
+GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(VpxHBDMseTest);
 
 INSTANTIATE_TEST_SUITE_P(
     C, VpxHBDVarianceTest,
