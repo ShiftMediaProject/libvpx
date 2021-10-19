@@ -201,63 +201,41 @@ static const int rd_frame_type_factor[FRAME_UPDATE_TYPES] = { 128, 144, 128,
 // Later this function will use passed in command line values.
 void vp9_init_rd_parameters(VP9_COMP *cpi) {
   RD_CONTROL *const rdc = &cpi->rd_ctrl;
-  unsigned int screen_area = (cpi->common.width * cpi->common.height);
+
+  // When |use_vizier_rc_params| is 1, we expect the rd parameters have been
+  // initialized by the pass in values.
+  // Be careful that parameters below are only initialized to 1, if we do not
+  // pass values to them. It is desired to take care of each parameter when
+  // using |use_vizier_rc_params|.
+  if (cpi->twopass.use_vizier_rc_params) return;
 
   // Make sure this function is floating point safe.
   vpx_clear_system_state();
 
-  if (1) {
-    // Non/pre-Vizer defaults
-    rdc->rd_mult_q_sq_inter_low_qp = 4.0;
-    rdc->rd_mult_q_sq_inter_mid_qp = 4.5;
-    rdc->rd_mult_q_sq_inter_high_qp = 3.0;
-    rdc->rd_mult_q_sq_key_ultralow_qp = 4.0;
-    rdc->rd_mult_q_sq_key_low_qp = 3.5;
-    rdc->rd_mult_q_sq_key_mid_qp = 4.5;
-    rdc->rd_mult_q_sq_key_high_qp = 7.5;
-  } else if (screen_area <= 176 * 144) {
-    rdc->rd_mult_q_sq_inter_high_qp = 4.295745965132044;
-    rdc->rd_mult_q_sq_inter_low_qp = 4.0718581295922025;
-    rdc->rd_mult_q_sq_inter_mid_qp = 4.031435609256739;
-    rdc->rd_mult_q_sq_key_low_qp = 5.7037775720838155;
-    rdc->rd_mult_q_sq_key_mid_qp = 4.72424015517201;
-    rdc->rd_mult_q_sq_key_ultralow_qp = 4.290774097327333;
-  } else if (screen_area <= 320 * 240) {
-    rdc->rd_mult_q_sq_inter_high_qp = 4.388244213131458;
-    rdc->rd_mult_q_sq_inter_low_qp = 4.506676356706102;
-    rdc->rd_mult_q_sq_inter_mid_qp = 4.489349899621181;
-    rdc->rd_mult_q_sq_key_low_qp = 4.497000582319771;
-    rdc->rd_mult_q_sq_key_mid_qp = 4.2825894884789735;
-    rdc->rd_mult_q_sq_key_ultralow_qp = 4.217074424696166;
-  } else if (screen_area <= 640 * 360) {
-    rdc->rd_mult_q_sq_inter_high_qp = 4.3702861603380025;
-    rdc->rd_mult_q_sq_inter_low_qp = 4.730644123689013;
-    rdc->rd_mult_q_sq_inter_mid_qp = 4.314589509578551;
-    rdc->rd_mult_q_sq_key_low_qp = 6.068652999601526;
-    rdc->rd_mult_q_sq_key_mid_qp = 4.817707474077241;
-    rdc->rd_mult_q_sq_key_ultralow_qp = 4.576902541873747;
-  } else if (screen_area <= 854 * 480) {
-    rdc->rd_mult_q_sq_inter_high_qp = 3.969083125219539;
-    rdc->rd_mult_q_sq_inter_low_qp = 4.811470143416073;
-    rdc->rd_mult_q_sq_inter_mid_qp = 4.621618127750201;
-    rdc->rd_mult_q_sq_key_low_qp = 5.073157238799473;
-    rdc->rd_mult_q_sq_key_mid_qp = 5.7587672849242635;
-    rdc->rd_mult_q_sq_key_ultralow_qp = 4.9854544277222566;
-  } else if (screen_area <= 1280 * 720) {
-    rdc->rd_mult_q_sq_inter_high_qp = 4.410712348825541;
-    rdc->rd_mult_q_sq_inter_low_qp = 5.119381136011107;
-    rdc->rd_mult_q_sq_inter_mid_qp = 4.518613675766538;
-    rdc->rd_mult_q_sq_key_low_qp = 5.848703119971484;
-    rdc->rd_mult_q_sq_key_mid_qp = 5.368947246228739;
-    rdc->rd_mult_q_sq_key_ultralow_qp = 3.9468491666607326;
-  } else if (screen_area <= 1920 * 1080) {
-    rdc->rd_mult_q_sq_inter_high_qp = 3.2141187537667797;
-    rdc->rd_mult_q_sq_inter_low_qp = 6.00569815296199;
-    rdc->rd_mult_q_sq_inter_mid_qp = 3.932565684947023;
-    rdc->rd_mult_q_sq_key_low_qp = 10.582906599488298;
-    rdc->rd_mult_q_sq_key_mid_qp = 6.274162346360692;
-    rdc->rd_mult_q_sq_key_ultralow_qp = 4.399795006320089;
-  }
+  rdc->rd_mult_inter_qp_fac = 1.0;
+  rdc->rd_mult_arf_qp_fac = 1.0;
+  rdc->rd_mult_key_qp_fac = 1.0;
+}
+
+// Returns the default rd multiplier for inter frames for a given qindex.
+// The function here is a first pass estimate based on data from
+// a previous Vizer run
+static double def_inter_rd_multiplier(int qindex) {
+  return 4.15 + (0.001 * (double)qindex);
+}
+
+// Returns the default rd multiplier for ARF/Golden Frames for a given qindex.
+// The function here is a first pass estimate based on data from
+// a previous Vizer run
+static double def_arf_rd_multiplier(int qindex) {
+  return 4.25 + (0.001 * (double)qindex);
+}
+
+// Returns the default rd multiplier for key frames for a given qindex.
+// The function here is a first pass estimate based on data from
+// a previous Vizer run
+static double def_kf_rd_multiplier(int qindex) {
+  return 4.35 + (0.001 * (double)qindex);
 }
 
 int vp9_compute_rd_mult_based_on_qindex(const VP9_COMP *cpi, int qindex) {
@@ -269,25 +247,16 @@ int vp9_compute_rd_mult_based_on_qindex(const VP9_COMP *cpi, int qindex) {
   // Make sure this function is floating point safe.
   vpx_clear_system_state();
 
-  if (cpi->common.frame_type != KEY_FRAME) {
-    if (qindex < 128) {
-      rdmult = (int)((double)rdmult * rdc->rd_mult_q_sq_inter_low_qp);
-    } else if (qindex < 190) {
-      rdmult = (int)((double)rdmult * rdc->rd_mult_q_sq_inter_mid_qp);
-    } else {
-      rdmult = (int)((double)rdmult * rdc->rd_mult_q_sq_inter_high_qp);
-    }
+  if (cpi->common.frame_type == KEY_FRAME) {
+    double def_rd_q_mult = def_kf_rd_multiplier(qindex);
+    rdmult = (int)((double)rdmult * def_rd_q_mult * rdc->rd_mult_key_qp_fac);
+  } else if (!cpi->rc.is_src_frame_alt_ref &&
+             (cpi->refresh_golden_frame || cpi->refresh_alt_ref_frame)) {
+    double def_rd_q_mult = def_arf_rd_multiplier(qindex);
+    rdmult = (int)((double)rdmult * def_rd_q_mult * rdc->rd_mult_arf_qp_fac);
   } else {
-    if (qindex < 64) {
-      rdmult = (int)((double)rdmult * rdc->rd_mult_q_sq_key_ultralow_qp);
-    } else if (qindex <= 128) {
-      rdmult = (int)((double)rdmult * rdc->rd_mult_q_sq_key_low_qp);
-    } else if (qindex < 190) {
-      rdmult = (int)((double)rdmult * rdc->rd_mult_q_sq_key_mid_qp);
-
-    } else {
-      rdmult = (int)((double)rdmult * rdc->rd_mult_q_sq_key_high_qp);
-    }
+    double def_rd_q_mult = def_inter_rd_multiplier(qindex);
+    rdmult = (int)((double)rdmult * def_rd_q_mult * rdc->rd_mult_inter_qp_fac);
   }
 
 #if CONFIG_VP9_HIGHBITDEPTH

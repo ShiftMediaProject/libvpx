@@ -102,15 +102,10 @@ typedef enum {
 } THR_MODES_SUB8X8;
 
 typedef struct {
-  // RD control parameters
-  // Added for Vizier project.
-  double rd_mult_q_sq_inter_low_qp;
-  double rd_mult_q_sq_inter_mid_qp;
-  double rd_mult_q_sq_inter_high_qp;
-  double rd_mult_q_sq_key_ultralow_qp;
-  double rd_mult_q_sq_key_low_qp;
-  double rd_mult_q_sq_key_mid_qp;
-  double rd_mult_q_sq_key_high_qp;
+  // RD multiplier control factors added for Vizier project.
+  double rd_mult_inter_qp_fac;
+  double rd_mult_arf_qp_fac;
+  double rd_mult_key_qp_fac;
 } RD_CONTROL;
 
 typedef struct RD_OPT {

@@ -301,9 +301,9 @@ static void init_temporal_layer_context(VP8_COMP *cpi, VP8_CONFIG *oxcf,
   /* Work out the average size of a frame within this layer */
   if (layer > 0) {
     lc->avg_frame_size_for_layer =
-        (int)((cpi->oxcf.target_bitrate[layer] -
-               cpi->oxcf.target_bitrate[layer - 1]) *
-              1000 / (lc->framerate - prev_layer_framerate));
+        (int)round((cpi->oxcf.target_bitrate[layer] -
+                    cpi->oxcf.target_bitrate[layer - 1]) *
+                   1000 / (lc->framerate - prev_layer_framerate));
   }
 
   lc->active_worst_quality = cpi->oxcf.worst_allowed_q;
@@ -4919,6 +4919,8 @@ int vp8_get_compressed_data(VP8_COMP *cpi, unsigned int *frame_flags,
 
       this_duration = cpi->source->ts_end - cpi->last_end_time_stamp_seen;
       last_duration = cpi->last_end_time_stamp_seen - cpi->last_time_stamp_seen;
+      // Cap this to avoid overflow of (this_duration - last_duration) * 10
+      this_duration = VPXMIN(this_duration, INT64_MAX / 10);
       /* do a step update if the duration changes by 10% */
       if (last_duration) {
         step = (int)(((this_duration - last_duration) * 10 / last_duration));
@@ -5316,17 +5318,13 @@ int vp8_set_roimap(VP8_COMP *cpi, unsigned char *map, unsigned int rows,
     return -1;
   }
 
-  // Range check the delta Q values and convert the external Q range values
-  // to internal ones.
-  if ((abs(delta_q[0]) > range) || (abs(delta_q[1]) > range) ||
-      (abs(delta_q[2]) > range) || (abs(delta_q[3]) > range)) {
-    return -1;
-  }
-
-  // Range check the delta lf values
-  if ((abs(delta_lf[0]) > range) || (abs(delta_lf[1]) > range) ||
-      (abs(delta_lf[2]) > range) || (abs(delta_lf[3]) > range)) {
-    return -1;
+  for (i = 0; i < MAX_MB_SEGMENTS; ++i) {
+    // Note abs() alone can't be used as the behavior of abs(INT_MIN) is
+    // undefined.
+    if (delta_q[i] > range || delta_q[i] < -range || delta_lf[i] > range ||
+        delta_lf[i] < -range) {
+      return -1;
+    }
   }
 
   // Also disable segmentation if no deltas are specified.

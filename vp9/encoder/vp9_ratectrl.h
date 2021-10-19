@@ -27,6 +27,9 @@ extern "C" {
 // Bits Per MB at different Q (Multiplied by 512)
 #define BPER_MB_NORMBITS 9
 
+#define DEFAULT_KF_BOOST 2000
+#define DEFAULT_GF_BOOST 2000
+
 #define MIN_GF_INTERVAL 4
 #define MAX_GF_INTERVAL 16
 #define FIXED_GF_INTERVAL 8  // Used in some testing modes only
@@ -205,18 +208,9 @@ typedef struct {
   int preserve_next_arf_as_gld;
   int show_arf_as_gld;
 
-  // Vizeir project experimental rate control parameters.
-  double active_wq_factor;
-  double base_err_per_mb;
-  double sr_default_decay_limit;
-  double sr_diff_part;
-  double kf_frame_max_boost_first;  // Max for first kf in a chunk.
-  double kf_frame_max_boost_subs;   // Max for subsequent mid chunk kfs.
-  double kf_max_total_boost;
-  double kf_err_per_mb;
-  double gf_frame_max_boost;
-  double gf_max_total_boost;
-  double zm_power_factor;
+  // Flag to constrain golden frame interval on key frame frequency for 1 pass
+  // VBR.
+  int constrain_gf_key_freq_onepass_vbr;
 } RATE_CONTROL;
 
 struct VP9_COMP;
@@ -268,6 +262,9 @@ void vp9_rc_get_one_pass_vbr_params(struct VP9_COMP *cpi);
 void vp9_rc_get_one_pass_cbr_params(struct VP9_COMP *cpi);
 int vp9_calc_pframe_target_size_one_pass_cbr(const struct VP9_COMP *cpi);
 int vp9_calc_iframe_target_size_one_pass_cbr(const struct VP9_COMP *cpi);
+int vp9_calc_pframe_target_size_one_pass_vbr(const struct VP9_COMP *cpi);
+int vp9_calc_iframe_target_size_one_pass_vbr(const struct VP9_COMP *cpi);
+void vp9_set_gf_update_one_pass_vbr(struct VP9_COMP *const cpi);
 void vp9_update_buffer_level_preencode(struct VP9_COMP *cpi);
 void vp9_rc_get_svc_params(struct VP9_COMP *cpi);
 
