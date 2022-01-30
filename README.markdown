@@ -16,7 +16,7 @@ VP8/VP9 Codec SDK. [https://www.webmproject.org/code/](https://www.webmproject.o
 
 ## Downloads
 
-Development libraries are available from the [releases](https://github.com/ShiftMediaProject/libvpx/releases) page. These libraries are available for each supported Visual Studio version (2013, 2015 or 2017) with a different download for each version. Each download contains both static and dynamic libraries to choose from in both 32bit and 64bit versions.
+Development libraries are available from the [releases](https://github.com/ShiftMediaProject/libvpx/releases) page. These libraries are available for each supported Visual Studio version with a different download for each version. Each download contains both static and dynamic libraries to choose from in both 32bit and 64bit versions.
 
 ## Code
 
