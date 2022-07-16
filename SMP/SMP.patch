@@ -107,42 +107,6 @@ index b3af677d2..7b65bb4a7 100644
  ;macro in deblock functions
  %macro FIRST_2_ROWS 0
          movdqa      xmm4,       xmm0
-diff --git a/vpx_dsp/x86/sad_sse3.asm b/vpx_dsp/x86/sad_sse3.asm
-index acbd2e4fa..4a4e621f5 100644
---- a/vpx_dsp/x86/sad_sse3.asm
-+++ b/vpx_dsp/x86/sad_sse3.asm
-@@ -10,6 +10,7 @@
- 
- %include "vpx_ports/x86_abi_support.asm"
- 
-+section .text
- %macro STACK_FRAME_CREATE_X3 0
- %if ABI_IS_32BIT
-   %define     src_ptr       rsi
-diff --git a/vpx_dsp/x86/sad_sse4.asm b/vpx_dsp/x86/sad_sse4.asm
-index 0818ed5f0..03912c4f4 100644
---- a/vpx_dsp/x86/sad_sse4.asm
-+++ b/vpx_dsp/x86/sad_sse4.asm
-@@ -11,6 +11,7 @@
- 
- %include "vpx_ports/x86_abi_support.asm"
- 
-+section .text
- %macro PROCESS_16X2X8 1
- %if %1
-         movdqa          xmm0,       XMMWORD PTR [rsi]
-diff --git a/vpx_dsp/x86/sad_ssse3.asm b/vpx_dsp/x86/sad_ssse3.asm
-index a5bc6d730..54ab46d38 100644
---- a/vpx_dsp/x86/sad_ssse3.asm
-+++ b/vpx_dsp/x86/sad_ssse3.asm
-@@ -11,6 +11,7 @@
- 
- %include "vpx_ports/x86_abi_support.asm"
- 
-+section .text
- %macro PROCESS_16X2X3 1
- %if %1
-         movdqa          xmm0,       XMMWORD PTR [rsi]
 diff --git a/vpx_dsp/x86/ssim_opt_x86_64.asm b/vpx_dsp/x86/ssim_opt_x86_64.asm
 index 41ffbb07e..efb7759f5 100644
 --- a/vpx_dsp/x86/ssim_opt_x86_64.asm
