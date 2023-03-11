@@ -356,6 +356,7 @@
     <ClCompile Include="..\vp9\encoder\x86\vp9_highbd_block_error_intrin_sse2.c" />
     <ClCompile Include="..\vp9\encoder\x86\vp9_quantize_avx2.c" />
     <ClCompile Include="..\vp9\encoder\x86\vp9_quantize_sse2.c" />
+    <ClCompile Include="..\vp9\encoder\x86\vp9_quantize_ssse3.c" />
     <ClCompile Include="..\vp9\vp9_cx_iface.c" />
     <ClCompile Include="..\vp9\vp9_dx_iface.c" />
     <ClCompile Include="..\vp9\vp9_iface_common.c" />
@@ -401,7 +402,10 @@
     <ClCompile Include="..\vpx_dsp\x86\highbd_intrapred_intrin_sse2.c" />
     <ClCompile Include="..\vpx_dsp\x86\highbd_intrapred_intrin_ssse3.c" />
     <ClCompile Include="..\vpx_dsp\x86\highbd_loopfilter_sse2.c" />
+    <ClCompile Include="..\vpx_dsp\x86\highbd_sad4d_avx2.c" />
+    <ClCompile Include="..\vpx_dsp\x86\highbd_sad_avx2.c" />
     <ClCompile Include="..\vpx_dsp\x86\highbd_quantize_intrin_sse2.c" />
+    <ClCompile Include="..\vpx_dsp\x86\highbd_quantize_intrin_avx2.c" />
     <ClCompile Include="..\vpx_dsp\x86\highbd_variance_sse2.c" />
     <ClCompile Include="..\vpx_dsp\x86\inv_txfm_sse2.c" />
     <ClCompile Include="..\vpx_dsp\x86\inv_txfm_ssse3.c" />
@@ -411,6 +415,7 @@
     </ClCompile>
     <ClCompile Include="..\vpx_dsp\x86\post_proc_sse2.c" />
     <ClCompile Include="..\vpx_dsp\x86\quantize_avx.c" />
+    <ClCompile Include="..\vpx_dsp\x86\quantize_avx2.c" />
     <ClCompile Include="..\vpx_dsp\x86\quantize_sse2.c" />
     <ClCompile Include="..\vpx_dsp\x86\quantize_ssse3.c" />
     <ClCompile Include="..\vpx_dsp\x86\sad4d_avx2.c" />
@@ -419,6 +424,7 @@
       <ExcludedFromBuild Condition="'$(VisualStudioVersion)' == '12.0'">true</ExcludedFromBuild>
     </ClCompile>
     <ClCompile Include="..\vpx_dsp\x86\sad_avx2.c" />
+    <ClCompile Include="..\vpx_dsp\x86\subtract_avx2.c" />
     <ClCompile Include="..\vpx_dsp\x86\sum_squares_sse2.c" />
     <ClCompile Include="..\vpx_dsp\x86\variance_avx2.c" />
     <ClCompile Include="..\vpx_dsp\x86\variance_sse2.c" />
@@ -465,9 +471,6 @@
     <YASM Include="..\vp9\common\x86\vp9_mfqe_sse2.asm" />
     <YASM Include="..\vp9\encoder\x86\vp9_dct_sse2.asm" />
     <YASM Include="..\vp9\encoder\x86\vp9_error_sse2.asm" />
-    <YASM Include="..\vp9\encoder\x86\vp9_quantize_ssse3_x86_64.asm">
-      <ExcludedFromBuild Condition="'$(Platform)'=='Win32'">true</ExcludedFromBuild>
-    </YASM>
     <YASM Include="..\vpx_dsp\x86\add_noise_sse2.asm" />
     <YASM Include="..\vpx_dsp\x86\avg_ssse3_x86_64.asm">
       <ExcludedFromBuild Condition="'$(Platform)'=='Win32'">true</ExcludedFromBuild>
