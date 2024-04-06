@@ -103,6 +103,7 @@
     <ClInclude Include="..\vp9\encoder\vp9_extend.h" />
     <ClInclude Include="..\vp9\encoder\vp9_ext_ratectrl.h" />
     <ClInclude Include="..\vp9\encoder\vp9_firstpass.h" />
+    <ClInclude Include="..\vp9\encoder\vp9_firstpass_stats.h" />
     <ClInclude Include="..\vp9\encoder\vp9_job_queue.h" />
     <ClInclude Include="..\vp9\encoder\vp9_lookahead.h" />
     <ClInclude Include="..\vp9\encoder\vp9_mbgraph.h" />
@@ -124,6 +125,7 @@
     <ClInclude Include="..\vp9\encoder\vp9_svc_layercontext.h" />
     <ClInclude Include="..\vp9\encoder\vp9_temporal_filter.h" />
     <ClInclude Include="..\vp9\encoder\vp9_tokenize.h" />
+    <ClInclude Include="..\vp9\encoder\vp9_tpl_model.h" />
     <ClInclude Include="..\vp9\encoder\vp9_treewriter.h" />
     <ClInclude Include="..\vp9\vp9_dx_iface.h" />
     <ClInclude Include="..\vp9\vp9_iface_common.h" />
@@ -137,6 +139,7 @@
     <ClInclude Include="..\vpx\vpx_frame_buffer.h" />
     <ClInclude Include="..\vpx\vpx_image.h" />
     <ClInclude Include="..\vpx\vpx_integer.h" />
+    <ClInclude Include="..\vpx\vpx_tpl.h" />
     <ClInclude Include="..\vpx\internal\vpx_codec_internal.h" />
     <ClInclude Include="..\vpx_dsp\bitreader.h" />
     <ClInclude Include="..\vpx_dsp\bitreader_buffer.h" />
@@ -346,11 +349,11 @@
     <ClCompile Include="..\vp9\encoder\vp9_svc_layercontext.c" />
     <ClCompile Include="..\vp9\encoder\vp9_temporal_filter.c" />
     <ClCompile Include="..\vp9\encoder\vp9_tokenize.c" />
+    <ClCompile Include="..\vp9\encoder\vp9_tpl_model.c" />
     <ClCompile Include="..\vp9\encoder\vp9_treewriter.c" />
     <ClCompile Include="..\vp9\encoder\x86\highbd_temporal_filter_sse4.c" />
     <ClCompile Include="..\vp9\encoder\x86\temporal_filter_sse4.c" />
     <ClCompile Include="..\vp9\encoder\x86\vp9_dct_intrin_sse2.c" />
-    <ClCompile Include="..\vp9\encoder\x86\vp9_diamond_search_sad_avx.c" />
     <ClCompile Include="..\vp9\encoder\x86\vp9_error_avx2.c" />
     <ClCompile Include="..\vp9\encoder\x86\vp9_frame_scale_ssse3.c" />
     <ClCompile Include="..\vp9\encoder\x86\vp9_highbd_block_error_intrin_sse2.c" />
@@ -364,6 +367,7 @@
     <ClCompile Include="..\vpx\src\vpx_decoder.c" />
     <ClCompile Include="..\vpx\src\vpx_encoder.c" />
     <ClCompile Include="..\vpx\src\vpx_image.c" />
+    <ClCompile Include="..\vpx\src\vpx_tpl.c" />
     <ClCompile Include="..\vpx_dsp\add_noise.c" />
     <ClCompile Include="..\vpx_dsp\avg.c" />
     <ClCompile Include="..\vpx_dsp\bitreader.c" />
@@ -379,6 +383,7 @@
     <ClCompile Include="..\vpx_dsp\psnr.c" />
     <ClCompile Include="..\vpx_dsp\quantize.c" />
     <ClCompile Include="..\vpx_dsp\sad.c" />
+    <ClCompile Include="..\vpx_dsp\sse.c" />
     <ClCompile Include="..\vpx_dsp\skin_detection.c" />
     <ClCompile Include="..\vpx_dsp\subtract.c" />
     <ClCompile Include="..\vpx_dsp\sum_squares.c" />
@@ -388,6 +393,7 @@
     <ClCompile Include="..\vpx_dsp\x86\avg_intrin_avx2.c" />
     <ClCompile Include="..\vpx_dsp\x86\avg_intrin_sse2.c" />
     <ClCompile Include="..\vpx_dsp\x86\avg_pred_sse2.c" />
+    <ClCompile Include="..\vpx_dsp\x86\avg_pred_avx2.c" />
     <ClCompile Include="..\vpx_dsp\x86\fwd_txfm_avx2.c" />
     <ClCompile Include="..\vpx_dsp\x86\fwd_txfm_sse2.c" />
     <ClCompile Include="..\vpx_dsp\x86\highbd_convolve_avx2.c" />
@@ -409,6 +415,7 @@
     <ClCompile Include="..\vpx_dsp\x86\highbd_variance_sse2.c" />
     <ClCompile Include="..\vpx_dsp\x86\inv_txfm_sse2.c" />
     <ClCompile Include="..\vpx_dsp\x86\inv_txfm_ssse3.c" />
+    <ClCompile Include="..\vpx_dsp\x86\inv_txfm_avx2.c" />
     <ClCompile Include="..\vpx_dsp\x86\loopfilter_avx2.c" />
     <ClCompile Include="..\vpx_dsp\x86\loopfilter_sse2.c">
       <ObjectFileName>$(IntDir)\vpx_%(Filename).obj</ObjectFileName>
@@ -424,6 +431,8 @@
       <ExcludedFromBuild Condition="'$(VisualStudioVersion)' == '12.0'">true</ExcludedFromBuild>
     </ClCompile>
     <ClCompile Include="..\vpx_dsp\x86\sad_avx2.c" />
+    <ClCompile Include="..\vpx_dsp\x86\sse_avx2.c" />
+    <ClCompile Include="..\vpx_dsp\x86\sse_sse4.c" />
     <ClCompile Include="..\vpx_dsp\x86\subtract_avx2.c" />
     <ClCompile Include="..\vpx_dsp\x86\sum_squares_sse2.c" />
     <ClCompile Include="..\vpx_dsp\x86\variance_avx2.c" />

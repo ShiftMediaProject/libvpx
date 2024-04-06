@@ -744,6 +744,15 @@
     <ClInclude Include="..\vp9\encoder\vp9_ext_ratectrl.h">
       <Filter>Header Files\libvpx\vp9\encoder</Filter>
     </ClInclude>
+    <ClInclude Include="..\vp9\encoder\vp9_firstpass_stats.h">
+      <Filter>Header Files\libvpx\vp9\encoder</Filter>
+    </ClInclude>
+    <ClInclude Include="..\vp9\encoder\vp9_tpl_model.h">
+      <Filter>Header Files\libvpx\vp9\encoder</Filter>
+    </ClInclude>
+    <ClInclude Include="..\vpx\vpx_tpl.h">
+      <Filter>Header Files\libvpx\vpx</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\vpx\src\vpx_encoder.c">
@@ -1274,9 +1283,6 @@
     <ClCompile Include="..\vp9\encoder\x86\vp9_dct_intrin_sse2.c">
       <Filter>Source Files\libvpx\vp9\encoder\x86</Filter>
     </ClCompile>
-    <ClCompile Include="..\vp9\encoder\x86\vp9_diamond_search_sad_avx.c">
-      <Filter>Source Files\libvpx\vp9\encoder\x86</Filter>
-    </ClCompile>
     <ClCompile Include="..\vpx_dsp\add_noise.c">
       <Filter>Source Files\libvpx\vpx_dsp</Filter>
     </ClCompile>
@@ -1434,6 +1440,27 @@
       <Filter>Source Files\libvpx\vpx_dsp\x86</Filter>
     </ClCompile>
     <ClCompile Include="..\vpx_dsp\x86\highbd_sad_avx2.c">
+      <Filter>Source Files\libvpx\vpx_dsp\x86</Filter>
+    </ClCompile>
+    <ClCompile Include="..\vpx_dsp\x86\avg_pred_avx2.c">
+      <Filter>Source Files\libvpx\vpx_dsp\x86</Filter>
+    </ClCompile>
+    <ClCompile Include="..\vpx_dsp\x86\inv_txfm_avx2.c">
+      <Filter>Source Files\libvpx\vpx_dsp\x86</Filter>
+    </ClCompile>
+    <ClCompile Include="..\vpx\src\vpx_tpl.c">
+      <Filter>Source Files\libvpx\vpx</Filter>
+    </ClCompile>
+    <ClCompile Include="..\vp9\encoder\vp9_tpl_model.c">
+      <Filter>Source Files\libvpx\vp9\encoder</Filter>
+    </ClCompile>
+    <ClCompile Include="..\vpx_dsp\sse.c">
+      <Filter>Source Files\libvpx\vpx_dsp</Filter>
+    </ClCompile>
+    <ClCompile Include="..\vpx_dsp\x86\sse_sse4.c">
+      <Filter>Source Files\libvpx\vpx_dsp\x86</Filter>
+    </ClCompile>
+    <ClCompile Include="..\vpx_dsp\x86\sse_avx2.c">
       <Filter>Source Files\libvpx\vpx_dsp\x86</Filter>
     </ClCompile>
   </ItemGroup>

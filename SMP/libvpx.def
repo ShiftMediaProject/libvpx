@@ -24,6 +24,9 @@ EXPORTS
   vpx_img_free
   vpx_img_set_rect
   vpx_img_wrap
+  vpx_free_tpl_gop_stats
+  vpx_read_tpl_gop_stats
+  vpx_write_tpl_gop_stats
   vpx_codec_enc_config_default
   vpx_codec_enc_config_set
   vpx_codec_enc_init_multi_ver
