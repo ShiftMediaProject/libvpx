@@ -521,6 +521,7 @@ AS_SFX    = ${AS_SFX:-.asm}
 EXE_SFX   = ${EXE_SFX}
 VCPROJ_SFX = ${VCPROJ_SFX}
 RTCD_OPTIONS = ${RTCD_OPTIONS}
+LIBWEBM_CXXFLAGS = ${LIBWEBM_CXXFLAGS}
 LIBYUV_CXXFLAGS = ${LIBYUV_CXXFLAGS}
 EOF
 
@@ -791,7 +792,7 @@ process_common_toolchain() {
         tgt_isa=x86_64
         tgt_os=`echo $gcctarget | sed 's/.*\(darwin1[0-9]\).*/\1/'`
         ;;
-      *darwin2[0-2]*)
+      *darwin2[0-3]*)
         tgt_isa=`uname -m`
         tgt_os=`echo $gcctarget | sed 's/.*\(darwin2[0-9]\).*/\1/'`
         ;;
@@ -842,6 +843,10 @@ process_common_toolchain() {
 
   # Enable the architecture family
   case ${tgt_isa} in
+    arm64 | armv8)
+      enable_feature arm
+      enable_feature aarch64
+      ;;
     arm*)
       enable_feature arm
       ;;
@@ -858,8 +863,14 @@ process_common_toolchain() {
       ;;
   esac
 
-  # PIC is probably what we want when building shared libs
+  # Position independent code (PIC) is probably what we want when building
+  # shared libs or position independent executable (PIE) targets.
   enabled shared && soft_enable pic
+  check_cpp << EOF || soft_enable pic
+#if !(__pie__ || __PIE__)
+#error Neither __pie__ or __PIE__ are set
+#endif
+EOF
 
   # Minimum iOS version for all target platforms (darwin and iphonesimulator).
   # Shared library framework builds are only possible on iOS 8 and later.
@@ -940,7 +951,7 @@ process_common_toolchain() {
       add_cflags  "-mmacosx-version-min=10.15"
       add_ldflags "-mmacosx-version-min=10.15"
       ;;
-    *-darwin2[0-2]-*)
+    *-darwin2[0-3]-*)
       add_cflags  "-arch ${toolchain%%-*}"
       add_ldflags "-arch ${toolchain%%-*}"
       ;;
@@ -965,13 +976,26 @@ process_common_toolchain() {
       ;;
   esac
 
-  # Process ARM architecture variants
+  # Process architecture variants
   case ${toolchain} in
     arm*)
-      # on arm, isa versions are supersets
+      soft_enable runtime_cpu_detect
+      # Arm ISA extensions are treated as supersets.
       case ${tgt_isa} in
         arm64|armv8)
-          soft_enable neon
+          for ext in ${ARCH_EXT_LIST_AARCH64}; do
+            # Disable higher order extensions to simplify dependencies.
+            if [ "$disable_exts" = "yes" ]; then
+              if ! disabled $ext; then
+                RTCD_OPTIONS="${RTCD_OPTIONS}--disable-${ext} "
+                disable_feature $ext
+              fi
+            elif disabled $ext; then
+              disable_exts="yes"
+            else
+              soft_enable $ext
+            fi
+          done
           ;;
         armv7|armv7s)
           soft_enable neon
@@ -1066,8 +1090,11 @@ EOF
                     enable_feature win_arm64_neon_h_workaround
               else
                 # If a probe is not possible, assume this is the pure Windows
-                # SDK and so the workaround is necessary.
-                enable_feature win_arm64_neon_h_workaround
+                # SDK and so the workaround is necessary when using Visual
+                # Studio < 2019.
+                if [ ${tgt_cc##vs} -lt 16 ]; then
+                  enable_feature win_arm64_neon_h_workaround
+                fi
               fi
             fi
           fi

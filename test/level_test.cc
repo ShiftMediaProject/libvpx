@@ -22,9 +22,9 @@ class LevelTest
       : EncoderTest(GET_PARAM(0)), encoding_mode_(GET_PARAM(1)),
         cpu_used_(GET_PARAM(2)), min_gf_internal_(24), target_level_(0),
         level_(0) {}
-  virtual ~LevelTest() {}
+  ~LevelTest() override = default;
 
-  virtual void SetUp() {
+  void SetUp() override {
     InitializeConfig();
     SetMode(encoding_mode_);
     if (encoding_mode_ != ::libvpx_test::kRealTime) {
@@ -41,8 +41,8 @@ class LevelTest
     cfg_.rc_min_quantizer = 0;
   }
 
-  virtual void PreEncodeFrameHook(::libvpx_test::VideoSource *video,
-                                  ::libvpx_test::Encoder *encoder) {
+  void PreEncodeFrameHook(::libvpx_test::VideoSource *video,
+                          ::libvpx_test::Encoder *encoder) override {
     if (video->frame() == 0) {
       encoder->Control(VP8E_SET_CPUUSED, cpu_used_);
       encoder->Control(VP9E_SET_TARGET_LEVEL, target_level_);
@@ -120,7 +120,7 @@ TEST_P(LevelTest, TestTargetLevel255) {
 
 TEST_P(LevelTest, TestTargetLevelApi) {
   ::libvpx_test::I420VideoSource video("hantro_odd.yuv", 208, 144, 30, 1, 0, 1);
-  static const vpx_codec_iface_t *codec = &vpx_codec_vp9_cx_algo;
+  static vpx_codec_iface_t *codec = &vpx_codec_vp9_cx_algo;
   vpx_codec_ctx_t enc;
   vpx_codec_enc_cfg_t cfg;
   EXPECT_EQ(VPX_CODEC_OK, vpx_codec_enc_config_default(codec, &cfg, 0));

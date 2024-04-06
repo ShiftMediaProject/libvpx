@@ -210,7 +210,7 @@ class SumOfSquaresTest : public ::testing::TestWithParam<SumOfSquaresFunction> {
  public:
   SumOfSquaresTest() : func_(GetParam()) {}
 
-  virtual ~SumOfSquaresTest() { libvpx_test::ClearSystemState(); }
+  ~SumOfSquaresTest() override { libvpx_test::ClearSystemState(); }
 
  protected:
   void ConstTest();
@@ -289,7 +289,7 @@ template <typename FunctionType>
 class MainTestClass
     : public ::testing::TestWithParam<TestParams<FunctionType> > {
  public:
-  virtual void SetUp() {
+  void SetUp() override {
     params_ = this->GetParam();
 
     rnd_.Reset(ACMRandom::DeterministicSeed());
@@ -308,7 +308,7 @@ class MainTestClass
 #endif
   }
 
-  virtual void TearDown() {
+  void TearDown() override {
 #if CONFIG_VP9_HIGHBITDEPTH
     if (use_high_bit_depth()) {
       // TODO(skal): remove!
@@ -568,7 +568,7 @@ template <typename FunctionType>
 class SubpelVarianceTest
     : public ::testing::TestWithParam<TestParams<FunctionType> > {
  public:
-  virtual void SetUp() {
+  void SetUp() override {
     params_ = this->GetParam();
 
     rnd_.Reset(ACMRandom::DeterministicSeed());
@@ -592,7 +592,7 @@ class SubpelVarianceTest
     ASSERT_NE(ref_, nullptr);
   }
 
-  virtual void TearDown() {
+  void TearDown() override {
     if (!use_high_bit_depth()) {
       vpx_free(src_);
       vpx_free(sec_);
@@ -773,6 +773,7 @@ TEST_P(VpxSseTest, RefSse) { RefTestSse(); }
 TEST_P(VpxSseTest, MaxSse) { MaxTestSse(); }
 TEST_P(VpxMseTest, RefMse) { RefTestMse(); }
 TEST_P(VpxMseTest, MaxMse) { MaxTestMse(); }
+TEST_P(VpxMseTest, DISABLED_Speed) { SpeedTest(); }
 TEST_P(VpxVarianceTest, Zero) { ZeroTest(); }
 TEST_P(VpxVarianceTest, Ref) { RefTest(); }
 TEST_P(VpxVarianceTest, RefStride) { RefStrideTest(); }
@@ -1428,7 +1429,10 @@ INSTANTIATE_TEST_SUITE_P(
                       VarianceParams(5, 4, &vpx_variance32x16_avx2),
                       VarianceParams(4, 5, &vpx_variance16x32_avx2),
                       VarianceParams(4, 4, &vpx_variance16x16_avx2),
-                      VarianceParams(4, 3, &vpx_variance16x8_avx2)));
+                      VarianceParams(4, 3, &vpx_variance16x8_avx2),
+                      VarianceParams(3, 4, &vpx_variance8x16_avx2),
+                      VarianceParams(3, 3, &vpx_variance8x8_avx2),
+                      VarianceParams(3, 2, &vpx_variance8x4_avx2)));
 
 INSTANTIATE_TEST_SUITE_P(
     AVX2, VpxSubpelVarianceTest,
@@ -1450,8 +1454,10 @@ INSTANTIATE_TEST_SUITE_P(NEON, VpxSseTest,
                                                      &vpx_get4x4sse_cs_neon)));
 
 INSTANTIATE_TEST_SUITE_P(NEON, VpxMseTest,
-                         ::testing::Values(MseParams(4, 4,
-                                                     &vpx_mse16x16_neon)));
+                         ::testing::Values(MseParams(4, 4, &vpx_mse16x16_neon),
+                                           MseParams(4, 3, &vpx_mse16x8_neon),
+                                           MseParams(3, 4, &vpx_mse8x16_neon),
+                                           MseParams(3, 3, &vpx_mse8x8_neon)));
 
 INSTANTIATE_TEST_SUITE_P(
     NEON, VpxVarianceTest,
@@ -1468,6 +1474,35 @@ INSTANTIATE_TEST_SUITE_P(
                       VarianceParams(3, 2, &vpx_variance8x4_neon),
                       VarianceParams(2, 3, &vpx_variance4x8_neon),
                       VarianceParams(2, 2, &vpx_variance4x4_neon)));
+
+#if HAVE_NEON_DOTPROD
+INSTANTIATE_TEST_SUITE_P(
+    NEON_DOTPROD, VpxSseTest,
+    ::testing::Values(SseParams(2, 2, &vpx_get4x4sse_cs_neon_dotprod)));
+
+INSTANTIATE_TEST_SUITE_P(
+    NEON_DOTPROD, VpxMseTest,
+    ::testing::Values(MseParams(4, 4, &vpx_mse16x16_neon_dotprod),
+                      MseParams(4, 3, &vpx_mse16x8_neon_dotprod),
+                      MseParams(3, 4, &vpx_mse8x16_neon_dotprod),
+                      MseParams(3, 3, &vpx_mse8x8_neon_dotprod)));
+
+INSTANTIATE_TEST_SUITE_P(
+    NEON_DOTPROD, VpxVarianceTest,
+    ::testing::Values(VarianceParams(6, 6, &vpx_variance64x64_neon_dotprod),
+                      VarianceParams(6, 5, &vpx_variance64x32_neon_dotprod),
+                      VarianceParams(5, 6, &vpx_variance32x64_neon_dotprod),
+                      VarianceParams(5, 5, &vpx_variance32x32_neon_dotprod),
+                      VarianceParams(5, 4, &vpx_variance32x16_neon_dotprod),
+                      VarianceParams(4, 5, &vpx_variance16x32_neon_dotprod),
+                      VarianceParams(4, 4, &vpx_variance16x16_neon_dotprod),
+                      VarianceParams(4, 3, &vpx_variance16x8_neon_dotprod),
+                      VarianceParams(3, 4, &vpx_variance8x16_neon_dotprod),
+                      VarianceParams(3, 3, &vpx_variance8x8_neon_dotprod),
+                      VarianceParams(3, 2, &vpx_variance8x4_neon_dotprod),
+                      VarianceParams(2, 3, &vpx_variance4x8_neon_dotprod),
+                      VarianceParams(2, 2, &vpx_variance4x4_neon_dotprod)));
+#endif  // HAVE_NEON_DOTPROD
 
 INSTANTIATE_TEST_SUITE_P(
     NEON, VpxSubpelVarianceTest,
@@ -1504,6 +1539,36 @@ INSTANTIATE_TEST_SUITE_P(
         SubpelAvgVarianceParams(2, 2, &vpx_sub_pixel_avg_variance4x4_neon, 0)));
 
 #if CONFIG_VP9_HIGHBITDEPTH
+INSTANTIATE_TEST_SUITE_P(
+    NEON, VpxHBDMseTest,
+    ::testing::Values(
+        MseParams(4, 4, &vpx_highbd_12_mse16x16_neon, VPX_BITS_12),
+        MseParams(4, 3, &vpx_highbd_12_mse16x8_neon, VPX_BITS_12),
+        MseParams(3, 4, &vpx_highbd_12_mse8x16_neon, VPX_BITS_12),
+        MseParams(3, 3, &vpx_highbd_12_mse8x8_neon, VPX_BITS_12),
+        MseParams(4, 4, &vpx_highbd_10_mse16x16_neon, VPX_BITS_10),
+        MseParams(4, 3, &vpx_highbd_10_mse16x8_neon, VPX_BITS_10),
+        MseParams(3, 4, &vpx_highbd_10_mse8x16_neon, VPX_BITS_10),
+        MseParams(3, 3, &vpx_highbd_10_mse8x8_neon, VPX_BITS_10),
+        MseParams(4, 4, &vpx_highbd_8_mse16x16_neon, VPX_BITS_8),
+        MseParams(4, 3, &vpx_highbd_8_mse16x8_neon, VPX_BITS_8),
+        MseParams(3, 4, &vpx_highbd_8_mse8x16_neon, VPX_BITS_8),
+        MseParams(3, 3, &vpx_highbd_8_mse8x8_neon, VPX_BITS_8)));
+
+// TODO(webm:1819): Re-enable when vpx_highbd_8_mse16x16_neon_dotprod, etc. can
+// be used again.
+#if 0
+#if HAVE_NEON_DOTPROD
+INSTANTIATE_TEST_SUITE_P(
+    NEON_DOTPROD, VpxHBDMseTest,
+    ::testing::Values(
+        MseParams(4, 4, &vpx_highbd_8_mse16x16_neon_dotprod, VPX_BITS_8),
+        MseParams(4, 3, &vpx_highbd_8_mse16x8_neon_dotprod, VPX_BITS_8),
+        MseParams(3, 4, &vpx_highbd_8_mse8x16_neon_dotprod, VPX_BITS_8),
+        MseParams(3, 3, &vpx_highbd_8_mse8x8_neon_dotprod, VPX_BITS_8)));
+#endif  // HAVE_NEON_DOTPROD
+#endif  // 0
+
 INSTANTIATE_TEST_SUITE_P(
     NEON, VpxHBDVarianceTest,
     ::testing::Values(
@@ -1572,6 +1637,10 @@ INSTANTIATE_TEST_SUITE_P(
                              12),
         SubpelVarianceParams(3, 2, &vpx_highbd_12_sub_pixel_variance8x4_neon,
                              12),
+        SubpelVarianceParams(2, 3, &vpx_highbd_12_sub_pixel_variance4x8_neon,
+                             12),
+        SubpelVarianceParams(2, 2, &vpx_highbd_12_sub_pixel_variance4x4_neon,
+                             12),
         SubpelVarianceParams(6, 6, &vpx_highbd_10_sub_pixel_variance64x64_neon,
                              10),
         SubpelVarianceParams(6, 5, &vpx_highbd_10_sub_pixel_variance64x32_neon,
@@ -1594,6 +1663,10 @@ INSTANTIATE_TEST_SUITE_P(
                              10),
         SubpelVarianceParams(3, 2, &vpx_highbd_10_sub_pixel_variance8x4_neon,
                              10),
+        SubpelVarianceParams(2, 3, &vpx_highbd_10_sub_pixel_variance4x8_neon,
+                             10),
+        SubpelVarianceParams(2, 2, &vpx_highbd_10_sub_pixel_variance4x4_neon,
+                             10),
         SubpelVarianceParams(6, 6, &vpx_highbd_8_sub_pixel_variance64x64_neon,
                              8),
         SubpelVarianceParams(6, 5, &vpx_highbd_8_sub_pixel_variance64x32_neon,
@@ -1613,7 +1686,9 @@ INSTANTIATE_TEST_SUITE_P(
         SubpelVarianceParams(3, 4, &vpx_highbd_8_sub_pixel_variance8x16_neon,
                              8),
         SubpelVarianceParams(3, 3, &vpx_highbd_8_sub_pixel_variance8x8_neon, 8),
-        SubpelVarianceParams(3, 2, &vpx_highbd_8_sub_pixel_variance8x4_neon,
+        SubpelVarianceParams(3, 2, &vpx_highbd_8_sub_pixel_variance8x4_neon, 8),
+        SubpelVarianceParams(2, 3, &vpx_highbd_8_sub_pixel_variance4x8_neon, 8),
+        SubpelVarianceParams(2, 2, &vpx_highbd_8_sub_pixel_variance4x4_neon,
                              8)));
 
 INSTANTIATE_TEST_SUITE_P(
@@ -1652,6 +1727,12 @@ INSTANTIATE_TEST_SUITE_P(
         SubpelAvgVarianceParams(3, 2,
                                 &vpx_highbd_12_sub_pixel_avg_variance8x4_neon,
                                 12),
+        SubpelAvgVarianceParams(2, 3,
+                                &vpx_highbd_12_sub_pixel_avg_variance4x8_neon,
+                                12),
+        SubpelAvgVarianceParams(2, 2,
+                                &vpx_highbd_12_sub_pixel_avg_variance4x4_neon,
+                                12),
         SubpelAvgVarianceParams(6, 6,
                                 &vpx_highbd_10_sub_pixel_avg_variance64x64_neon,
                                 10),
@@ -1685,6 +1766,12 @@ INSTANTIATE_TEST_SUITE_P(
         SubpelAvgVarianceParams(3, 2,
                                 &vpx_highbd_10_sub_pixel_avg_variance8x4_neon,
                                 10),
+        SubpelAvgVarianceParams(2, 3,
+                                &vpx_highbd_10_sub_pixel_avg_variance4x8_neon,
+                                10),
+        SubpelAvgVarianceParams(2, 2,
+                                &vpx_highbd_10_sub_pixel_avg_variance4x4_neon,
+                                10),
         SubpelAvgVarianceParams(6, 6,
                                 &vpx_highbd_8_sub_pixel_avg_variance64x64_neon,
                                 8),
@@ -1717,6 +1804,12 @@ INSTANTIATE_TEST_SUITE_P(
                                 8),
         SubpelAvgVarianceParams(3, 2,
                                 &vpx_highbd_8_sub_pixel_avg_variance8x4_neon,
+                                8),
+        SubpelAvgVarianceParams(2, 3,
+                                &vpx_highbd_8_sub_pixel_avg_variance4x8_neon,
+                                8),
+        SubpelAvgVarianceParams(2, 2,
+                                &vpx_highbd_8_sub_pixel_avg_variance4x4_neon,
                                 8)));
 
 #endif  // CONFIG_VP9_HIGHBITDEPTH

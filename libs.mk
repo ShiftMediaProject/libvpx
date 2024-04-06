@@ -178,6 +178,7 @@ INSTALL-LIBS-yes += include/vpx/vpx_image.h
 INSTALL-LIBS-yes += include/vpx/vpx_integer.h
 INSTALL-LIBS-$(CONFIG_DECODERS) += include/vpx/vpx_decoder.h
 INSTALL-LIBS-$(CONFIG_ENCODERS) += include/vpx/vpx_encoder.h
+INSTALL-LIBS-$(CONFIG_ENCODERS) += include/vpx/vpx_tpl.h
 ifeq ($(CONFIG_EXTERNAL_BUILD),yes)
 ifeq ($(CONFIG_MSVS),yes)
 INSTALL-LIBS-yes                  += $(foreach p,$(VS_PLATFORMS),$(LIBSUBDIR)/$(p)/$(CODEC_LIB).lib)
@@ -312,9 +313,9 @@ $(BUILD_PFX)libvpx_g.a: $(LIBVPX_OBJS)
 # To determine SO_VERSION_{MAJOR,MINOR,PATCH}, calculate c,a,r with current
 # SO_VERSION_* then follow the rules in the link to detemine the new version
 # (c1, a1, r1) and set MAJOR to [c1-a1], MINOR to a1 and PATCH to r1
-SO_VERSION_MAJOR := 8
+SO_VERSION_MAJOR := 9
 SO_VERSION_MINOR := 0
-SO_VERSION_PATCH := 1
+SO_VERSION_PATCH := 0
 ifeq ($(filter darwin%,$(TGT_OS)),$(TGT_OS))
 LIBVPX_SO               := libvpx.$(SO_VERSION_MAJOR).dylib
 SHARED_LIB_SUF          := .dylib
@@ -545,7 +546,7 @@ testdata: $(LIBVPX_TEST_DATA)
             echo "Checking test data:";\
             for f in $(call enabled,LIBVPX_TEST_DATA); do\
                 grep $$f $(SRC_PATH_BARE)/test/test-data.sha1 |\
-                    (cd $(LIBVPX_TEST_DATA_PATH); $${sha1sum} -c);\
+                    (cd "$(LIBVPX_TEST_DATA_PATH)"; $${sha1sum} -c);\
             done; \
         else\
             echo "Skipping test data integrity check, sha1sum not found.";\
@@ -631,8 +632,8 @@ test_rc_interface.$(VCPROJ_SFX): $(RC_INTERFACE_TEST_SRCS) vpx.$(VCPROJ_SFX) \
             -I. -I"$(SRC_PATH_BARE)/third_party/googletest/src/include" \
             -L. -l$(CODEC_LIB) -l$(RC_RTC_LIB) -l$(GTEST_LIB) $^
 endif  # RC_INTERFACE_TEST
-endif  # CONFIG_VP9_ENCODER
-endif
+endif  # CONFIG_ENCODERS
+endif  # CONFIG_MSVS
 else
 
 include $(SRC_PATH_BARE)/third_party/googletest/gtest.mk
@@ -699,7 +700,7 @@ $(eval $(call linkerxx_template,$(SIMPLE_ENCODE_TEST_BIN), \
               -L. -lsimple_encode -lvpx -lgtest $(extralibs) -lm))
 endif  # SIMPLE_ENCODE_TEST
 
-endif  # CONFIG_UNIT_TESTS
+endif  # CONFIG_EXTERNAL_BUILD
 
 # Install test sources only if codec source is included
 INSTALL-SRCS-$(CONFIG_CODEC_SRCS) += $(patsubst $(SRC_PATH_BARE)/%,%,\
@@ -724,7 +725,7 @@ NUM_SHARDS := 10
 SHARDS := 0 1 2 3 4 5 6 7 8 9
 $(foreach s,$(SHARDS),$(eval $(call test_shard_template,$(s),$(NUM_SHARDS))))
 
-endif
+endif  # CONFIG_UNIT_TESTS
 
 ##
 ## documentation directives
@@ -764,10 +765,10 @@ TEST_BIN_PATH := $(addsuffix /$(TGT_OS:win64=x64)/Release, $(TEST_BIN_PATH))
 endif
 utiltest utiltest-no-data-check:
 	$(qexec)$(SRC_PATH_BARE)/test/vpxdec.sh \
-		--test-data-path $(LIBVPX_TEST_DATA_PATH) \
+		--test-data-path "$(LIBVPX_TEST_DATA_PATH)" \
 		--bin-path $(TEST_BIN_PATH)
 	$(qexec)$(SRC_PATH_BARE)/test/vpxenc.sh \
-		--test-data-path $(LIBVPX_TEST_DATA_PATH) \
+		--test-data-path "$(LIBVPX_TEST_DATA_PATH)" \
 		--bin-path $(TEST_BIN_PATH)
 utiltest: testdata
 else
@@ -791,7 +792,7 @@ EXAMPLES_BIN_PATH := $(TGT_OS:win64=x64)/Release
 endif
 exampletest exampletest-no-data-check: examples
 	$(qexec)$(SRC_PATH_BARE)/test/examples.sh \
-		--test-data-path $(LIBVPX_TEST_DATA_PATH) \
+		--test-data-path "$(LIBVPX_TEST_DATA_PATH)" \
 		--bin-path $(EXAMPLES_BIN_PATH)
 exampletest: testdata
 else

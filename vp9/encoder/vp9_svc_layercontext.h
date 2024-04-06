@@ -70,8 +70,11 @@ typedef struct {
   int actual_num_seg1_blocks;
   int actual_num_seg2_blocks;
   int counter_encode_maxq_scene_change;
+  int qindex_delta[3];
   uint8_t speed;
   int loopfilter_ctrl;
+  int frame_qp;
+  int MBs;
 } LAYER_CONTEXT;
 
 typedef struct SVC {
@@ -278,6 +281,8 @@ void vp9_svc_update_ref_frame(struct VP9_COMP *const cpi);
 void vp9_svc_adjust_frame_rate(struct VP9_COMP *const cpi);
 
 void vp9_svc_adjust_avg_frame_qindex(struct VP9_COMP *const cpi);
+
+int vp9_svc_check_skip_enhancement_layer(struct VP9_COMP *const cpi);
 #ifdef __cplusplus
 }  // extern "C"
 #endif

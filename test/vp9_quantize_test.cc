@@ -26,6 +26,7 @@
 #include "test/util.h"
 #include "vp9/common/vp9_entropy.h"
 #include "vp9/common/vp9_scan.h"
+#include "vp9/encoder/vp9_block.h"
 #include "vpx/vpx_codec.h"
 #include "vpx/vpx_integer.h"
 #include "vpx_ports/msvc.h"
@@ -38,33 +39,44 @@ namespace {
 const int number_of_iterations = 100;
 
 typedef void (*QuantizeFunc)(const tran_low_t *coeff, intptr_t count,
-                             const int16_t *zbin, const int16_t *round,
-                             const int16_t *quant, const int16_t *quant_shift,
+                             const macroblock_plane *mb_plane,
                              tran_low_t *qcoeff, tran_low_t *dqcoeff,
                              const int16_t *dequant, uint16_t *eob,
-                             const int16_t *scan, const int16_t *iscan);
+                             const struct ScanOrder *const scan_order);
 typedef std::tuple<QuantizeFunc, QuantizeFunc, vpx_bit_depth_t,
                    int /*max_size*/, bool /*is_fp*/>
     QuantizeParam;
 
+// Wrapper for 32x32 version which does not use count
+typedef void (*Quantize32x32Func)(const tran_low_t *coeff,
+                                  const macroblock_plane *const mb_plane,
+                                  tran_low_t *qcoeff, tran_low_t *dqcoeff,
+                                  const int16_t *dequant, uint16_t *eob,
+                                  const struct ScanOrder *const scan_order);
+
+template <Quantize32x32Func fn>
+void Quant32x32Wrapper(const tran_low_t *coeff, intptr_t count,
+                       const macroblock_plane *const mb_plane,
+                       tran_low_t *qcoeff, tran_low_t *dqcoeff,
+                       const int16_t *dequant, uint16_t *eob,
+                       const struct ScanOrder *const scan_order) {
+  (void)count;
+  fn(coeff, mb_plane, qcoeff, dqcoeff, dequant, eob, scan_order);
+}
+
 // Wrapper for FP version which does not use zbin or quant_shift.
 typedef void (*QuantizeFPFunc)(const tran_low_t *coeff, intptr_t count,
-                               const int16_t *round, const int16_t *quant,
+                               const macroblock_plane *const mb_plane,
                                tran_low_t *qcoeff, tran_low_t *dqcoeff,
                                const int16_t *dequant, uint16_t *eob,
-                               const int16_t *scan, const int16_t *iscan);
+                               const struct ScanOrder *const scan_order);
 
 template <QuantizeFPFunc fn>
 void QuantFPWrapper(const tran_low_t *coeff, intptr_t count,
-                    const int16_t *zbin, const int16_t *round,
-                    const int16_t *quant, const int16_t *quant_shift,
-                    tran_low_t *qcoeff, tran_low_t *dqcoeff,
-                    const int16_t *dequant, uint16_t *eob, const int16_t *scan,
-                    const int16_t *iscan) {
-  (void)zbin;
-  (void)quant_shift;
-
-  fn(coeff, count, round, quant, qcoeff, dqcoeff, dequant, eob, scan, iscan);
+                    const macroblock_plane *const mb_plane, tran_low_t *qcoeff,
+                    tran_low_t *dqcoeff, const int16_t *dequant, uint16_t *eob,
+                    const struct ScanOrder *const scan_order) {
+  fn(coeff, count, mb_plane, qcoeff, dqcoeff, dequant, eob, scan_order);
 }
 
 void GenerateHelperArrays(ACMRandom *rnd, int16_t *zbin, int16_t *round,
@@ -119,17 +131,21 @@ class VP9QuantizeBase : public AbstractBench {
 #else
     max_value_ = (1 << bit_depth_) - 1;
 #endif
-    zbin_ptr_ =
+
+    mb_plane_ = reinterpret_cast<macroblock_plane *>(
+        vpx_memalign(16, sizeof(macroblock_plane)));
+
+    zbin_ptr_ = mb_plane_->zbin =
         reinterpret_cast<int16_t *>(vpx_memalign(16, 8 * sizeof(*zbin_ptr_)));
-    round_fp_ptr_ = reinterpret_cast<int16_t *>(
+    round_fp_ptr_ = mb_plane_->round_fp = reinterpret_cast<int16_t *>(
         vpx_memalign(16, 8 * sizeof(*round_fp_ptr_)));
-    quant_fp_ptr_ = reinterpret_cast<int16_t *>(
+    quant_fp_ptr_ = mb_plane_->quant_fp = reinterpret_cast<int16_t *>(
         vpx_memalign(16, 8 * sizeof(*quant_fp_ptr_)));
-    round_ptr_ =
+    round_ptr_ = mb_plane_->round =
         reinterpret_cast<int16_t *>(vpx_memalign(16, 8 * sizeof(*round_ptr_)));
-    quant_ptr_ =
+    quant_ptr_ = mb_plane_->quant =
         reinterpret_cast<int16_t *>(vpx_memalign(16, 8 * sizeof(*quant_ptr_)));
-    quant_shift_ptr_ = reinterpret_cast<int16_t *>(
+    quant_shift_ptr_ = mb_plane_->quant_shift = reinterpret_cast<int16_t *>(
         vpx_memalign(16, 8 * sizeof(*quant_shift_ptr_)));
     dequant_ptr_ = reinterpret_cast<int16_t *>(
         vpx_memalign(16, 8 * sizeof(*dequant_ptr_)));
@@ -138,7 +154,8 @@ class VP9QuantizeBase : public AbstractBench {
     q_ptr_ = (is_fp_) ? quant_fp_ptr_ : quant_ptr_;
   }
 
-  ~VP9QuantizeBase() {
+  ~VP9QuantizeBase() override {
+    vpx_free(mb_plane_);
     vpx_free(zbin_ptr_);
     vpx_free(round_fp_ptr_);
     vpx_free(quant_fp_ptr_);
@@ -146,6 +163,7 @@ class VP9QuantizeBase : public AbstractBench {
     vpx_free(quant_ptr_);
     vpx_free(quant_shift_ptr_);
     vpx_free(dequant_ptr_);
+    mb_plane_ = nullptr;
     zbin_ptr_ = nullptr;
     round_fp_ptr_ = nullptr;
     quant_fp_ptr_ = nullptr;
@@ -157,9 +175,10 @@ class VP9QuantizeBase : public AbstractBench {
   }
 
  protected:
+  macroblock_plane *mb_plane_;
   int16_t *zbin_ptr_;
-  int16_t *round_fp_ptr_;
   int16_t *quant_fp_ptr_;
+  int16_t *round_fp_ptr_;
   int16_t *round_ptr_;
   int16_t *quant_ptr_;
   int16_t *quant_shift_ptr_;
@@ -174,7 +193,7 @@ class VP9QuantizeBase : public AbstractBench {
   int16_t *r_ptr_;
   int16_t *q_ptr_;
   int count_;
-  const scan_order *scan_;
+  const ScanOrder *scan_;
   uint16_t eob_;
 };
 
@@ -186,17 +205,15 @@ class VP9QuantizeTest : public VP9QuantizeBase,
         quantize_op_(GET_PARAM(0)), ref_quantize_op_(GET_PARAM(1)) {}
 
  protected:
-  virtual void Run();
+  void Run() override;
   void Speed(bool is_median);
   const QuantizeFunc quantize_op_;
   const QuantizeFunc ref_quantize_op_;
 };
 
 void VP9QuantizeTest::Run() {
-  quantize_op_(coeff_.TopLeftPixel(), count_, zbin_ptr_, r_ptr_, q_ptr_,
-               quant_shift_ptr_, qcoeff_.TopLeftPixel(),
-               dqcoeff_.TopLeftPixel(), dequant_ptr_, &eob_, scan_->scan,
-               scan_->iscan);
+  quantize_op_(coeff_.TopLeftPixel(), count_, mb_plane_, qcoeff_.TopLeftPixel(),
+               dqcoeff_.TopLeftPixel(), dequant_ptr_, &eob_, scan_);
 }
 
 void VP9QuantizeTest::Speed(bool is_median) {
@@ -266,19 +283,18 @@ void VP9QuantizeTest::Speed(bool is_median) {
 
         vpx_usec_timer_start(&timer);
         for (int n = 0; n < kNumTests; ++n) {
-          ref_quantize_op_(coeff_.TopLeftPixel(), count_, zbin_ptr_, r_ptr_,
-                           q_ptr_, quant_shift_ptr_, ref_qcoeff.TopLeftPixel(),
+          ref_quantize_op_(coeff_.TopLeftPixel(), count_, mb_plane_,
+                           ref_qcoeff.TopLeftPixel(),
                            ref_dqcoeff.TopLeftPixel(), dequant_ptr_, &ref_eob,
-                           scan_->scan, scan_->iscan);
+                           scan_);
         }
         vpx_usec_timer_mark(&timer);
 
         vpx_usec_timer_start(&simd_timer);
         for (int n = 0; n < kNumTests; ++n) {
-          quantize_op_(coeff_.TopLeftPixel(), count_, zbin_ptr_, r_ptr_, q_ptr_,
-                       quant_shift_ptr_, qcoeff_.TopLeftPixel(),
-                       dqcoeff_.TopLeftPixel(), dequant_ptr_, &eob_,
-                       scan_->scan, scan_->iscan);
+          quantize_op_(coeff_.TopLeftPixel(), count_, mb_plane_,
+                       qcoeff_.TopLeftPixel(), dqcoeff_.TopLeftPixel(),
+                       dequant_ptr_, &eob_, scan_);
         }
         vpx_usec_timer_mark(&simd_timer);
 
@@ -298,14 +314,16 @@ void VP9QuantizeTest::Speed(bool is_median) {
 // determine if further multiplication operations are needed.
 // Based on vp9_quantize_fp_sse2().
 inline void quant_fp_nz(const tran_low_t *coeff_ptr, intptr_t n_coeffs,
-                        const int16_t *round_ptr, const int16_t *quant_ptr,
+                        const struct macroblock_plane *const mb_plane,
                         tran_low_t *qcoeff_ptr, tran_low_t *dqcoeff_ptr,
                         const int16_t *dequant_ptr, uint16_t *eob_ptr,
-                        const int16_t *scan, const int16_t *iscan,
+                        const struct ScanOrder *const scan_order,
                         int is_32x32) {
   int i, eob = -1;
   const int thr = dequant_ptr[1] >> (1 + is_32x32);
-  (void)iscan;
+  const int16_t *round_ptr = mb_plane->round_fp;
+  const int16_t *quant_ptr = mb_plane->quant_fp;
+  const int16_t *scan = scan_order->scan;
 
   // Quantization pass: All coefficients with index >= zero_flag are
   // skippable. Note: zero_flag can be zero.
@@ -372,21 +390,21 @@ inline void quant_fp_nz(const tran_low_t *coeff_ptr, intptr_t n_coeffs,
 }
 
 void quantize_fp_nz_c(const tran_low_t *coeff_ptr, intptr_t n_coeffs,
-                      const int16_t *round_ptr, const int16_t *quant_ptr,
+                      const struct macroblock_plane *mb_plane,
                       tran_low_t *qcoeff_ptr, tran_low_t *dqcoeff_ptr,
                       const int16_t *dequant_ptr, uint16_t *eob_ptr,
-                      const int16_t *scan, const int16_t *iscan) {
-  quant_fp_nz(coeff_ptr, n_coeffs, round_ptr, quant_ptr, qcoeff_ptr,
-              dqcoeff_ptr, dequant_ptr, eob_ptr, scan, iscan, 0);
+                      const struct ScanOrder *const scan_order) {
+  quant_fp_nz(coeff_ptr, n_coeffs, mb_plane, qcoeff_ptr, dqcoeff_ptr,
+              dequant_ptr, eob_ptr, scan_order, 0);
 }
 
 void quantize_fp_32x32_nz_c(const tran_low_t *coeff_ptr, intptr_t n_coeffs,
-                            const int16_t *round_ptr, const int16_t *quant_ptr,
+                            const struct macroblock_plane *mb_plane,
                             tran_low_t *qcoeff_ptr, tran_low_t *dqcoeff_ptr,
                             const int16_t *dequant_ptr, uint16_t *eob_ptr,
-                            const int16_t *scan, const int16_t *iscan) {
-  quant_fp_nz(coeff_ptr, n_coeffs, round_ptr, quant_ptr, qcoeff_ptr,
-              dqcoeff_ptr, dequant_ptr, eob_ptr, scan, iscan, 1);
+                            const struct ScanOrder *const scan_order) {
+  quant_fp_nz(coeff_ptr, n_coeffs, mb_plane, qcoeff_ptr, dqcoeff_ptr,
+              dequant_ptr, eob_ptr, scan_order, 1);
 }
 
 TEST_P(VP9QuantizeTest, OperationCheck) {
@@ -417,15 +435,13 @@ TEST_P(VP9QuantizeTest, OperationCheck) {
     GenerateHelperArrays(&rnd, zbin_ptr_, round_ptr_, quant_ptr_,
                          quant_shift_ptr_, dequant_ptr_, round_fp_ptr_,
                          quant_fp_ptr_);
-    ref_quantize_op_(coeff_.TopLeftPixel(), count_, zbin_ptr_, r_ptr_, q_ptr_,
-                     quant_shift_ptr_, ref_qcoeff.TopLeftPixel(),
-                     ref_dqcoeff.TopLeftPixel(), dequant_ptr_, &ref_eob,
-                     scan_->scan, scan_->iscan);
+    ref_quantize_op_(coeff_.TopLeftPixel(), count_, mb_plane_,
+                     ref_qcoeff.TopLeftPixel(), ref_dqcoeff.TopLeftPixel(),
+                     dequant_ptr_, &ref_eob, scan_);
 
     ASM_REGISTER_STATE_CHECK(quantize_op_(
-        coeff_.TopLeftPixel(), count_, zbin_ptr_, r_ptr_, q_ptr_,
-        quant_shift_ptr_, qcoeff_.TopLeftPixel(), dqcoeff_.TopLeftPixel(),
-        dequant_ptr_, &eob_, scan_->scan, scan_->iscan));
+        coeff_.TopLeftPixel(), count_, mb_plane_, qcoeff_.TopLeftPixel(),
+        dqcoeff_.TopLeftPixel(), dequant_ptr_, &eob_, scan_));
 
     EXPECT_TRUE(qcoeff_.CheckValues(ref_qcoeff));
     EXPECT_TRUE(dqcoeff_.CheckValues(ref_dqcoeff));
@@ -475,15 +491,13 @@ TEST_P(VP9QuantizeTest, EOBCheck) {
     GenerateHelperArrays(&rnd, zbin_ptr_, round_ptr_, quant_ptr_,
                          quant_shift_ptr_, dequant_ptr_, round_fp_ptr_,
                          quant_fp_ptr_);
-    ref_quantize_op_(coeff_.TopLeftPixel(), count_, zbin_ptr_, r_ptr_, q_ptr_,
-                     quant_shift_ptr_, ref_qcoeff.TopLeftPixel(),
-                     ref_dqcoeff.TopLeftPixel(), dequant_ptr_, &ref_eob,
-                     scan_->scan, scan_->iscan);
+    ref_quantize_op_(coeff_.TopLeftPixel(), count_, mb_plane_,
+                     ref_qcoeff.TopLeftPixel(), ref_dqcoeff.TopLeftPixel(),
+                     dequant_ptr_, &ref_eob, scan_);
 
     ASM_REGISTER_STATE_CHECK(quantize_op_(
-        coeff_.TopLeftPixel(), count_, zbin_ptr_, r_ptr_, q_ptr_,
-        quant_shift_ptr_, qcoeff_.TopLeftPixel(), dqcoeff_.TopLeftPixel(),
-        dequant_ptr_, &eob_, scan_->scan, scan_->iscan));
+        coeff_.TopLeftPixel(), count_, mb_plane_, qcoeff_.TopLeftPixel(),
+        dqcoeff_.TopLeftPixel(), dequant_ptr_, &eob_, scan_));
 
     EXPECT_TRUE(qcoeff_.CheckValues(ref_qcoeff));
     EXPECT_TRUE(dqcoeff_.CheckValues(ref_dqcoeff));
@@ -510,27 +524,30 @@ using std::make_tuple;
 INSTANTIATE_TEST_SUITE_P(
     SSE2, VP9QuantizeTest,
     ::testing::Values(
-        make_tuple(&vpx_quantize_b_sse2, &vpx_quantize_b_c, VPX_BITS_8, 16,
+        make_tuple(vpx_quantize_b_sse2, vpx_quantize_b_c, VPX_BITS_8, 16,
                    false),
         make_tuple(&QuantFPWrapper<vp9_quantize_fp_sse2>,
                    &QuantFPWrapper<quantize_fp_nz_c>, VPX_BITS_8, 16, true),
-        make_tuple(&vpx_highbd_quantize_b_sse2, &vpx_highbd_quantize_b_c,
+        make_tuple(vpx_highbd_quantize_b_sse2, vpx_highbd_quantize_b_c,
                    VPX_BITS_8, 16, false),
-        make_tuple(&vpx_highbd_quantize_b_sse2, &vpx_highbd_quantize_b_c,
+        make_tuple(vpx_highbd_quantize_b_sse2, vpx_highbd_quantize_b_c,
                    VPX_BITS_10, 16, false),
-        make_tuple(&vpx_highbd_quantize_b_sse2, &vpx_highbd_quantize_b_c,
+        make_tuple(vpx_highbd_quantize_b_sse2, vpx_highbd_quantize_b_c,
                    VPX_BITS_12, 16, false),
-        make_tuple(&vpx_highbd_quantize_b_32x32_sse2,
-                   &vpx_highbd_quantize_b_32x32_c, VPX_BITS_8, 32, false),
-        make_tuple(&vpx_highbd_quantize_b_32x32_sse2,
-                   &vpx_highbd_quantize_b_32x32_c, VPX_BITS_10, 32, false),
-        make_tuple(&vpx_highbd_quantize_b_32x32_sse2,
-                   &vpx_highbd_quantize_b_32x32_c, VPX_BITS_12, 32, false)));
+        make_tuple(&Quant32x32Wrapper<vpx_highbd_quantize_b_32x32_sse2>,
+                   &Quant32x32Wrapper<vpx_highbd_quantize_b_32x32_c>,
+                   VPX_BITS_8, 32, false),
+        make_tuple(&Quant32x32Wrapper<vpx_highbd_quantize_b_32x32_sse2>,
+                   &Quant32x32Wrapper<vpx_highbd_quantize_b_32x32_c>,
+                   VPX_BITS_10, 32, false),
+        make_tuple(&Quant32x32Wrapper<vpx_highbd_quantize_b_32x32_sse2>,
+                   &Quant32x32Wrapper<vpx_highbd_quantize_b_32x32_c>,
+                   VPX_BITS_12, 32, false)));
 
 #else
 INSTANTIATE_TEST_SUITE_P(
     SSE2, VP9QuantizeTest,
-    ::testing::Values(make_tuple(&vpx_quantize_b_sse2, &vpx_quantize_b_c,
+    ::testing::Values(make_tuple(vpx_quantize_b_sse2, vpx_quantize_b_c,
                                  VPX_BITS_8, 16, false),
                       make_tuple(&QuantFPWrapper<vp9_quantize_fp_sse2>,
                                  &QuantFPWrapper<quantize_fp_nz_c>, VPX_BITS_8,
@@ -541,11 +558,11 @@ INSTANTIATE_TEST_SUITE_P(
 #if HAVE_SSSE3
 INSTANTIATE_TEST_SUITE_P(
     SSSE3, VP9QuantizeTest,
-    ::testing::Values(make_tuple(&vpx_quantize_b_ssse3, &vpx_quantize_b_c,
+    ::testing::Values(make_tuple(vpx_quantize_b_ssse3, vpx_quantize_b_c,
                                  VPX_BITS_8, 16, false),
-                      make_tuple(&vpx_quantize_b_32x32_ssse3,
-                                 &vpx_quantize_b_32x32_c, VPX_BITS_8, 32,
-                                 false),
+                      make_tuple(&Quant32x32Wrapper<vpx_quantize_b_32x32_ssse3>,
+                                 &Quant32x32Wrapper<vpx_quantize_b_32x32_c>,
+                                 VPX_BITS_8, 32, false),
                       make_tuple(&QuantFPWrapper<vp9_quantize_fp_ssse3>,
                                  &QuantFPWrapper<quantize_fp_nz_c>, VPX_BITS_8,
                                  16, true),
@@ -555,13 +572,13 @@ INSTANTIATE_TEST_SUITE_P(
 #endif  // HAVE_SSSE3
 
 #if HAVE_AVX
-INSTANTIATE_TEST_SUITE_P(AVX, VP9QuantizeTest,
-                         ::testing::Values(make_tuple(&vpx_quantize_b_avx,
-                                                      &vpx_quantize_b_c,
-                                                      VPX_BITS_8, 16, false),
-                                           make_tuple(&vpx_quantize_b_32x32_avx,
-                                                      &vpx_quantize_b_32x32_c,
-                                                      VPX_BITS_8, 32, false)));
+INSTANTIATE_TEST_SUITE_P(
+    AVX, VP9QuantizeTest,
+    ::testing::Values(make_tuple(vpx_quantize_b_avx, vpx_quantize_b_c,
+                                 VPX_BITS_8, 16, false),
+                      make_tuple(&Quant32x32Wrapper<vpx_quantize_b_32x32_avx>,
+                                 &Quant32x32Wrapper<vpx_quantize_b_32x32_c>,
+                                 VPX_BITS_8, 32, false)));
 #endif  // HAVE_AVX
 
 #if VPX_ARCH_X86_64 && HAVE_AVX2
@@ -577,22 +594,26 @@ INSTANTIATE_TEST_SUITE_P(
         make_tuple(&QuantFPWrapper<vp9_highbd_quantize_fp_32x32_avx2>,
                    &QuantFPWrapper<vp9_highbd_quantize_fp_32x32_c>, VPX_BITS_12,
                    32, true),
-        make_tuple(&vpx_quantize_b_avx2, &vpx_quantize_b_c, VPX_BITS_8, 16,
+        make_tuple(vpx_quantize_b_avx2, vpx_quantize_b_c, VPX_BITS_8, 16,
                    false),
-        make_tuple(&vpx_highbd_quantize_b_avx2, &vpx_highbd_quantize_b_c,
+        make_tuple(vpx_highbd_quantize_b_avx2, vpx_highbd_quantize_b_c,
                    VPX_BITS_8, 16, false),
-        make_tuple(&vpx_highbd_quantize_b_avx2, &vpx_highbd_quantize_b_c,
+        make_tuple(vpx_highbd_quantize_b_avx2, vpx_highbd_quantize_b_c,
                    VPX_BITS_10, 16, false),
-        make_tuple(&vpx_highbd_quantize_b_avx2, &vpx_highbd_quantize_b_c,
+        make_tuple(vpx_highbd_quantize_b_avx2, vpx_highbd_quantize_b_c,
                    VPX_BITS_12, 16, false),
-        make_tuple(&vpx_quantize_b_32x32_avx2, &vpx_quantize_b_32x32_c,
+        make_tuple(&Quant32x32Wrapper<vpx_quantize_b_32x32_avx2>,
+                   &Quant32x32Wrapper<vpx_quantize_b_32x32_c>, VPX_BITS_8, 32,
+                   false),
+        make_tuple(&Quant32x32Wrapper<vpx_highbd_quantize_b_32x32_avx2>,
+                   &Quant32x32Wrapper<vpx_highbd_quantize_b_32x32_c>,
                    VPX_BITS_8, 32, false),
-        make_tuple(&vpx_highbd_quantize_b_32x32_avx2,
-                   &vpx_highbd_quantize_b_32x32_c, VPX_BITS_8, 32, false),
-        make_tuple(&vpx_highbd_quantize_b_32x32_avx2,
-                   &vpx_highbd_quantize_b_32x32_c, VPX_BITS_10, 32, false),
-        make_tuple(&vpx_highbd_quantize_b_32x32_avx2,
-                   &vpx_highbd_quantize_b_32x32_c, VPX_BITS_12, 32, false)));
+        make_tuple(&Quant32x32Wrapper<vpx_highbd_quantize_b_32x32_avx2>,
+                   &Quant32x32Wrapper<vpx_highbd_quantize_b_32x32_c>,
+                   VPX_BITS_10, 32, false),
+        make_tuple(&Quant32x32Wrapper<vpx_highbd_quantize_b_32x32_avx2>,
+                   &Quant32x32Wrapper<vpx_highbd_quantize_b_32x32_c>,
+                   VPX_BITS_12, 32, false)));
 #else
 INSTANTIATE_TEST_SUITE_P(
     AVX2, VP9QuantizeTest,
@@ -602,11 +623,11 @@ INSTANTIATE_TEST_SUITE_P(
                       make_tuple(&QuantFPWrapper<vp9_quantize_fp_32x32_avx2>,
                                  &QuantFPWrapper<quantize_fp_32x32_nz_c>,
                                  VPX_BITS_8, 32, true),
-                      make_tuple(&vpx_quantize_b_avx2, &vpx_quantize_b_c,
+                      make_tuple(vpx_quantize_b_avx2, vpx_quantize_b_c,
                                  VPX_BITS_8, 16, false),
-                      make_tuple(&vpx_quantize_b_32x32_avx2,
-                                 &vpx_quantize_b_32x32_c, VPX_BITS_8, 32,
-                                 false)));
+                      make_tuple(&Quant32x32Wrapper<vpx_quantize_b_32x32_avx2>,
+                                 &Quant32x32Wrapper<vpx_quantize_b_32x32_c>,
+                                 VPX_BITS_8, 32, false)));
 #endif  // CONFIG_VP9_HIGHBITDEPTH
 #endif  // HAVE_AVX2
 
@@ -617,20 +638,24 @@ INSTANTIATE_TEST_SUITE_P(
     ::testing::Values(
         make_tuple(&vpx_quantize_b_neon, &vpx_quantize_b_c, VPX_BITS_8, 16,
                    false),
-        make_tuple(&vpx_highbd_quantize_b_neon, &vpx_highbd_quantize_b_c,
+        make_tuple(vpx_highbd_quantize_b_neon, vpx_highbd_quantize_b_c,
                    VPX_BITS_8, 16, false),
-        make_tuple(&vpx_highbd_quantize_b_neon, &vpx_highbd_quantize_b_c,
+        make_tuple(vpx_highbd_quantize_b_neon, vpx_highbd_quantize_b_c,
                    VPX_BITS_10, 16, false),
-        make_tuple(&vpx_highbd_quantize_b_neon, &vpx_highbd_quantize_b_c,
+        make_tuple(vpx_highbd_quantize_b_neon, vpx_highbd_quantize_b_c,
                    VPX_BITS_12, 16, false),
-        make_tuple(&vpx_quantize_b_32x32_neon, &vpx_quantize_b_32x32_c,
+        make_tuple(&Quant32x32Wrapper<vpx_quantize_b_32x32_neon>,
+                   &Quant32x32Wrapper<vpx_quantize_b_32x32_c>, VPX_BITS_8, 32,
+                   false),
+        make_tuple(&Quant32x32Wrapper<vpx_highbd_quantize_b_32x32_neon>,
+                   &Quant32x32Wrapper<vpx_highbd_quantize_b_32x32_c>,
                    VPX_BITS_8, 32, false),
-        make_tuple(&vpx_highbd_quantize_b_32x32_neon,
-                   &vpx_highbd_quantize_b_32x32_c, VPX_BITS_8, 32, false),
-        make_tuple(&vpx_highbd_quantize_b_32x32_neon,
-                   &vpx_highbd_quantize_b_32x32_c, VPX_BITS_10, 32, false),
-        make_tuple(&vpx_highbd_quantize_b_32x32_neon,
-                   &vpx_highbd_quantize_b_32x32_c, VPX_BITS_12, 32, false),
+        make_tuple(&Quant32x32Wrapper<vpx_highbd_quantize_b_32x32_neon>,
+                   &Quant32x32Wrapper<vpx_highbd_quantize_b_32x32_c>,
+                   VPX_BITS_10, 32, false),
+        make_tuple(&Quant32x32Wrapper<vpx_highbd_quantize_b_32x32_neon>,
+                   &Quant32x32Wrapper<vpx_highbd_quantize_b_32x32_c>,
+                   VPX_BITS_12, 32, false),
         make_tuple(&QuantFPWrapper<vp9_quantize_fp_neon>,
                    &QuantFPWrapper<vp9_quantize_fp_c>, VPX_BITS_8, 16, true),
         make_tuple(&QuantFPWrapper<vp9_quantize_fp_32x32_neon>,
@@ -641,9 +666,9 @@ INSTANTIATE_TEST_SUITE_P(
     NEON, VP9QuantizeTest,
     ::testing::Values(make_tuple(&vpx_quantize_b_neon, &vpx_quantize_b_c,
                                  VPX_BITS_8, 16, false),
-                      make_tuple(&vpx_quantize_b_32x32_neon,
-                                 &vpx_quantize_b_32x32_c, VPX_BITS_8, 32,
-                                 false),
+                      make_tuple(&Quant32x32Wrapper<vpx_quantize_b_32x32_neon>,
+                                 &Quant32x32Wrapper<vpx_quantize_b_32x32_c>,
+                                 VPX_BITS_8, 32, false),
                       make_tuple(&QuantFPWrapper<vp9_quantize_fp_neon>,
                                  &QuantFPWrapper<vp9_quantize_fp_c>, VPX_BITS_8,
                                  16, true),
@@ -670,13 +695,13 @@ INSTANTIATE_TEST_SUITE_P(
 #endif  // HAVE_VSX && !CONFIG_VP9_HIGHBITDEPTH
 
 #if HAVE_LSX && !CONFIG_VP9_HIGHBITDEPTH
-INSTANTIATE_TEST_SUITE_P(LSX, VP9QuantizeTest,
-                         ::testing::Values(make_tuple(&vpx_quantize_b_lsx,
-                                                      &vpx_quantize_b_c,
-                                                      VPX_BITS_8, 16, false),
-                                           make_tuple(&vpx_quantize_b_32x32_lsx,
-                                                      &vpx_quantize_b_32x32_c,
-                                                      VPX_BITS_8, 32, false)));
+INSTANTIATE_TEST_SUITE_P(
+    LSX, VP9QuantizeTest,
+    ::testing::Values(make_tuple(&vpx_quantize_b_lsx, &vpx_quantize_b_c,
+                                 VPX_BITS_8, 16, false),
+                      make_tuple(&Quant32x32Wrapper<vpx_quantize_b_32x32_lsx>,
+                                 &Quant32x32Wrapper<vpx_quantize_b_32x32_c>,
+                                 VPX_BITS_8, 32, false)));
 #endif  // HAVE_LSX && !CONFIG_VP9_HIGHBITDEPTH
 
 // Only useful to compare "Speed" test results.
@@ -684,8 +709,9 @@ INSTANTIATE_TEST_SUITE_P(
     DISABLED_C, VP9QuantizeTest,
     ::testing::Values(
         make_tuple(&vpx_quantize_b_c, &vpx_quantize_b_c, VPX_BITS_8, 16, false),
-        make_tuple(&vpx_quantize_b_32x32_c, &vpx_quantize_b_32x32_c, VPX_BITS_8,
-                   32, false),
+        make_tuple(&Quant32x32Wrapper<vpx_quantize_b_32x32_c>,
+                   &Quant32x32Wrapper<vpx_quantize_b_32x32_c>, VPX_BITS_8, 32,
+                   false),
         make_tuple(&QuantFPWrapper<vp9_quantize_fp_c>,
                    &QuantFPWrapper<vp9_quantize_fp_c>, VPX_BITS_8, 16, true),
         make_tuple(&QuantFPWrapper<quantize_fp_nz_c>,

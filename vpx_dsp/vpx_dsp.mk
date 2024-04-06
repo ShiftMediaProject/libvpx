@@ -31,10 +31,15 @@ DSP_SRCS-yes += bitwriter_buffer.c
 DSP_SRCS-yes += bitwriter_buffer.h
 DSP_SRCS-yes += psnr.c
 DSP_SRCS-yes += psnr.h
+DSP_SRCS-yes += sse.c
 DSP_SRCS-$(CONFIG_INTERNAL_STATS) += ssim.c
 DSP_SRCS-$(CONFIG_INTERNAL_STATS) += ssim.h
 DSP_SRCS-$(CONFIG_INTERNAL_STATS) += psnrhvs.c
 DSP_SRCS-$(CONFIG_INTERNAL_STATS) += fastssim.c
+DSP_SRCS-$(HAVE_NEON) += arm/sse_neon.c
+DSP_SRCS-$(HAVE_NEON_DOTPROD) += arm/sse_neon_dotprod.c
+DSP_SRCS-$(HAVE_SSE4_1) += x86/sse_sse4.c
+DSP_SRCS-$(HAVE_AVX2) += x86/sse_avx2.c
 endif
 
 ifeq ($(CONFIG_DECODERS),yes)
@@ -133,6 +138,10 @@ DSP_SRCS-yes += arm/vpx_convolve_copy_neon.c
 DSP_SRCS-yes += arm/vpx_convolve8_neon.c
 DSP_SRCS-yes += arm/vpx_convolve_avg_neon.c
 DSP_SRCS-yes += arm/vpx_convolve_neon.c
+DSP_SRCS-$(HAVE_NEON_DOTPROD) += arm/vpx_convolve8_neon_dotprod.c
+DSP_SRCS-$(HAVE_NEON_DOTPROD) += arm/vpx_convolve_neon_dotprod.c
+DSP_SRCS-$(HAVE_NEON_I8MM) += arm/vpx_convolve8_neon_i8mm.c
+DSP_SRCS-$(HAVE_NEON_I8MM) += arm/vpx_convolve_neon_i8mm.c
 endif  # HAVE_NEON
 endif  # HAVE_NEON_ASM
 
@@ -252,6 +261,7 @@ DSP_SRCS-yes            += inv_txfm.h
 DSP_SRCS-yes            += inv_txfm.c
 DSP_SRCS-$(HAVE_SSE2)   += x86/inv_txfm_sse2.h
 DSP_SRCS-$(HAVE_SSE2)   += x86/inv_txfm_sse2.c
+DSP_SRCS-$(HAVE_AVX2)   += x86/inv_txfm_avx2.c
 DSP_SRCS-$(HAVE_SSE2)   += x86/inv_wht_sse2.asm
 DSP_SRCS-$(HAVE_SSSE3)  += x86/inv_txfm_ssse3.h
 DSP_SRCS-$(HAVE_SSSE3)  += x86/inv_txfm_ssse3.c
@@ -342,6 +352,10 @@ DSP_SRCS-$(HAVE_SSE2)  += x86/avg_intrin_sse2.c
 DSP_SRCS-$(HAVE_AVX2)  += x86/avg_intrin_avx2.c
 DSP_SRCS-$(HAVE_NEON)  += arm/avg_neon.c
 DSP_SRCS-$(HAVE_NEON)  += arm/hadamard_neon.c
+ifeq ($(CONFIG_VP9_HIGHBITDEPTH),yes)
+DSP_SRCS-$(HAVE_NEON)  += arm/highbd_hadamard_neon.c
+DSP_SRCS-$(HAVE_NEON)  += arm/highbd_avg_neon.c
+endif
 DSP_SRCS-$(HAVE_MSA)   += mips/avg_msa.c
 DSP_SRCS-$(HAVE_LSX)   += loongarch/avg_lsx.c
 ifeq ($(VPX_ARCH_X86_64),yes)
@@ -364,7 +378,9 @@ DSP_SRCS-$(HAVE_SSE2)   += x86/sum_squares_sse2.c
 DSP_SRCS-$(HAVE_MSA)    += mips/sum_squares_msa.c
 
 DSP_SRCS-$(HAVE_NEON)   += arm/sad4d_neon.c
+DSP_SRCS-$(HAVE_NEON_DOTPROD) += arm/sad4d_neon_dotprod.c
 DSP_SRCS-$(HAVE_NEON)   += arm/sad_neon.c
+DSP_SRCS-$(HAVE_NEON_DOTPROD) += arm/sad_neon_dotprod.c
 DSP_SRCS-$(HAVE_NEON)   += arm/subtract_neon.c
 
 DSP_SRCS-$(HAVE_MSA)    += mips/sad_msa.c
@@ -392,6 +408,7 @@ DSP_SRCS-$(HAVE_LSX)    += loongarch/subtract_lsx.c
 ifeq ($(CONFIG_VP9_HIGHBITDEPTH),yes)
 DSP_SRCS-$(HAVE_SSE2) += x86/highbd_sad4d_sse2.asm
 DSP_SRCS-$(HAVE_SSE2) += x86/highbd_sad_sse2.asm
+DSP_SRCS-$(HAVE_NEON) += arm/highbd_sad4d_neon.c
 DSP_SRCS-$(HAVE_NEON) += arm/highbd_sad_neon.c
 DSP_SRCS-$(HAVE_AVX2) += x86/highbd_sad4d_avx2.c
 DSP_SRCS-$(HAVE_AVX2) += x86/highbd_sad_avx2.c
@@ -406,6 +423,7 @@ DSP_SRCS-yes            += variance.h
 DSP_SRCS-$(HAVE_NEON)   += arm/avg_pred_neon.c
 DSP_SRCS-$(HAVE_NEON)   += arm/subpel_variance_neon.c
 DSP_SRCS-$(HAVE_NEON)   += arm/variance_neon.c
+DSP_SRCS-$(HAVE_NEON_DOTPROD)   += arm/variance_neon_dotprod.c
 
 DSP_SRCS-$(HAVE_MSA)    += mips/variance_msa.c
 DSP_SRCS-$(HAVE_MSA)    += mips/sub_pixel_variance_msa.c
@@ -418,6 +436,7 @@ DSP_SRCS-$(HAVE_LSX)    += loongarch/avg_pred_lsx.c
 DSP_SRCS-$(HAVE_MMI)    += mips/variance_mmi.c
 
 DSP_SRCS-$(HAVE_SSE2)   += x86/avg_pred_sse2.c
+DSP_SRCS-$(HAVE_AVX2)   += x86/avg_pred_avx2.c
 DSP_SRCS-$(HAVE_SSE2)   += x86/variance_sse2.c  # Contains SSE2 and SSSE3
 DSP_SRCS-$(HAVE_AVX2)   += x86/variance_avx2.c
 DSP_SRCS-$(HAVE_VSX)    += ppc/variance_vsx.c
@@ -432,7 +451,10 @@ ifeq ($(CONFIG_VP9_HIGHBITDEPTH),yes)
 DSP_SRCS-$(HAVE_SSE2)   += x86/highbd_variance_sse2.c
 DSP_SRCS-$(HAVE_SSE2)   += x86/highbd_variance_impl_sse2.asm
 DSP_SRCS-$(HAVE_SSE2)   += x86/highbd_subpel_variance_impl_sse2.asm
+DSP_SRCS-$(HAVE_NEON)   += arm/highbd_avg_pred_neon.c
+DSP_SRCS-$(HAVE_NEON)   += arm/highbd_sse_neon.c
 DSP_SRCS-$(HAVE_NEON)   += arm/highbd_variance_neon.c
+DSP_SRCS-$(HAVE_NEON)   += arm/highbd_subpel_variance_neon.c
 endif  # CONFIG_VP9_HIGHBITDEPTH
 endif  # CONFIG_ENCODERS || CONFIG_POSTPROC || CONFIG_VP9_POSTPROC
 

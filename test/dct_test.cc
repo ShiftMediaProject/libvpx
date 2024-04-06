@@ -134,7 +134,7 @@ void fwht_ref(const Buffer<int16_t> &in, Buffer<tran_low_t> *out, int size,
 
 class TransTestBase : public ::testing::TestWithParam<DctParam> {
  public:
-  virtual void SetUp() {
+  void SetUp() override {
     rnd_.Reset(ACMRandom::DeterministicSeed());
     const int idx = GET_PARAM(0);
     const FuncInfo *func_info = &(GET_PARAM(1)[idx]);
@@ -166,7 +166,7 @@ class TransTestBase : public ::testing::TestWithParam<DctParam> {
     ASSERT_NE(dst_, nullptr);
   }
 
-  virtual void TearDown() {
+  void TearDown() override {
     vpx_free(src_);
     src_ = nullptr;
     vpx_free(dst_);
@@ -358,14 +358,6 @@ class TransTestBase : public ::testing::TestWithParam<DctParam> {
     ASSERT_TRUE(in.Init());
     Buffer<tran_low_t> coeff = Buffer<tran_low_t>(size_, size_, 0, 16);
     ASSERT_TRUE(coeff.Init());
-    Buffer<uint8_t> dst = Buffer<uint8_t>(size_, size_, 0, 16);
-    ASSERT_TRUE(dst.Init());
-    Buffer<uint8_t> src = Buffer<uint8_t>(size_, size_, 0);
-    ASSERT_TRUE(src.Init());
-    Buffer<uint16_t> dst16 = Buffer<uint16_t>(size_, size_, 0, 16);
-    ASSERT_TRUE(dst16.Init());
-    Buffer<uint16_t> src16 = Buffer<uint16_t>(size_, size_, 0);
-    ASSERT_TRUE(src16.Init());
 
     for (int i = 0; i < count_test_block; ++i) {
       InitMem();
@@ -671,7 +663,11 @@ static const FuncInfo ht_neon_func_info[] = {
     4, 2 },
   { &vp9_highbd_fht8x8_c, &highbd_iht_wrapper<vp9_highbd_iht8x8_64_add_neon>, 8,
     2 },
+  { &vp9_highbd_fht8x8_neon, &highbd_iht_wrapper<vp9_highbd_iht8x8_64_add_neon>,
+    8, 2 },
   { &vp9_highbd_fht16x16_c,
+    &highbd_iht_wrapper<vp9_highbd_iht16x16_256_add_neon>, 16, 2 },
+  { &vp9_highbd_fht16x16_neon,
     &highbd_iht_wrapper<vp9_highbd_iht16x16_256_add_neon>, 16, 2 },
 #endif
   { &vp9_fht4x4_c, &iht_wrapper<vp9_iht4x4_16_add_neon>, 4, 1 },

@@ -64,9 +64,16 @@ COMPILING THE APPLICATIONS/LIBRARIES:
     arm64-android-gcc
     arm64-darwin-gcc
     arm64-darwin20-gcc
+    arm64-darwin21-gcc
+    arm64-darwin22-gcc
+    arm64-darwin23-gcc
     arm64-linux-gcc
     arm64-win64-gcc
     arm64-win64-vs15
+    arm64-win64-vs16
+    arm64-win64-vs16-clangcl
+    arm64-win64-vs17
+    arm64-win64-vs17-clangcl
     armv7-android-gcc
     armv7-darwin-gcc
     armv7-linux-rvct
@@ -75,8 +82,12 @@ COMPILING THE APPLICATIONS/LIBRARIES:
     armv7-win32-gcc
     armv7-win32-vs14
     armv7-win32-vs15
+    armv7-win32-vs16
+    armv7-win32-vs17
     armv7s-darwin-gcc
     armv8-linux-gcc
+    loongarch32-linux-gcc
+    loongarch64-linux-gcc
     mips32-linux-gcc
     mips64-linux-gcc
     ppc64le-linux-gcc
@@ -117,6 +128,9 @@ COMPILING THE APPLICATIONS/LIBRARIES:
     x86_64-darwin18-gcc
     x86_64-darwin19-gcc
     x86_64-darwin20-gcc
+    x86_64-darwin21-gcc
+    x86_64-darwin22-gcc
+    x86_64-darwin23-gcc
     x86_64-iphonesimulator-gcc
     x86_64-linux-gcc
     x86_64-linux-icc

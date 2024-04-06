@@ -279,7 +279,7 @@ vpx_codec_err_t vpx_svc_set_options(SvcContext *svc_ctx, const char *options) {
   if (svc_ctx == NULL || options == NULL || si == NULL) {
     return VPX_CODEC_INVALID_PARAM;
   }
-  strncpy(si->options, options, sizeof(si->options));
+  strncpy(si->options, options, sizeof(si->options) - 1);
   si->options[sizeof(si->options) - 1] = '\0';
   return VPX_CODEC_OK;
 }
@@ -381,7 +381,7 @@ vpx_codec_err_t vpx_svc_init(SvcContext *svc_ctx, vpx_codec_ctx_t *codec_ctx,
                              vpx_codec_iface_t *iface,
                              vpx_codec_enc_cfg_t *enc_cfg) {
   vpx_codec_err_t res;
-  int i, sl, tl;
+  int sl, tl;
   SvcInternal_t *const si = get_svc_internal(svc_ctx);
   if (svc_ctx == NULL || codec_ctx == NULL || iface == NULL ||
       enc_cfg == NULL) {
@@ -433,7 +433,7 @@ vpx_codec_err_t vpx_svc_init(SvcContext *svc_ctx, vpx_codec_ctx_t *codec_ctx,
   }
   for (tl = 0; tl < svc_ctx->temporal_layers; ++tl) {
     for (sl = 0; sl < svc_ctx->spatial_layers; ++sl) {
-      i = sl * svc_ctx->temporal_layers + tl;
+      const int i = sl * svc_ctx->temporal_layers + tl;
       si->svc_params.max_quantizers[i] = MAX_QUANTIZER;
       si->svc_params.min_quantizers[i] = 0;
       if (enc_cfg->rc_end_usage == VPX_CBR &&
@@ -503,7 +503,7 @@ vpx_codec_err_t vpx_svc_init(SvcContext *svc_ctx, vpx_codec_ctx_t *codec_ctx,
 
   for (tl = 0; tl < svc_ctx->temporal_layers; ++tl) {
     for (sl = 0; sl < svc_ctx->spatial_layers; ++sl) {
-      i = sl * svc_ctx->temporal_layers + tl;
+      const int i = sl * svc_ctx->temporal_layers + tl;
       if (enc_cfg->rc_end_usage == VPX_CBR &&
           enc_cfg->g_pass == VPX_RC_ONE_PASS) {
         si->svc_params.max_quantizers[i] = enc_cfg->rc_max_quantizer;
