@@ -55,6 +55,7 @@
 #endif
 
 #include <assert.h>
+#include <errno.h>
 #include <math.h>
 #include <stdio.h>
 #include <limits.h>
@@ -267,7 +268,11 @@ static int rescale(int val, int num, int denom) {
   int64_t llden = denom;
   int64_t llval = val;
 
-  return (int)(llval * llnum / llden);
+  int64_t result = (llval * llnum / llden);
+  if (result <= INT_MAX)
+    return (int)result;
+  else
+    return INT_MAX;
 }
 
 void vp8_init_temporal_layer_context(VP8_COMP *cpi, const VP8_CONFIG *oxcf,
@@ -276,7 +281,10 @@ void vp8_init_temporal_layer_context(VP8_COMP *cpi, const VP8_CONFIG *oxcf,
   LAYER_CONTEXT *lc = &cpi->layer_context[layer];
 
   lc->framerate = cpi->output_framerate / cpi->oxcf.rate_decimator[layer];
-  lc->target_bandwidth = cpi->oxcf.target_bitrate[layer] * 1000;
+  if (cpi->oxcf.target_bitrate[layer] > INT_MAX / 1000)
+    lc->target_bandwidth = INT_MAX;
+  else
+    lc->target_bandwidth = cpi->oxcf.target_bitrate[layer] * 1000;
 
   lc->starting_buffer_level_in_ms = oxcf->starting_buffer_level;
   lc->optimal_buffer_level_in_ms = oxcf->optimal_buffer_level;
@@ -1259,11 +1267,13 @@ void vp8_new_framerate(VP8_COMP *cpi, double framerate) {
 
   cpi->framerate = framerate;
   cpi->output_framerate = framerate;
-  cpi->per_frame_bandwidth =
-      (int)round(cpi->oxcf.target_bandwidth / cpi->output_framerate);
+  const double per_frame_bandwidth =
+      round(cpi->oxcf.target_bandwidth / cpi->output_framerate);
+  cpi->per_frame_bandwidth = (int)VPXMIN(per_frame_bandwidth, INT_MAX);
   cpi->av_per_frame_bandwidth = cpi->per_frame_bandwidth;
-  cpi->min_frame_bandwidth = (int)(cpi->av_per_frame_bandwidth *
-                                   cpi->oxcf.two_pass_vbrmin_section / 100);
+  const int64_t vbr_min_bits = (int64_t)cpi->av_per_frame_bandwidth *
+                               cpi->oxcf.two_pass_vbrmin_section / 100;
+  cpi->min_frame_bandwidth = (int)VPXMIN(vbr_min_bits, INT_MAX);
 
   /* Set Maximum gf/arf interval */
   cpi->max_gf_interval = ((int)(cpi->output_framerate / 2.0) + 2);
@@ -1381,7 +1391,10 @@ void vp8_update_layer_contexts(VP8_COMP *cpi) {
       LAYER_CONTEXT *lc = &cpi->layer_context[i];
 
       lc->framerate = cpi->ref_framerate / oxcf->rate_decimator[i];
-      lc->target_bandwidth = oxcf->target_bitrate[i] * 1000;
+      if (oxcf->target_bitrate[i] > INT_MAX / 1000)
+        lc->target_bandwidth = INT_MAX;
+      else
+        lc->target_bandwidth = oxcf->target_bitrate[i] * 1000;
 
       lc->starting_buffer_level = rescale(
           (int)oxcf->starting_buffer_level_in_ms, lc->target_bandwidth, 1000);
@@ -3339,10 +3352,12 @@ static void encode_frame_to_data_rate(VP8_COMP *cpi, size_t *size,
       }
       break;
 #endif  // !CONFIG_REALTIME_ONLY
-    default:
-      cpi->per_frame_bandwidth =
-          (int)round(cpi->target_bandwidth / cpi->output_framerate);
+    default: {
+      const double per_frame_bandwidth =
+          round(cpi->target_bandwidth / cpi->output_framerate);
+      cpi->per_frame_bandwidth = (int)VPXMIN(per_frame_bandwidth, INT_MAX);
       break;
+    }
   }
 
   /* Default turn off buffer to buffer copying */
@@ -4391,7 +4406,9 @@ static void encode_frame_to_data_rate(VP8_COMP *cpi, size_t *size,
     cpi->b_lpf_running = 1;
     /* wait for the filter_level to be picked so that we can continue with
      * stream packing */
-    sem_wait(&cpi->h_event_end_lpf);
+    errno = 0;
+    while (sem_wait(&cpi->h_event_end_lpf) != 0 && errno == EINTR) {
+    }
   } else
 #endif
   {
@@ -5120,6 +5137,16 @@ int vp8_get_compressed_data(VP8_COMP *cpi, unsigned int *frame_flags,
   vpx_usec_timer_mark(&cmptimer);
   cpi->time_compress_data += vpx_usec_timer_elapsed(&cmptimer);
 
+#if CONFIG_MULTITHREAD
+  /* wait for the lpf thread done */
+  if (vpx_atomic_load_acquire(&cpi->b_multi_threaded) && cpi->b_lpf_running) {
+    errno = 0;
+    while (sem_wait(&cpi->h_event_end_lpf) != 0 && errno == EINTR) {
+    }
+    cpi->b_lpf_running = 0;
+  }
+#endif
+
   if (cpi->b_calculate_psnr && cpi->pass != 1 && cm->show_frame) {
     generate_psnr_packet(cpi);
   }
@@ -5248,14 +5275,6 @@ int vp8_get_compressed_data(VP8_COMP *cpi, unsigned int *frame_flags,
 #endif
 
   cpi->common.error.setjmp = 0;
-
-#if CONFIG_MULTITHREAD
-  /* wait for the lpf thread done */
-  if (vpx_atomic_load_acquire(&cpi->b_multi_threaded) && cpi->b_lpf_running) {
-    sem_wait(&cpi->h_event_end_lpf);
-    cpi->b_lpf_running = 0;
-  }
-#endif
 
   return 0;
 }

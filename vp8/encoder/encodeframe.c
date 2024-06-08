@@ -7,6 +7,7 @@
  *  in the file PATENTS.  All contributing project authors may
  *  be found in the AUTHORS file in the root of the source tree.
  */
+#include <errno.h>
 #include <stdio.h>
 #include <limits.h>
 
@@ -447,13 +448,21 @@ static void encode_mb_row(VP8_COMP *cpi, VP8_COMMON *cm, int mb_row,
     x->active_ptr = cpi->active_map + map_index + mb_col;
 
     if (cm->frame_type == KEY_FRAME) {
-      *totalrate += vp8cx_encode_intra_macroblock(cpi, x, tp);
+      const int intra_rate_cost = vp8cx_encode_intra_macroblock(cpi, x, tp);
+      if (INT_MAX - *totalrate > intra_rate_cost)
+        *totalrate += intra_rate_cost;
+      else
+        *totalrate = INT_MAX;
 #ifdef MODE_STATS
       y_modes[xd->mbmi.mode]++;
 #endif
     } else {
-      *totalrate += vp8cx_encode_inter_macroblock(
+      const int inter_rate_cost = vp8cx_encode_inter_macroblock(
           cpi, x, tp, recon_yoffset, recon_uvoffset, mb_row, mb_col);
+      if (INT_MAX - *totalrate > inter_rate_cost)
+        *totalrate += inter_rate_cost;
+      else
+        *totalrate = INT_MAX;
 
 #ifdef MODE_STATS
       inter_y_modes[xd->mbmi.mode]++;
@@ -798,7 +807,9 @@ void vp8_encode_frame(VP8_COMP *cpi) {
       }
       /* Wait for all the threads to finish. */
       for (i = 0; i < cpi->encoding_thread_count; ++i) {
-        sem_wait(&cpi->h_event_end_encoding[i]);
+        errno = 0;
+        while (sem_wait(&cpi->h_event_end_encoding[i]) != 0 && errno == EINTR) {
+        }
       }
 
       for (mb_row = 0; mb_row < cm->mb_rows; ++mb_row) {

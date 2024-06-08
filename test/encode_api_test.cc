@@ -8,12 +8,16 @@
  *  be found in the AUTHORS file in the root of the source tree.
  */
 
+#include <cassert>
 #include <climits>
+#include <cstdint>
 #include <cstring>
 #include <initializer_list>
 #include <new>
+#include <vector>
 
 #include "third_party/googletest/src/include/gtest/gtest.h"
+#include "test/acm_random.h"
 #include "test/codec_factory.h"
 #include "test/encode_test_driver.h"
 #include "test/i420_video_source.h"
@@ -25,6 +29,7 @@
 #include "vpx/vpx_encoder.h"
 #include "vpx/vpx_image.h"
 #include "vpx/vpx_tpl.h"
+#include "vpx_ports/msvc.h"
 
 namespace {
 
@@ -41,6 +46,75 @@ bool IsVP9(vpx_codec_iface_t *iface) {
   static const char kVP9Name[] = "WebM Project VP9";
   return strncmp(kVP9Name, vpx_codec_iface_name(iface), sizeof(kVP9Name) - 1) ==
          0;
+}
+
+void *Memset16(void *dest, int val, size_t length) {
+  uint16_t *dest16 = reinterpret_cast<uint16_t *>(dest);
+  for (size_t i = 0; i < length; i++) {
+    *dest16++ = val;
+  }
+  return dest;
+}
+
+vpx_image_t *CreateImage(vpx_bit_depth_t bit_depth, vpx_img_fmt_t fmt,
+                         unsigned int width, unsigned int height) {
+  assert(fmt != VPX_IMG_FMT_NV12);
+  if (bit_depth > VPX_BITS_8) {
+    fmt = static_cast<vpx_img_fmt_t>(fmt | VPX_IMG_FMT_HIGHBITDEPTH);
+  }
+  vpx_image_t *image = vpx_img_alloc(nullptr, fmt, width, height, 1);
+  if (!image) return image;
+
+  const int val = 1 << (bit_depth - 1);
+  const unsigned int uv_h =
+      (image->d_h + image->y_chroma_shift) >> image->y_chroma_shift;
+  const unsigned int uv_w =
+      (image->d_w + image->x_chroma_shift) >> image->x_chroma_shift;
+  if (bit_depth > VPX_BITS_8) {
+    for (unsigned int i = 0; i < image->d_h; ++i) {
+      Memset16(image->planes[0] + i * image->stride[0], val, image->d_w);
+    }
+    for (unsigned int i = 0; i < uv_h; ++i) {
+      Memset16(image->planes[1] + i * image->stride[1], val, uv_w);
+      Memset16(image->planes[2] + i * image->stride[2], val, uv_w);
+    }
+  } else {
+    for (unsigned int i = 0; i < image->d_h; ++i) {
+      memset(image->planes[0] + i * image->stride[0], val, image->d_w);
+    }
+    for (unsigned int i = 0; i < uv_h; ++i) {
+      memset(image->planes[1] + i * image->stride[1], val, uv_w);
+      memset(image->planes[2] + i * image->stride[2], val, uv_w);
+    }
+  }
+
+  return image;
+}
+
+void InitCodec(vpx_codec_iface_t &iface, int width, int height,
+               vpx_codec_ctx_t *enc, vpx_codec_enc_cfg_t *cfg) {
+  cfg->g_w = width;
+  cfg->g_h = height;
+  cfg->g_lag_in_frames = 0;
+  cfg->g_pass = VPX_RC_ONE_PASS;
+  ASSERT_EQ(vpx_codec_enc_init(enc, &iface, cfg, 0), VPX_CODEC_OK);
+
+  ASSERT_EQ(vpx_codec_control_(enc, VP8E_SET_CPUUSED, 2), VPX_CODEC_OK);
+}
+
+// Encodes 1 frame of size |cfg.g_w| x |cfg.g_h| setting |enc|'s configuration
+// to |cfg|.
+void EncodeWithConfig(const vpx_codec_enc_cfg_t &cfg, vpx_codec_ctx_t *enc) {
+  libvpx_test::DummyVideoSource video;
+  video.SetSize(cfg.g_w, cfg.g_h);
+  video.Begin();
+  EXPECT_EQ(vpx_codec_enc_config_set(enc, &cfg), VPX_CODEC_OK)
+      << vpx_codec_error_detail(enc);
+
+  EXPECT_EQ(vpx_codec_encode(enc, video.img(), video.pts(), video.duration(),
+                             /*flags=*/0, VPX_DL_GOOD_QUALITY),
+            VPX_CODEC_OK)
+      << vpx_codec_error_detail(enc);
 }
 
 TEST(EncodeAPI, InvalidParams) {
@@ -181,7 +255,304 @@ TEST(EncodeAPI, HugeFramerateVp8) {
   vpx_img_free(image);
   ASSERT_EQ(vpx_codec_destroy(&enc), VPX_CODEC_OK);
 }
-#endif
+
+// A test that reproduces https://crbug.com/webm/1831.
+TEST(EncodeAPI, RandomPixelsVp8) {
+  // Initialize libvpx encoder
+  vpx_codec_iface_t *const iface = vpx_codec_vp8_cx();
+  vpx_codec_enc_cfg_t cfg;
+  ASSERT_EQ(vpx_codec_enc_config_default(iface, &cfg, 0), VPX_CODEC_OK);
+
+  cfg.rc_target_bitrate = 2000;
+  cfg.g_w = 1280;
+  cfg.g_h = 720;
+
+  vpx_codec_ctx_t enc;
+  ASSERT_EQ(vpx_codec_enc_init(&enc, iface, &cfg, 0), VPX_CODEC_OK);
+
+  // Generate random frame data and encode
+  libvpx_test::RandomVideoSource video;
+  video.SetSize(cfg.g_w, cfg.g_h);
+  video.SetImageFormat(VPX_IMG_FMT_I420);
+  video.Begin();
+  ASSERT_EQ(vpx_codec_encode(&enc, video.img(), video.pts(), video.duration(),
+                             /*flags=*/0, VPX_DL_BEST_QUALITY),
+            VPX_CODEC_OK);
+
+  // Destroy libvpx encoder
+  vpx_codec_destroy(&enc);
+}
+
+TEST(EncodeAPI, ChangeToL1T3AndSetBitrateVp8) {
+  // Initialize libvpx encoder
+  vpx_codec_iface_t *const iface = vpx_codec_vp8_cx();
+  vpx_codec_enc_cfg_t cfg;
+  ASSERT_EQ(vpx_codec_enc_config_default(iface, &cfg, 0), VPX_CODEC_OK);
+
+  cfg.g_threads = 1;
+  cfg.g_profile = 0;
+  cfg.g_w = 1;
+  cfg.g_h = 64;
+  cfg.g_bit_depth = VPX_BITS_8;
+  cfg.g_input_bit_depth = 8;
+  cfg.g_timebase.num = 1;
+  cfg.g_timebase.den = 1000000;
+  cfg.g_pass = VPX_RC_ONE_PASS;
+  cfg.g_lag_in_frames = 0;
+  cfg.rc_dropframe_thresh = 0;  // Don't drop frames
+  cfg.rc_resize_allowed = 0;
+  cfg.rc_end_usage = VPX_VBR;
+  cfg.rc_target_bitrate = 10;
+  cfg.rc_min_quantizer = 2;
+  cfg.rc_max_quantizer = 58;
+  cfg.kf_mode = VPX_KF_AUTO;
+  cfg.kf_min_dist = 0;
+  cfg.kf_max_dist = 10000;
+
+  vpx_codec_ctx_t enc;
+  ASSERT_EQ(vpx_codec_enc_init(&enc, iface, &cfg, 0), VPX_CODEC_OK);
+
+  ASSERT_EQ(vpx_codec_control(&enc, VP8E_SET_CPUUSED, -6), VPX_CODEC_OK);
+
+  // Generate random frame data and encode
+  uint8_t img[1 * 64 * 3 / 2];
+  libvpx_test::ACMRandom rng;
+  for (size_t i = 0; i < sizeof(img); ++i) {
+    img[i] = rng.Rand8();
+  }
+  vpx_image_t img_wrapper;
+  ASSERT_EQ(
+      vpx_img_wrap(&img_wrapper, VPX_IMG_FMT_I420, cfg.g_w, cfg.g_h, 1, img),
+      &img_wrapper);
+  vpx_enc_frame_flags_t flags = VPX_EFLAG_FORCE_KF;
+  ASSERT_EQ(
+      vpx_codec_encode(&enc, &img_wrapper, 0, 500000, flags, VPX_DL_REALTIME),
+      VPX_CODEC_OK);
+  ASSERT_EQ(vpx_codec_encode(&enc, nullptr, -1, 0, 0, 0), VPX_CODEC_OK);
+
+  cfg.rc_target_bitrate = 4294967;
+  // Set the scalability mode to L1T3.
+  cfg.ts_number_layers = 3;
+  cfg.ts_periodicity = 4;
+  cfg.ts_layer_id[0] = 0;
+  cfg.ts_layer_id[1] = 2;
+  cfg.ts_layer_id[2] = 1;
+  cfg.ts_layer_id[3] = 2;
+  cfg.ts_rate_decimator[0] = 4;
+  cfg.ts_rate_decimator[1] = 2;
+  cfg.ts_rate_decimator[2] = 1;
+  // Bitrate allocation L0: 50% L1: 20% L2: 30%
+  cfg.layer_target_bitrate[0] = cfg.ts_target_bitrate[0] =
+      50 * cfg.rc_target_bitrate / 100;
+  cfg.layer_target_bitrate[1] = cfg.ts_target_bitrate[1] =
+      70 * cfg.rc_target_bitrate / 100;
+  cfg.layer_target_bitrate[2] = cfg.ts_target_bitrate[2] =
+      cfg.rc_target_bitrate;
+  cfg.temporal_layering_mode = VP9E_TEMPORAL_LAYERING_MODE_0212;
+  cfg.g_error_resilient = VPX_ERROR_RESILIENT_DEFAULT;
+  ASSERT_EQ(vpx_codec_enc_config_set(&enc, &cfg), VPX_CODEC_OK);
+
+  ASSERT_EQ(vpx_codec_control(&enc, VP8E_SET_TEMPORAL_LAYER_ID, 2),
+            VPX_CODEC_OK);
+
+  constexpr vpx_enc_frame_flags_t VP8_UPDATE_NOTHING =
+      VP8_EFLAG_NO_UPD_ARF | VP8_EFLAG_NO_UPD_GF | VP8_EFLAG_NO_UPD_LAST;
+  // Layer 2: only reference last frame, no updates
+  // It only depends on layer 0
+  flags = VP8_UPDATE_NOTHING | VP8_EFLAG_NO_REF_ARF | VP8_EFLAG_NO_REF_GF;
+  ASSERT_EQ(
+      vpx_codec_encode(&enc, &img_wrapper, 0, 500000, flags, VPX_DL_REALTIME),
+      VPX_CODEC_OK);
+
+  // Destroy libvpx encoder
+  vpx_codec_destroy(&enc);
+}
+
+// Emulates the WebCodecs VideoEncoder interface.
+class VP8Encoder {
+ public:
+  explicit VP8Encoder(int speed) : speed_(speed) {}
+  ~VP8Encoder();
+
+  void Configure(unsigned int threads, unsigned int width, unsigned int height,
+                 vpx_rc_mode end_usage, unsigned long deadline);
+  void Encode(bool key_frame);
+
+ private:
+  const int speed_;
+  bool initialized_ = false;
+  vpx_codec_enc_cfg_t cfg_;
+  vpx_codec_ctx_t enc_;
+  int frame_index_ = 0;
+  unsigned long deadline_ = 0;
+};
+
+VP8Encoder::~VP8Encoder() {
+  if (initialized_) {
+    EXPECT_EQ(vpx_codec_destroy(&enc_), VPX_CODEC_OK);
+  }
+}
+
+void VP8Encoder::Configure(unsigned int threads, unsigned int width,
+                           unsigned int height, vpx_rc_mode end_usage,
+                           unsigned long deadline) {
+  deadline_ = deadline;
+
+  if (!initialized_) {
+    vpx_codec_iface_t *const iface = vpx_codec_vp8_cx();
+    ASSERT_EQ(vpx_codec_enc_config_default(iface, &cfg_, /*usage=*/0),
+              VPX_CODEC_OK);
+    cfg_.g_threads = threads;
+    cfg_.g_w = width;
+    cfg_.g_h = height;
+    cfg_.g_timebase.num = 1;
+    cfg_.g_timebase.den = 1000 * 1000;  // microseconds
+    cfg_.g_pass = VPX_RC_ONE_PASS;
+    cfg_.g_lag_in_frames = 0;
+    cfg_.rc_end_usage = end_usage;
+    cfg_.rc_min_quantizer = 2;
+    cfg_.rc_max_quantizer = 58;
+    ASSERT_EQ(vpx_codec_enc_init(&enc_, iface, &cfg_, 0), VPX_CODEC_OK);
+    ASSERT_EQ(vpx_codec_control(&enc_, VP8E_SET_CPUUSED, speed_), VPX_CODEC_OK);
+    initialized_ = true;
+    return;
+  }
+
+  cfg_.g_threads = threads;
+  cfg_.g_w = width;
+  cfg_.g_h = height;
+  cfg_.rc_end_usage = end_usage;
+  ASSERT_EQ(vpx_codec_enc_config_set(&enc_, &cfg_), VPX_CODEC_OK)
+      << vpx_codec_error_detail(&enc_);
+}
+
+void VP8Encoder::Encode(bool key_frame) {
+  assert(initialized_);
+  const vpx_codec_cx_pkt_t *pkt;
+  vpx_image_t *image =
+      CreateImage(VPX_BITS_8, VPX_IMG_FMT_I420, cfg_.g_w, cfg_.g_h);
+  ASSERT_NE(image, nullptr);
+  const vpx_enc_frame_flags_t flags = key_frame ? VPX_EFLAG_FORCE_KF : 0;
+  ASSERT_EQ(vpx_codec_encode(&enc_, image, frame_index_, 1, flags, deadline_),
+            VPX_CODEC_OK);
+  ++frame_index_;
+  vpx_codec_iter_t iter = nullptr;
+  while ((pkt = vpx_codec_get_cx_data(&enc_, &iter)) != nullptr) {
+    ASSERT_EQ(pkt->kind, VPX_CODEC_CX_FRAME_PKT);
+    if (key_frame) {
+      ASSERT_EQ(pkt->data.frame.flags & VPX_FRAME_IS_KEY, VPX_FRAME_IS_KEY);
+    }
+  }
+  vpx_img_free(image);
+}
+
+// This is the reproducer testcase for crbug.com/324459561. However,
+// just running this test is not enough to reproduce the bug. We also
+// need to send signals to the test.
+TEST(EncodeAPI, Chromium324459561) {
+  VP8Encoder encoder(-12);
+
+  encoder.Configure(11, 1685, 652, VPX_CBR, VPX_DL_REALTIME);
+
+  encoder.Encode(true);
+  encoder.Encode(true);
+  encoder.Encode(true);
+
+  encoder.Configure(0, 1685, 1, VPX_VBR, VPX_DL_REALTIME);
+}
+
+TEST(EncodeAPI, VP8GlobalHeaders) {
+  constexpr int kWidth = 320;
+  constexpr int kHeight = 240;
+
+  vpx_codec_enc_cfg_t cfg = {};
+  struct Encoder {
+    ~Encoder() { EXPECT_EQ(vpx_codec_destroy(&ctx), VPX_CODEC_OK); }
+    vpx_codec_ctx_t ctx = {};
+  } enc;
+
+  ASSERT_EQ(vpx_codec_enc_config_default(vpx_codec_vp8_cx(), &cfg, 0),
+            VPX_CODEC_OK);
+  ASSERT_NO_FATAL_FAILURE(
+      InitCodec(*vpx_codec_vp8_cx(), kWidth, kHeight, &enc.ctx, &cfg));
+  EXPECT_EQ(vpx_codec_get_global_headers(&enc.ctx), nullptr);
+  EXPECT_NO_FATAL_FAILURE(EncodeWithConfig(cfg, &enc.ctx));
+  EXPECT_EQ(vpx_codec_get_global_headers(&enc.ctx), nullptr);
+}
+
+TEST(EncodeAPI, AomediaIssue3509VbrMinSection2PercentVP8) {
+  // Initialize libvpx encoder.
+  vpx_codec_iface_t *const iface = vpx_codec_vp8_cx();
+  vpx_codec_ctx_t enc;
+  vpx_codec_enc_cfg_t cfg;
+
+  ASSERT_EQ(vpx_codec_enc_config_default(iface, &cfg, 0), VPX_CODEC_OK);
+
+  cfg.g_w = 1920;
+  cfg.g_h = 1080;
+  cfg.g_lag_in_frames = 0;
+  cfg.rc_target_bitrate = 1000000;
+  // Set this to more than 1 percent to cause a signed integer overflow in the
+  // multiplication cpi->av_per_frame_bandwidth *
+  // cpi->oxcf.two_pass_vbrmin_section in vp8_new_framerate() if the
+  // multiplication is done in the `int` type.
+  cfg.rc_2pass_vbr_minsection_pct = 2;
+
+  ASSERT_EQ(vpx_codec_enc_init(&enc, iface, &cfg, 0), VPX_CODEC_OK);
+
+  // Create input image.
+  vpx_image_t *const image =
+      CreateImage(VPX_BITS_8, VPX_IMG_FMT_I420, cfg.g_w, cfg.g_h);
+  ASSERT_NE(image, nullptr);
+
+  // Encode frame.
+  // `duration` can go as high as 300, but the UBSan error is gone if
+  // `duration` is 301 or higher.
+  ASSERT_EQ(
+      vpx_codec_encode(&enc, image, 0, /*duration=*/300, 0, VPX_DL_REALTIME),
+      VPX_CODEC_OK);
+
+  // Free resources.
+  vpx_img_free(image);
+  ASSERT_EQ(vpx_codec_destroy(&enc), VPX_CODEC_OK);
+}
+
+TEST(EncodeAPI, AomediaIssue3509VbrMinSection101PercentVP8) {
+  // Initialize libvpx encoder.
+  vpx_codec_iface_t *const iface = vpx_codec_vp8_cx();
+  vpx_codec_ctx_t enc;
+  vpx_codec_enc_cfg_t cfg;
+
+  ASSERT_EQ(vpx_codec_enc_config_default(iface, &cfg, 0), VPX_CODEC_OK);
+
+  cfg.g_w = 1920;
+  cfg.g_h = 1080;
+  cfg.g_lag_in_frames = 0;
+  cfg.rc_target_bitrate = 1000000;
+  // Set this to more than 100 percent to cause an error when vbr_min_bits is
+  // cast to `int` in vp8_new_framerate() if vbr_min_bits is not clamped to
+  // INT_MAX.
+  cfg.rc_2pass_vbr_minsection_pct = 101;
+
+  ASSERT_EQ(vpx_codec_enc_init(&enc, iface, &cfg, 0), VPX_CODEC_OK);
+
+  // Create input image.
+  vpx_image_t *const image =
+      CreateImage(VPX_BITS_8, VPX_IMG_FMT_I420, cfg.g_w, cfg.g_h);
+  ASSERT_NE(image, nullptr);
+
+  // Encode frame.
+  // `duration` can go as high as 300, but the UBSan error is gone if
+  // `duration` is 301 or higher.
+  ASSERT_EQ(
+      vpx_codec_encode(&enc, image, 0, /*duration=*/300, 0, VPX_DL_REALTIME),
+      VPX_CODEC_OK);
+
+  // Free resources.
+  vpx_img_free(image);
+  ASSERT_EQ(vpx_codec_destroy(&enc), VPX_CODEC_OK);
+}
+#endif  // CONFIG_VP8_ENCODER
 
 // Set up 2 spatial streams with 2 temporal layers per stream, and generate
 // invalid configuration by setting the temporal layer rate allocation
@@ -365,32 +736,6 @@ TEST(EncodeAPI, SetRoi) {
   }
 }
 
-void InitCodec(vpx_codec_iface_t &iface, int width, int height,
-               vpx_codec_ctx_t *enc, vpx_codec_enc_cfg_t *cfg) {
-  cfg->g_w = width;
-  cfg->g_h = height;
-  cfg->g_lag_in_frames = 0;
-  cfg->g_pass = VPX_RC_ONE_PASS;
-  ASSERT_EQ(vpx_codec_enc_init(enc, &iface, cfg, 0), VPX_CODEC_OK);
-
-  ASSERT_EQ(vpx_codec_control_(enc, VP8E_SET_CPUUSED, 2), VPX_CODEC_OK);
-}
-
-// Encodes 1 frame of size |cfg.g_w| x |cfg.g_h| setting |enc|'s configuration
-// to |cfg|.
-void EncodeWithConfig(const vpx_codec_enc_cfg_t &cfg, vpx_codec_ctx_t *enc) {
-  libvpx_test::DummyVideoSource video;
-  video.SetSize(cfg.g_w, cfg.g_h);
-  video.Begin();
-  EXPECT_EQ(vpx_codec_enc_config_set(enc, &cfg), VPX_CODEC_OK)
-      << vpx_codec_error_detail(enc);
-
-  EXPECT_EQ(vpx_codec_encode(enc, video.img(), video.pts(), video.duration(),
-                             /*flags=*/0, VPX_DL_GOOD_QUALITY),
-            VPX_CODEC_OK)
-      << vpx_codec_error_detail(enc);
-}
-
 TEST(EncodeAPI, ConfigChangeThreadCount) {
   constexpr int kWidth = 1920;
   constexpr int kHeight = 1080;
@@ -467,6 +812,48 @@ TEST(EncodeAPI, ConfigResizeChangeThreadCount) {
   }
 }
 
+TEST(EncodeAPI, ConfigResizeBiggerAfterInit) {
+  for (const auto *iface : kCodecIfaces) {
+    SCOPED_TRACE(vpx_codec_iface_name(iface));
+    vpx_codec_enc_cfg_t cfg;
+    vpx_codec_ctx_t enc;
+
+    ASSERT_EQ(vpx_codec_enc_config_default(iface, &cfg, 0), VPX_CODEC_OK);
+    EXPECT_NO_FATAL_FAILURE(InitCodec(*iface, 1, 1, &enc, &cfg));
+
+    cfg.g_w = 1920;
+    cfg.g_h = 1;
+    EXPECT_EQ(vpx_codec_enc_config_set(&enc, &cfg),
+              IsVP9(iface) ? VPX_CODEC_OK : VPX_CODEC_INVALID_PARAM);
+
+    EXPECT_EQ(vpx_codec_destroy(&enc), VPX_CODEC_OK);
+  }
+}
+
+TEST(EncodeAPI, ConfigResizeBiggerAfterEncode) {
+  for (const auto *iface : kCodecIfaces) {
+    SCOPED_TRACE(vpx_codec_iface_name(iface));
+    vpx_codec_enc_cfg_t cfg;
+    vpx_codec_ctx_t enc;
+
+    ASSERT_EQ(vpx_codec_enc_config_default(iface, &cfg, 0), VPX_CODEC_OK);
+    EXPECT_NO_FATAL_FAILURE(InitCodec(*iface, 1, 1, &enc, &cfg));
+    EXPECT_NO_FATAL_FAILURE(EncodeWithConfig(cfg, &enc));
+
+    cfg.g_w = 1920;
+    cfg.g_h = 1;
+    EXPECT_EQ(vpx_codec_enc_config_set(&enc, &cfg),
+              IsVP9(iface) ? VPX_CODEC_OK : VPX_CODEC_INVALID_PARAM);
+
+    cfg.g_w = 1920;
+    cfg.g_h = 1080;
+    EXPECT_EQ(vpx_codec_enc_config_set(&enc, &cfg),
+              IsVP9(iface) ? VPX_CODEC_OK : VPX_CODEC_INVALID_PARAM);
+
+    EXPECT_EQ(vpx_codec_destroy(&enc), VPX_CODEC_OK);
+  }
+}
+
 #if CONFIG_VP9_ENCODER
 // Frame size needed to trigger the overflow exceeds the max buffer allowed on
 // 32-bit systems defined by VPX_MAX_ALLOCABLE_MEMORY
@@ -496,28 +883,18 @@ TEST(EncodeAPI, ConfigLargeTargetBitrateVp9) {
 }
 #endif  // VPX_ARCH_X86_64 || VPX_ARCH_AARCH64
 
-vpx_image_t *CreateImage(const unsigned int width, const unsigned int height) {
-  vpx_image_t *image =
-      vpx_img_alloc(nullptr, VPX_IMG_FMT_I420, width, height, 1);
-  if (!image) return image;
-
-  for (unsigned int i = 0; i < image->d_h; ++i) {
-    memset(image->planes[0] + i * image->stride[0], 128, image->d_w);
-  }
-  const unsigned int uv_h = (image->d_h + 1) / 2;
-  const unsigned int uv_w = (image->d_w + 1) / 2;
-  for (unsigned int i = 0; i < uv_h; ++i) {
-    memset(image->planes[1] + i * image->stride[1], 128, uv_w);
-    memset(image->planes[2] + i * image->stride[2], 128, uv_w);
-  }
-
-  return image;
-}
-
 // Emulates the WebCodecs VideoEncoder interface.
 class VP9Encoder {
  public:
-  VP9Encoder(int speed) : speed_(speed) {}
+  explicit VP9Encoder(int speed)
+      : speed_(speed), row_mt_(0), bit_depth_(VPX_BITS_8),
+        fmt_(VPX_IMG_FMT_I420) {}
+  // The image format `fmt` must not have the VPX_IMG_FMT_HIGHBITDEPTH bit set.
+  // If bit_depth > 8, we will set the VPX_IMG_FMT_HIGHBITDEPTH bit before
+  // passing the image format to vpx_img_alloc().
+  VP9Encoder(int speed, unsigned int row_mt, vpx_bit_depth_t bit_depth,
+             vpx_img_fmt_t fmt)
+      : speed_(speed), row_mt_(row_mt), bit_depth_(bit_depth), fmt_(fmt) {}
   ~VP9Encoder();
 
   void Configure(unsigned int threads, unsigned int width, unsigned int height,
@@ -526,6 +903,9 @@ class VP9Encoder {
 
  private:
   const int speed_;
+  const unsigned int row_mt_;
+  const vpx_bit_depth_t bit_depth_;
+  const vpx_img_fmt_t fmt_;
   bool initialized_ = false;
   vpx_codec_enc_cfg_t cfg_;
   vpx_codec_ctx_t enc_;
@@ -545,12 +925,22 @@ void VP9Encoder::Configure(unsigned int threads, unsigned int width,
   deadline_ = deadline;
 
   if (!initialized_) {
+    ASSERT_EQ(fmt_ & VPX_IMG_FMT_HIGHBITDEPTH, 0);
+    const bool high_bit_depth = bit_depth_ > VPX_BITS_8;
+    const bool is_420 = fmt_ == VPX_IMG_FMT_I420;
     vpx_codec_iface_t *const iface = vpx_codec_vp9_cx();
     ASSERT_EQ(vpx_codec_enc_config_default(iface, &cfg_, /*usage=*/0),
               VPX_CODEC_OK);
     cfg_.g_threads = threads;
+    // In profiles 0 and 2, only 4:2:0 format is allowed. In profiles 1 and 3,
+    // all other subsampling formats are allowed. In profiles 0 and 1, only bit
+    // depth 8 is allowed. In profiles 2 and 3, only bit depths 10 and 12 are
+    // allowed.
+    cfg_.g_profile = 2 * high_bit_depth + !is_420;
     cfg_.g_w = width;
     cfg_.g_h = height;
+    cfg_.g_bit_depth = bit_depth_;
+    cfg_.g_input_bit_depth = bit_depth_;
     cfg_.g_timebase.num = 1;
     cfg_.g_timebase.den = 1000 * 1000;  // microseconds
     cfg_.g_pass = VPX_RC_ONE_PASS;
@@ -558,8 +948,12 @@ void VP9Encoder::Configure(unsigned int threads, unsigned int width,
     cfg_.rc_end_usage = end_usage;
     cfg_.rc_min_quantizer = 2;
     cfg_.rc_max_quantizer = 58;
-    ASSERT_EQ(vpx_codec_enc_init(&enc_, iface, &cfg_, 0), VPX_CODEC_OK);
+    ASSERT_EQ(
+        vpx_codec_enc_init(&enc_, iface, &cfg_,
+                           high_bit_depth ? VPX_CODEC_USE_HIGHBITDEPTH : 0),
+        VPX_CODEC_OK);
     ASSERT_EQ(vpx_codec_control(&enc_, VP8E_SET_CPUUSED, speed_), VPX_CODEC_OK);
+    ASSERT_EQ(vpx_codec_control(&enc_, VP9E_SET_ROW_MT, row_mt_), VPX_CODEC_OK);
     initialized_ = true;
     return;
   }
@@ -573,14 +967,15 @@ void VP9Encoder::Configure(unsigned int threads, unsigned int width,
 }
 
 void VP9Encoder::Encode(bool key_frame) {
+  assert(initialized_);
   const vpx_codec_cx_pkt_t *pkt;
-  vpx_image_t *image = CreateImage(cfg_.g_w, cfg_.g_h);
+  vpx_image_t *image = CreateImage(bit_depth_, fmt_, cfg_.g_w, cfg_.g_h);
   ASSERT_NE(image, nullptr);
   const vpx_enc_frame_flags_t frame_flags = key_frame ? VPX_EFLAG_FORCE_KF : 0;
   ASSERT_EQ(
       vpx_codec_encode(&enc_, image, frame_index_, 1, frame_flags, deadline_),
       VPX_CODEC_OK);
-  frame_index_++;
+  ++frame_index_;
   vpx_codec_iter_t iter = nullptr;
   while ((pkt = vpx_codec_get_cx_data(&enc_, &iter)) != nullptr) {
     ASSERT_EQ(pkt->kind, VPX_CODEC_CX_FRAME_PKT);
@@ -912,6 +1307,354 @@ TEST(EncodeAPI, Buganizer311294795) {
   encoder.Encode(false);
   encoder.Encode(false);
 }
+
+TEST(EncodeAPI, Buganizer317105128) {
+  VP9Encoder encoder(-9);
+  encoder.Configure(0, 1, 1, VPX_CBR, VPX_DL_GOOD_QUALITY);
+  encoder.Configure(16, 1920, 1, VPX_CBR, VPX_DL_REALTIME);
+}
+
+TEST(EncodeAPI, Buganizer319964497) {
+  VP9Encoder encoder(7);
+  encoder.Configure(/*threads=*/1, /*width=*/320, /*height=*/240, VPX_VBR,
+                    VPX_DL_REALTIME);
+  encoder.Encode(/*key_frame=*/true);
+  encoder.Encode(/*key_frame=*/true);
+  encoder.Encode(/*key_frame=*/false);
+  encoder.Configure(/*threads=*/1, /*width=*/1, /*height=*/1, VPX_VBR,
+                    VPX_DL_REALTIME);
+  encoder.Encode(/*key_frame=*/false);
+  encoder.Configure(/*threads=*/1, /*width=*/2, /*height=*/2, VPX_CBR,
+                    VPX_DL_REALTIME);
+  encoder.Encode(/*key_frame=*/false);
+}
+
+TEST(EncodeAPI, Buganizer329088759RowMT0) {
+  VP9Encoder encoder(8, 0, VPX_BITS_8, VPX_IMG_FMT_I444);
+  encoder.Configure(/*threads=*/8, /*width=*/1686, /*height=*/398, VPX_VBR,
+                    VPX_DL_REALTIME);
+  encoder.Encode(/*key_frame=*/true);
+  encoder.Encode(/*key_frame=*/false);
+  encoder.Configure(/*threads=*/0, /*width=*/1686, /*height=*/1, VPX_VBR,
+                    VPX_DL_REALTIME);
+  encoder.Encode(/*key_frame=*/true);
+  encoder.Configure(/*threads=*/0, /*width=*/1482, /*height=*/113, VPX_CBR,
+                    VPX_DL_REALTIME);
+  encoder.Encode(/*key_frame=*/true);
+  encoder.Configure(/*threads=*/0, /*width=*/881, /*height=*/59, VPX_CBR,
+                    VPX_DL_REALTIME);
+  encoder.Configure(/*threads=*/13, /*width=*/1271, /*height=*/385, VPX_CBR,
+                    VPX_DL_REALTIME);
+  encoder.Encode(/*key_frame=*/false);
+  encoder.Configure(/*threads=*/2, /*width=*/1, /*height=*/62, VPX_VBR,
+                    VPX_DL_REALTIME);
+}
+
+TEST(EncodeAPI, Buganizer329088759RowMT1) {
+  VP9Encoder encoder(8, 1, VPX_BITS_8, VPX_IMG_FMT_I444);
+  encoder.Configure(/*threads=*/8, /*width=*/1686, /*height=*/398, VPX_VBR,
+                    VPX_DL_REALTIME);
+  encoder.Encode(/*key_frame=*/true);
+  encoder.Encode(/*key_frame=*/false);
+  // Needs to set threads to non-zero to repro the issue.
+  encoder.Configure(/*threads=*/2, /*width=*/1686, /*height=*/1, VPX_VBR,
+                    VPX_DL_REALTIME);
+  encoder.Encode(/*key_frame=*/true);
+  encoder.Configure(/*threads=*/2, /*width=*/1482, /*height=*/113, VPX_CBR,
+                    VPX_DL_REALTIME);
+  encoder.Encode(/*key_frame=*/true);
+  encoder.Configure(/*threads=*/2, /*width=*/881, /*height=*/59, VPX_CBR,
+                    VPX_DL_REALTIME);
+  encoder.Configure(/*threads=*/13, /*width=*/1271, /*height=*/385, VPX_CBR,
+                    VPX_DL_REALTIME);
+  encoder.Encode(/*key_frame=*/false);
+  encoder.Configure(/*threads=*/2, /*width=*/1, /*height=*/62, VPX_VBR,
+                    VPX_DL_REALTIME);
+}
+
+TEST(EncodeAPI, Buganizer331086799) {
+  VP9Encoder encoder(6, 1, VPX_BITS_8, VPX_IMG_FMT_I420);
+  encoder.Configure(0, 1385, 1, VPX_CBR, VPX_DL_REALTIME);
+  encoder.Configure(0, 1, 1, VPX_VBR, VPX_DL_REALTIME);
+  encoder.Encode(false);
+  encoder.Configure(16, 1385, 1, VPX_VBR, VPX_DL_GOOD_QUALITY);
+  encoder.Encode(false);
+  encoder.Encode(false);
+  encoder.Configure(0, 1, 1, VPX_CBR, VPX_DL_REALTIME);
+  encoder.Encode(true);
+}
+
+TEST(EncodeAPI, Buganizer331108729) {
+  VP9Encoder encoder(1, 1, VPX_BITS_8, VPX_IMG_FMT_I422);
+  encoder.Configure(0, 1919, 260, VPX_VBR, VPX_DL_REALTIME);
+  encoder.Configure(9, 440, 1, VPX_CBR, VPX_DL_GOOD_QUALITY);
+  encoder.Encode(true);
+  encoder.Configure(8, 1919, 260, VPX_VBR, VPX_DL_REALTIME);
+  encoder.Encode(false);
+}
+
+TEST(EncodeAPI, Buganizer331108922BitDepth8) {
+  VP9Encoder encoder(9, 1, VPX_BITS_8, VPX_IMG_FMT_I420);
+  encoder.Configure(/*threads=*/1, /*width=*/1, /*height=*/1080, VPX_VBR,
+                    VPX_DL_REALTIME);
+  encoder.Encode(/*key_frame=*/false);
+  encoder.Configure(/*threads=*/0, /*width=*/1, /*height=*/1080, VPX_CBR,
+                    VPX_DL_GOOD_QUALITY);
+  encoder.Configure(/*threads=*/16, /*width=*/1, /*height=*/394, VPX_CBR,
+                    VPX_DL_REALTIME);
+  encoder.Encode(/*key_frame=*/false);
+  encoder.Encode(/*key_frame=*/true);
+  encoder.Configure(/*threads=*/16, /*width=*/1, /*height=*/798, VPX_CBR,
+                    VPX_DL_REALTIME);
+  encoder.Encode(/*key_frame=*/false);
+}
+
+#if CONFIG_VP9_HIGHBITDEPTH
+TEST(EncodeAPI, Buganizer329674887RowMT0BitDepth12) {
+  VP9Encoder encoder(8, 0, VPX_BITS_12, VPX_IMG_FMT_I444);
+  encoder.Configure(/*threads=*/2, /*width=*/1030, /*height=*/583, VPX_VBR,
+                    VPX_DL_REALTIME);
+  encoder.Encode(/*key_frame=*/true);
+  encoder.Configure(/*threads=*/0, /*width=*/1030, /*height=*/1, VPX_CBR,
+                    VPX_DL_REALTIME);
+  encoder.Encode(/*key_frame=*/true);
+  encoder.Configure(/*threads=*/0, /*width=*/548, /*height=*/322, VPX_VBR,
+                    VPX_DL_REALTIME);
+  encoder.Encode(/*key_frame=*/false);
+  encoder.Configure(/*threads=*/16, /*width=*/24, /*height=*/583, VPX_CBR,
+                    VPX_DL_GOOD_QUALITY);
+}
+
+TEST(EncodeAPI, Buganizer329179808RowMT0BitDepth10) {
+  VP9Encoder encoder(4, 0, VPX_BITS_10, VPX_IMG_FMT_I444);
+  encoder.Configure(/*threads=*/16, /*width=*/1488, /*height=*/5, VPX_VBR,
+                    VPX_DL_REALTIME);
+  encoder.Encode(/*key_frame=*/true);
+  encoder.Configure(/*threads=*/16, /*width=*/839, /*height=*/1, VPX_CBR,
+                    VPX_DL_REALTIME);
+  encoder.Encode(/*key_frame=*/false);
+  encoder.Configure(/*threads=*/11, /*width=*/657, /*height=*/5, VPX_CBR,
+                    VPX_DL_REALTIME);
+  encoder.Encode(/*key_frame=*/false);
+}
+
+TEST(EncodeAPI, Buganizer329179808RowMT1BitDepth10) {
+  VP9Encoder encoder(4, 1, VPX_BITS_10, VPX_IMG_FMT_I444);
+  encoder.Configure(/*threads=*/16, /*width=*/1488, /*height=*/5, VPX_VBR,
+                    VPX_DL_REALTIME);
+  encoder.Encode(/*key_frame=*/true);
+  encoder.Configure(/*threads=*/16, /*width=*/839, /*height=*/1, VPX_CBR,
+                    VPX_DL_REALTIME);
+  encoder.Encode(/*key_frame=*/false);
+  encoder.Configure(/*threads=*/11, /*width=*/657, /*height=*/5, VPX_CBR,
+                    VPX_DL_REALTIME);
+  encoder.Encode(/*key_frame=*/false);
+}
+
+TEST(EncodeAPI, Buganizer331108922BitDepth12) {
+  VP9Encoder encoder(9, 1, VPX_BITS_12, VPX_IMG_FMT_I444);
+  encoder.Configure(/*threads=*/1, /*width=*/1, /*height=*/1080, VPX_VBR,
+                    VPX_DL_REALTIME);
+  encoder.Encode(/*key_frame=*/false);
+  encoder.Configure(/*threads=*/0, /*width=*/1, /*height=*/1080, VPX_CBR,
+                    VPX_DL_GOOD_QUALITY);
+  encoder.Configure(/*threads=*/16, /*width=*/1, /*height=*/394, VPX_CBR,
+                    VPX_DL_REALTIME);
+  encoder.Encode(/*key_frame=*/false);
+  encoder.Encode(/*key_frame=*/true);
+  encoder.Configure(/*threads=*/16, /*width=*/1, /*height=*/798, VPX_CBR,
+                    VPX_DL_REALTIME);
+  encoder.Encode(/*key_frame=*/false);
+}
+#endif
+
+TEST(EncodeAPI, VP9GlobalHeaders) {
+  constexpr int kWidth = 320;
+  constexpr int kHeight = 240;
+
+  libvpx_test::DummyVideoSource video;
+  video.SetSize(kWidth, kHeight);
+
+#if CONFIG_VP9_HIGHBITDEPTH
+  const int profiles[] = { 0, 1, 2, 3 };
+#else
+  const int profiles[] = { 0, 1 };
+#endif
+  char str[80];
+  for (const int profile : profiles) {
+    std::vector<vpx_bit_depth_t> bitdepths;
+    std::vector<vpx_img_fmt_t> formats;
+    switch (profile) {
+      case 0:
+        bitdepths = { VPX_BITS_8 };
+        formats = { VPX_IMG_FMT_I420 };
+        break;
+      case 1:
+        bitdepths = { VPX_BITS_8 };
+        formats = { VPX_IMG_FMT_I422, VPX_IMG_FMT_I444 };
+        break;
+#if CONFIG_VP9_HIGHBITDEPTH
+      case 2:
+        bitdepths = { VPX_BITS_10, VPX_BITS_12 };
+        formats = { VPX_IMG_FMT_I42016 };
+        break;
+      case 3:
+        bitdepths = { VPX_BITS_10, VPX_BITS_12 };
+        formats = { VPX_IMG_FMT_I42216, VPX_IMG_FMT_I44416 };
+        break;
+#endif
+    }
+
+    for (const auto format : formats) {
+      for (const auto bitdepth : bitdepths) {
+        snprintf(str, sizeof(str), "profile: %d bitdepth: %d format: %d",
+                 profile, bitdepth, format);
+        SCOPED_TRACE(str);
+
+        vpx_codec_enc_cfg_t cfg = {};
+        struct Encoder {
+          ~Encoder() { EXPECT_EQ(vpx_codec_destroy(&ctx), VPX_CODEC_OK); }
+          vpx_codec_ctx_t ctx = {};
+        } enc;
+        vpx_codec_ctx_t *const ctx = &enc.ctx;
+
+        ASSERT_EQ(vpx_codec_enc_config_default(vpx_codec_vp9_cx(), &cfg, 0),
+                  VPX_CODEC_OK);
+        cfg.g_w = kWidth;
+        cfg.g_h = kHeight;
+        cfg.g_lag_in_frames = 0;
+        cfg.g_pass = VPX_RC_ONE_PASS;
+        cfg.g_profile = profile;
+        cfg.g_bit_depth = bitdepth;
+        ASSERT_EQ(
+            vpx_codec_enc_init(ctx, vpx_codec_vp9_cx(), &cfg,
+                               bitdepth == 8 ? 0 : VPX_CODEC_USE_HIGHBITDEPTH),
+            VPX_CODEC_OK);
+        ASSERT_EQ(vpx_codec_control_(ctx, VP8E_SET_CPUUSED, 2), VPX_CODEC_OK);
+        ASSERT_EQ(vpx_codec_control_(ctx, VP9E_SET_TARGET_LEVEL, 62),
+                  VPX_CODEC_OK);
+
+        vpx_fixed_buf_t *global_headers = vpx_codec_get_global_headers(ctx);
+        EXPECT_NE(global_headers, nullptr);
+        EXPECT_EQ(global_headers->sz, size_t{ 9 });
+
+        video.SetImageFormat(format);
+        video.Begin();
+        EXPECT_EQ(
+            vpx_codec_encode(ctx, video.img(), video.pts(), video.duration(),
+                             /*flags=*/0, VPX_DL_GOOD_QUALITY),
+            VPX_CODEC_OK)
+            << vpx_codec_error_detail(ctx);
+
+        global_headers = vpx_codec_get_global_headers(ctx);
+        EXPECT_NE(global_headers, nullptr);
+        EXPECT_EQ(global_headers->sz, size_t{ 12 });
+        uint8_t chroma_subsampling;
+        if ((format & VPX_IMG_FMT_I420) == VPX_IMG_FMT_I420) {
+          chroma_subsampling = 1;
+        } else if ((format & VPX_IMG_FMT_I422) == VPX_IMG_FMT_I422) {
+          chroma_subsampling = 2;
+        } else {  // VPX_IMG_FMT_I444
+          chroma_subsampling = 3;
+        }
+        const uint8_t expected_headers[] = { 1,
+                                             1,
+                                             static_cast<uint8_t>(profile),
+                                             2,
+                                             1,
+                                             /*level,*/ 3,
+                                             1,
+                                             static_cast<uint8_t>(bitdepth),
+                                             4,
+                                             1,
+                                             chroma_subsampling };
+        const uint8_t *actual_headers =
+            reinterpret_cast<const uint8_t *>(global_headers->buf);
+        for (int i = 0; i < 5; ++i) {
+          EXPECT_EQ(expected_headers[i], actual_headers[i]) << "index: " << i;
+        }
+        EXPECT_NE(actual_headers[6], 0);  // level
+        for (int i = 5; i < 11; ++i) {
+          EXPECT_EQ(expected_headers[i], actual_headers[i + 1])
+              << "index: " << i + 1;
+        }
+      }
+    }
+  }
+}
+
+TEST(EncodeAPI, AomediaIssue3509VbrMinSection2PercentVP9) {
+  // Initialize libvpx encoder.
+  vpx_codec_iface_t *const iface = vpx_codec_vp9_cx();
+  vpx_codec_ctx_t enc;
+  vpx_codec_enc_cfg_t cfg;
+
+  ASSERT_EQ(vpx_codec_enc_config_default(iface, &cfg, 0), VPX_CODEC_OK);
+
+  cfg.g_w = 1920;
+  cfg.g_h = 1080;
+  cfg.g_lag_in_frames = 0;
+  cfg.rc_target_bitrate = 1000000;
+  // Set this to more than 1 percent to cause a signed integer overflow in the
+  // multiplication rc->avg_frame_bandwidth * oxcf->rc_cfg.vbrmin_section in
+  // vp9_rc_update_framerate() if the multiplication is done in the `int` type.
+  cfg.rc_2pass_vbr_minsection_pct = 2;
+
+  ASSERT_EQ(vpx_codec_enc_init(&enc, iface, &cfg, 0), VPX_CODEC_OK);
+
+  // Create input image.
+  vpx_image_t *const image =
+      CreateImage(VPX_BITS_8, VPX_IMG_FMT_I420, cfg.g_w, cfg.g_h);
+  ASSERT_NE(image, nullptr);
+
+  // Encode frame.
+  // `duration` can go as high as 300, but the UBSan error is gone if
+  // `duration` is 301 or higher.
+  ASSERT_EQ(
+      vpx_codec_encode(&enc, image, 0, /*duration=*/300, 0, VPX_DL_REALTIME),
+      VPX_CODEC_OK);
+
+  // Free resources.
+  vpx_img_free(image);
+  ASSERT_EQ(vpx_codec_destroy(&enc), VPX_CODEC_OK);
+}
+
+TEST(EncodeAPI, AomediaIssue3509VbrMinSection101PercentVP9) {
+  // Initialize libvpx encoder.
+  vpx_codec_iface_t *const iface = vpx_codec_vp9_cx();
+  vpx_codec_ctx_t enc;
+  vpx_codec_enc_cfg_t cfg;
+
+  ASSERT_EQ(vpx_codec_enc_config_default(iface, &cfg, 0), VPX_CODEC_OK);
+
+  cfg.g_w = 1920;
+  cfg.g_h = 1080;
+  cfg.g_lag_in_frames = 0;
+  cfg.rc_target_bitrate = 1000000;
+  // Set this to more than 100 percent to cause an error when vbr_min_bits is
+  // cast to `int` in vp9_rc_update_framerate() if vbr_min_bits is not clamped
+  // to INT_MAX.
+  cfg.rc_2pass_vbr_minsection_pct = 101;
+
+  ASSERT_EQ(vpx_codec_enc_init(&enc, iface, &cfg, 0), VPX_CODEC_OK);
+
+  // Create input image.
+  vpx_image_t *const image =
+      CreateImage(VPX_BITS_8, VPX_IMG_FMT_I420, cfg.g_w, cfg.g_h);
+  ASSERT_NE(image, nullptr);
+
+  // Encode frame.
+  // `duration` can go as high as 300, but the UBSan error is gone if
+  // `duration` is 301 or higher.
+  ASSERT_EQ(
+      vpx_codec_encode(&enc, image, 0, /*duration=*/300, 0, VPX_DL_REALTIME),
+      VPX_CODEC_OK);
+
+  // Free resources.
+  vpx_img_free(image);
+  ASSERT_EQ(vpx_codec_destroy(&enc), VPX_CODEC_OK);
+}
+
 #endif  // CONFIG_VP9_ENCODER
 
 }  // namespace
