@@ -108,7 +108,7 @@ index b3af677d2..7b65bb4a7 100644
  %macro FIRST_2_ROWS 0
          movdqa      xmm4,       xmm0
 diff --git a/vpx_dsp/x86/ssim_opt_x86_64.asm b/vpx_dsp/x86/ssim_opt_x86_64.asm
-index 41ffbb07e..efb7759f5 100644
+index 1ad3b88c8..d019e549d 100644
 --- a/vpx_dsp/x86/ssim_opt_x86_64.asm
 +++ b/vpx_dsp/x86/ssim_opt_x86_64.asm
 @@ -10,6 +10,7 @@

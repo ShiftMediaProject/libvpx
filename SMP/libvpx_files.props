@@ -184,7 +184,6 @@
     <ClInclude Include="..\vpx_ports\mem.h" />
     <ClInclude Include="..\vpx_ports\mem_ops.h" />
     <ClInclude Include="..\vpx_ports\mem_ops_aligned.h" />
-    <ClInclude Include="..\vpx_ports\msvc.h" />
     <ClInclude Include="..\vpx_ports\static_assert.h" />
     <ClInclude Include="..\vpx_ports\system_state.h" />
     <ClInclude Include="..\vpx_ports\vpx_once.h" />
@@ -367,7 +366,6 @@
     <ClCompile Include="..\vpx\src\vpx_decoder.c" />
     <ClCompile Include="..\vpx\src\vpx_encoder.c" />
     <ClCompile Include="..\vpx\src\vpx_image.c" />
-    <ClCompile Include="..\vpx\src\vpx_tpl.c" />
     <ClCompile Include="..\vpx_dsp\add_noise.c" />
     <ClCompile Include="..\vpx_dsp\avg.c" />
     <ClCompile Include="..\vpx_dsp\bitreader.c" />
