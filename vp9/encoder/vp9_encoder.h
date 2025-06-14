@@ -25,6 +25,7 @@
 #include "vpx_dsp/variance.h"
 #include "vpx_dsp/psnr.h"
 #include "vpx_ports/system_state.h"
+#include "vpx_util/vpx_pthread.h"
 #include "vpx_util/vpx_thread.h"
 #include "vpx_util/vpx_timestamp.h"
 
@@ -261,6 +262,8 @@ typedef struct VP9EncoderConfig {
   int tile_rows;
 
   int enable_tpl_model;
+
+  int enable_keyframe_filtering;
 
   int max_threads;
 
@@ -502,6 +505,7 @@ typedef struct ARNRFilterData {
   int frame_count;
   int alt_ref_index;
   struct scale_factors sf;
+  YV12_BUFFER_CONFIG *dst;
 } ARNRFilterData;
 
 typedef struct EncFrameBuf {
@@ -871,7 +875,7 @@ typedef struct VP9_COMP {
   // Force recalculation of segment_ids for each mode info
   uint8_t force_update_segmentation;
 
-  YV12_BUFFER_CONFIG alt_ref_buffer;
+  YV12_BUFFER_CONFIG tf_buffer;
 
   // class responsible for adaptive
   // quantization of altref frames
@@ -892,7 +896,7 @@ typedef struct VP9_COMP {
   double total_blockiness;
   double worst_blockiness;
 
-  int bytes;
+  uint64_t bytes;
   double summed_quality;
   double summed_weights;
   double summedp_quality;
@@ -1346,7 +1350,13 @@ static INLINE int get_token_alloc(int mb_rows, int mb_cols) {
   // mb_rows, cols are in units of 16 pixels. We assume 3 planes all at full
   // resolution. We assume up to 1 token per pixel, and then allow
   // a head room of 4.
-  return mb_rows * mb_cols * (16 * 16 * 3 + 4);
+
+  // Use aligned mb_rows and mb_cols to better align with actual token sizes.
+  const int aligned_mb_rows =
+      ALIGN_POWER_OF_TWO(mb_rows, MI_BLOCK_SIZE_LOG2 - 1);
+  const int aligned_mb_cols =
+      ALIGN_POWER_OF_TWO(mb_cols, MI_BLOCK_SIZE_LOG2 - 1);
+  return aligned_mb_rows * aligned_mb_cols * (16 * 16 * 3 + 4);
 }
 
 // Get the allocated token size for a tile. It does the same calculation as in
@@ -1396,11 +1406,6 @@ void vp9_scale_and_extend_frame_nonnormative(const YV12_BUFFER_CONFIG *src,
 void vp9_scale_and_extend_frame_nonnormative(const YV12_BUFFER_CONFIG *src,
                                              YV12_BUFFER_CONFIG *dst);
 #endif  // CONFIG_VP9_HIGHBITDEPTH
-
-YV12_BUFFER_CONFIG *vp9_svc_twostage_scale(
-    VP9_COMMON *cm, YV12_BUFFER_CONFIG *unscaled, YV12_BUFFER_CONFIG *scaled,
-    YV12_BUFFER_CONFIG *scaled_temp, INTERP_FILTER filter_type,
-    int phase_scaler, INTERP_FILTER filter_type2, int phase_scaler2);
 
 YV12_BUFFER_CONFIG *vp9_scale_if_required(
     VP9_COMMON *cm, YV12_BUFFER_CONFIG *unscaled, YV12_BUFFER_CONFIG *scaled,

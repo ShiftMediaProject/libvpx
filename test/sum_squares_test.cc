@@ -14,7 +14,7 @@
 #include <string>
 #include <tuple>
 
-#include "third_party/googletest/src/include/gtest/gtest.h"
+#include "gtest/gtest.h"
 
 #include "./vpx_config.h"
 #include "./vpx_dsp_rtcd.h"
@@ -118,6 +118,13 @@ INSTANTIATE_TEST_SUITE_P(
     ::testing::Values(make_tuple(&vpx_sum_squares_2d_i16_c,
                                  &vpx_sum_squares_2d_i16_neon)));
 #endif  // HAVE_NEON
+
+#if HAVE_SVE
+INSTANTIATE_TEST_SUITE_P(
+    SVE, SumSquaresTest,
+    ::testing::Values(make_tuple(&vpx_sum_squares_2d_i16_c,
+                                 &vpx_sum_squares_2d_i16_sve)));
+#endif  // HAVE_SVE
 
 #if HAVE_SSE2
 INSTANTIATE_TEST_SUITE_P(

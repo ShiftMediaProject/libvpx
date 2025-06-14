@@ -64,8 +64,12 @@ typedef enum vpx_color_space {
 
 /*!\brief List of supported color range */
 typedef enum vpx_color_range {
-  VPX_CR_STUDIO_RANGE = 0, /**< Y [16..235], UV [16..240] */
-  VPX_CR_FULL_RANGE = 1    /**< YUV/RGB [0..255] */
+  VPX_CR_STUDIO_RANGE = 0, /**<- Y  [16..235],  UV  [16..240]  (bit depth 8) */
+                           /**<- Y  [64..940],  UV  [64..960]  (bit depth 10) */
+                           /**<- Y [256..3760], UV [256..3840] (bit depth 12) */
+  VPX_CR_FULL_RANGE = 1    /**<- YUV/RGB [0..255]  (bit depth 8) */
+                           /**<- YUV/RGB [0..1023] (bit depth 10) */
+                           /**<- YUV/RGB [0..4095] (bit depth 12) */
 } vpx_color_range_t;       /**< alias for enum vpx_color_range */
 
 /**\brief Image Descriptor */
@@ -164,7 +168,9 @@ vpx_image_t *vpx_img_alloc(vpx_image_t *img, vpx_img_fmt_t fmt,
  *                             (2^27).
  * \param[in]    stride_align  Alignment, in bytes, of each row in the image
  *                             (stride). Must not exceed 65536.
- * \param[in]    img_data      Storage to use for the image
+ * \param[in]    img_data      Storage to use for the image. The storage must
+ *                             outlive the returned image descriptor; it can be
+ *                             disposed of after calling vpx_img_free().
  *
  * \return Returns a pointer to the initialized image descriptor. If the img
  *         parameter is non-null, the value of the img parameter will be

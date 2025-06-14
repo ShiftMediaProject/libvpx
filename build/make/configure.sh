@@ -74,6 +74,8 @@ Build options:
   --cpu=CPU                   optimize for a specific cpu rather than a family
   --extra-cflags=ECFLAGS      add ECFLAGS to CFLAGS [$CFLAGS]
   --extra-cxxflags=ECXXFLAGS  add ECXXFLAGS to CXXFLAGS [$CXXFLAGS]
+  --use-profile=PROFILE_FILE
+                              Use PROFILE_FILE for PGO
   ${toggle_extra_warnings}    emit harmless warnings (always non-fatal)
   ${toggle_werror}            treat warnings as errors, if possible
                               (not available with all compilers)
@@ -81,6 +83,7 @@ Build options:
   ${toggle_pic}               turn on/off Position Independent Code
   ${toggle_ccache}            turn on/off compiler cache
   ${toggle_debug}             enable/disable debug mode
+  ${toggle_profile}           enable/disable profiling
   ${toggle_gprof}             enable/disable gprof profiling instrumentation
   ${toggle_gcov}              enable/disable gcov coverage instrumentation
   ${toggle_thumb}             enable/disable building arm assembly in thumb mode
@@ -457,8 +460,10 @@ EOF
 
     if [ ${compile_result} -ne 0 ]; then
       log_echo "  disabling sve: arm_neon_sve_bridge.h not supported by compiler"
+      log_echo "  disabling sve2: arm_neon_sve_bridge.h not supported by compiler"
       disable_feature sve
-      RTCD_OPTIONS="${RTCD_OPTIONS}--disable-sve "
+      disable_feature sve2
+      RTCD_OPTIONS="${RTCD_OPTIONS}--disable-sve --disable-sve2 "
     fi
   fi
 }
@@ -543,7 +548,6 @@ AR=${AR}
 LD=${LD}
 AS=${AS}
 STRIP=${STRIP}
-NM=${NM}
 
 CFLAGS  = ${CFLAGS}
 CXXFLAGS  = ${CXXFLAGS}
@@ -645,6 +649,9 @@ process_common_cmdline() {
       --extra-cxxflags=*)
         extra_cxxflags="${optval}"
         ;;
+      --use-profile=*)
+        pgo_file=${optval}
+        ;;
       --enable-?*|--disable-?*)
         eval `echo "$opt" | sed 's/--/action=/;s/-/ option=/;s/-/_/g'`
         if is_in ${option} ${ARCH_EXT_LIST}; then
@@ -741,7 +748,6 @@ setup_gnu_toolchain() {
   LD=${LD:-${CROSS}${link_with_cc:-ld}}
   AS=${AS:-${CROSS}as}
   STRIP=${STRIP:-${CROSS}strip}
-  NM=${NM:-${CROSS}nm}
   AS_SFX=.S
   EXE_SFX=
 }
@@ -1013,7 +1019,15 @@ EOF
   # Process architecture variants
   case ${toolchain} in
     arm*)
-      soft_enable runtime_cpu_detect
+      case ${toolchain} in
+        armv7*-darwin*)
+          # Runtime cpu detection is not defined for these targets.
+          enabled runtime_cpu_detect && disable_feature runtime_cpu_detect
+          ;;
+        *)
+          soft_enable runtime_cpu_detect
+          ;;
+      esac
 
       if [ ${tgt_isa} = "armv7" ] || [ ${tgt_isa} = "armv7s" ]; then
         soft_enable neon
@@ -1121,7 +1135,6 @@ EOF
           AS=armasm
           LD="${source_path}/build/make/armlink_adapter.sh"
           STRIP=arm-none-linux-gnueabi-strip
-          NM=arm-none-linux-gnueabi-nm
           tune_cflags="--cpu="
           tune_asflags="--cpu="
           if [ -z "${tune_cpu}" ]; then
@@ -1158,6 +1171,14 @@ EOF
           echo "See build/make/Android.mk for details."
           check_add_ldflags -static
           soft_enable unit_tests
+          case "$AS" in
+            *clang)
+              # The GNU Assembler was removed in the r24 version of the NDK.
+              # clang's internal assembler works, but `-c` is necessary to
+              # avoid linking.
+              add_asflags -c
+              ;;
+          esac
           ;;
 
         darwin)
@@ -1168,8 +1189,6 @@ EOF
             AR="$(${XCRUN_FIND} ar)"
             AS="$(${XCRUN_FIND} as)"
             STRIP="$(${XCRUN_FIND} strip)"
-            NM="$(${XCRUN_FIND} nm)"
-            RANLIB="$(${XCRUN_FIND} ranlib)"
             AS_SFX=.S
             LD="${CXX:-$(${XCRUN_FIND} ld)}"
 
@@ -1251,6 +1270,7 @@ EOF
         aarch64_arch_flag_neon_dotprod="arch=armv8.2-a+dotprod"
         aarch64_arch_flag_neon_i8mm="arch=armv8.2-a+dotprod+i8mm"
         aarch64_arch_flag_sve="arch=armv8.2-a+dotprod+i8mm+sve"
+        aarch64_arch_flag_sve2="arch=armv9-a+sve2"
         for ext in ${ARCH_EXT_LIST_AARCH64}; do
           if [ "$disable_exts" = "yes" ]; then
             RTCD_OPTIONS="${RTCD_OPTIONS}--disable-${ext} "
@@ -1270,7 +1290,9 @@ EOF
             fi
           fi
         done
-        check_neon_sve_bridge_compiles
+        if enabled sve; then
+          check_neon_sve_bridge_compiles
+        fi
       fi
 
       ;;
@@ -1529,6 +1551,14 @@ EOF
       ;;
   esac
 
+  # Enable PGO
+  if [ -n "${pgo_file}" ]; then
+   check_add_cflags -fprofile-use=${pgo_file} || \
+     die "-fprofile-use is not supported by compiler"
+   check_add_ldflags -fprofile-use=${pgo_file} || \
+     die "-fprofile-use is not supported by linker"
+  fi
+
   # Try to enable CPU specific tuning
   if [ -n "${tune_cpu}" ]; then
     if [ -n "${tune_cflags}" ]; then
@@ -1549,6 +1579,9 @@ EOF
   else
     check_add_cflags -DNDEBUG
   fi
+  enabled profile &&
+    check_add_cflags -fprofile-generate &&
+    check_add_ldflags -fprofile-generate
 
   enabled gprof && check_add_cflags -pg && check_add_ldflags -pg
   enabled gcov &&

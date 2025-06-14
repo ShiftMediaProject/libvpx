@@ -68,7 +68,7 @@ static vpx_image_t *img_alloc_helper(vpx_image_t *img, vpx_img_fmt_t fmt,
 
   /* Get chroma shift values for this format */
   // For VPX_IMG_FMT_NV12, xcs needs to be 0 such that UV data is all read at
-  // one time.
+  // once.
   switch (fmt) {
     case VPX_IMG_FMT_I420:
     case VPX_IMG_FMT_YV12:
@@ -147,8 +147,12 @@ static vpx_image_t *img_alloc_helper(vpx_image_t *img, vpx_img_fmt_t fmt,
   img->stride[VPX_PLANE_Y] = img->stride[VPX_PLANE_ALPHA] = stride_in_bytes;
   img->stride[VPX_PLANE_U] = img->stride[VPX_PLANE_V] = stride_in_bytes >> xcs;
 
-  /* Default viewport to entire image */
-  if (!vpx_img_set_rect(img, 0, 0, d_w, d_h)) return img;
+  /* Default viewport to entire image. (This vpx_img_set_rect call always
+   * succeeds.) */
+  int ret = vpx_img_set_rect(img, 0, 0, d_w, d_h);
+  assert(ret == 0);
+  (void)ret;
+  return img;
 
 fail:
   vpx_img_free(img);
@@ -164,8 +168,8 @@ vpx_image_t *vpx_img_alloc(vpx_image_t *img, vpx_img_fmt_t fmt,
 vpx_image_t *vpx_img_wrap(vpx_image_t *img, vpx_img_fmt_t fmt, unsigned int d_w,
                           unsigned int d_h, unsigned int stride_align,
                           unsigned char *img_data) {
-  /* By setting buf_align = 1, we don't change buffer alignment in this
-   * function. */
+  /* Set buf_align = 1. It is ignored by img_alloc_helper because img_data is
+   * not NULL. */
   return img_alloc_helper(img, fmt, d_w, d_h, 1, stride_align, img_data);
 }
 
@@ -195,29 +199,26 @@ int vpx_img_set_rect(vpx_image_t *img, unsigned int x, unsigned int y,
           data + x * bytes_per_sample + y * img->stride[VPX_PLANE_Y];
       data += (size_t)img->h * img->stride[VPX_PLANE_Y];
 
+      unsigned int uv_x = x >> img->x_chroma_shift;
+      unsigned int uv_y = y >> img->y_chroma_shift;
       if (img->fmt == VPX_IMG_FMT_NV12) {
         img->planes[VPX_PLANE_U] =
-            data + (x >> img->x_chroma_shift) +
-            (y >> img->y_chroma_shift) * img->stride[VPX_PLANE_U];
+            data + uv_x + uv_y * img->stride[VPX_PLANE_U];
         img->planes[VPX_PLANE_V] = img->planes[VPX_PLANE_U] + 1;
       } else if (!(img->fmt & VPX_IMG_FMT_UV_FLIP)) {
         img->planes[VPX_PLANE_U] =
-            data + (x >> img->x_chroma_shift) * bytes_per_sample +
-            (y >> img->y_chroma_shift) * img->stride[VPX_PLANE_U];
+            data + uv_x * bytes_per_sample + uv_y * img->stride[VPX_PLANE_U];
         data +=
             (size_t)(img->h >> img->y_chroma_shift) * img->stride[VPX_PLANE_U];
         img->planes[VPX_PLANE_V] =
-            data + (x >> img->x_chroma_shift) * bytes_per_sample +
-            (y >> img->y_chroma_shift) * img->stride[VPX_PLANE_V];
+            data + uv_x * bytes_per_sample + uv_y * img->stride[VPX_PLANE_V];
       } else {
         img->planes[VPX_PLANE_V] =
-            data + (x >> img->x_chroma_shift) * bytes_per_sample +
-            (y >> img->y_chroma_shift) * img->stride[VPX_PLANE_V];
+            data + uv_x * bytes_per_sample + uv_y * img->stride[VPX_PLANE_V];
         data +=
             (size_t)(img->h >> img->y_chroma_shift) * img->stride[VPX_PLANE_V];
         img->planes[VPX_PLANE_U] =
-            data + (x >> img->x_chroma_shift) * bytes_per_sample +
-            (y >> img->y_chroma_shift) * img->stride[VPX_PLANE_U];
+            data + uv_x * bytes_per_sample + uv_y * img->stride[VPX_PLANE_U];
       }
     }
     return 0;
